@@ -7,6 +7,7 @@ import { SectionCard } from "@/components/dashboard/section-card";
 import { SummaryCard } from "@/components/dashboard/summary-card";
 import { TelegramGiftsList } from "@/components/dashboard/telegram-gifts-list";
 import { CATEGORY_META } from "@/lib/constants";
+import { formatCs2TypeLabel, formatLiquidityLabel } from "@/lib/presentation";
 import {
   formatCompactNumber,
   formatCurrency,
@@ -20,18 +21,27 @@ type DashboardShellProps = {
 };
 
 function HoldingsList({ holdings, currency }: { holdings: TopHolding[]; currency: string }) {
+  if (holdings.length === 0) {
+    return <p className="text-sm text-slate-400">Пока нет оцененных позиций для этого блока.</p>;
+  }
+
   return (
     <div className="space-y-3">
-      {holdings.map((holding) => (
+      {holdings.map((holding, index) => (
         <div
           key={holding.id}
-          className="flex items-center justify-between gap-3 rounded-2xl border border-white/8 bg-white/5 px-4 py-3"
+          className="flex items-center justify-between gap-3 rounded-3xl border border-white/8 bg-white/5 px-4 py-4"
         >
-          <div>
-            <p className="font-medium text-white">{holding.name}</p>
-            <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-400">
-              {CATEGORY_META[holding.category].label}
-            </p>
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/6 text-xs text-slate-300">
+              {index + 1}
+            </span>
+            <div className="min-w-0">
+              <p className="truncate font-medium text-white">{holding.name}</p>
+              <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-400">
+                {CATEGORY_META[holding.category].label}
+              </p>
+            </div>
           </div>
           <div className="text-right">
             <p className="font-medium text-white">{formatCurrency(holding.value, currency)}</p>
@@ -52,17 +62,21 @@ function Cs2MiniList({
   currency: string;
   mode: "value" | "risk";
 }) {
+  if (positions.length === 0) {
+    return <p className="text-sm text-slate-400">Для этого блока пока нет данных.</p>;
+  }
+
   return (
     <div className="space-y-3">
       {positions.map((position) => (
         <div
           key={position.id}
-          className="flex items-center justify-between gap-3 rounded-2xl border border-white/8 bg-white/5 px-4 py-3"
+          className="flex items-center justify-between gap-3 rounded-3xl border border-white/8 bg-white/5 px-4 py-4"
         >
-          <div>
-            <p className="font-medium text-white">{position.name}</p>
+          <div className="min-w-0">
+            <p className="truncate font-medium text-white">{position.name}</p>
             <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-400">
-              {position.type}
+              {formatCs2TypeLabel(position.type)}
             </p>
           </div>
           <div className="text-right">
@@ -72,14 +86,14 @@ function Cs2MiniList({
                   {formatCurrency(position.totalValue, currency)}
                 </p>
                 <p className="mt-1 text-xs text-slate-400">
-                  Qty {formatCompactNumber(position.quantity)}
+                  {formatCompactNumber(position.quantity)} шт.
                 </p>
               </>
             ) : (
               <>
-                <p className="font-medium text-white">Risk {position.riskScore}</p>
+                <p className="font-medium text-white">Риск {position.riskScore}</p>
                 <p className="mt-1 text-xs text-slate-400">
-                  {position.liquidityLabel} liquidity
+                  {formatLiquidityLabel(position.liquidityLabel)} ликвидность
                 </p>
               </>
             )}
@@ -94,63 +108,66 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
   const currency = snapshot.settings.currency ?? "USD";
 
   return (
-    <main className="relative pb-16">
-      <div className="mx-auto flex w-full max-w-[1640px] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
-        <section className="panel rounded-[32px] border border-white/10 px-6 py-7 shadow-[0_24px_80px_rgba(2,8,23,0.65)] sm:px-8">
-          <div className="grid gap-8 xl:grid-cols-[1.15fr_0.85fr] xl:items-end">
+    <main className="relative overflow-hidden pb-16">
+      <div className="mx-auto flex w-full max-w-[1680px] flex-col gap-6 px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
+        <section className="panel relative overflow-hidden rounded-[34px] border border-white/10 px-5 py-6 shadow-[0_30px_100px_rgba(2,8,23,0.72)] sm:px-7 sm:py-7 lg:px-8">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(0,209,160,0.14),transparent_34%),radial-gradient(circle_at_top_right,rgba(61,139,255,0.16),transparent_38%),linear-gradient(120deg,rgba(255,255,255,0.02),transparent_45%)]" />
+          <div className="relative grid gap-8 xl:grid-cols-[1.2fr_0.8fr] xl:items-end">
             <div className="space-y-5">
-              <div className="flex flex-wrap gap-3 text-xs uppercase tracking-[0.24em] text-cyan-200/70">
-                <span className="rounded-full border border-cyan-300/20 bg-cyan-300/8 px-3 py-1">
-                  Private asset terminal
+              <div className="flex flex-wrap gap-3 text-[0.7rem] uppercase tracking-[0.28em] text-cyan-200/70">
+                <span className="rounded-full border border-cyan-300/20 bg-cyan-300/8 px-3 py-1.5">
+                  Приватный инвестиционный терминал
                 </span>
-                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-slate-300">
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-slate-300">
                   {snapshot.summary.sourceLabel}
                 </span>
               </div>
               <div>
-                <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-                  Premium dashboard for CS2 inventory, Telegram Gifts and crypto exposure.
+                <h1 className="max-w-4xl text-3xl font-semibold tracking-tight text-white sm:text-5xl xl:text-[3.35rem]">
+                  Личный инвестиционный терминал для CS2-активов, подарков Telegram и крипты на одной приватной витрине.
                 </h1>
-                <p className="mt-4 max-w-3xl text-base leading-7 text-slate-300/80 sm:text-lg">
-                  Hidden route, env-based token gate, Google Sheets as source of truth and live crypto valuation layered on top.
+                <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-300/82 sm:text-base lg:text-lg">
+                  Данные читаются из Google Sheets, подарки Telegram считаются по live-курсу TON, а CS2 подтягивает цены через Steam Market там, где позицию удается точно сматчить.
                 </p>
               </div>
               <div className="flex flex-wrap gap-3 text-sm text-slate-300">
-                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
-                  Updated {formatRelativeTime(snapshot.summary.lastUpdatedAt)}
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+                  Обновлено {formatRelativeTime(snapshot.summary.lastUpdatedAt)}
                 </span>
-                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
-                  {snapshot.summary.availableSheets.length} sheet tabs connected
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+                  {snapshot.summary.availableSheets.length} подключенных листа
                 </span>
-                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
-                  {snapshot.summary.positionsCount.toLocaleString("en-US")} tracked positions
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+                  {snapshot.summary.positionsCount.toLocaleString("ru-RU")} позиций
                 </span>
               </div>
             </div>
+
             <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
               {snapshot.summary.breakdown.map((item) => (
                 <div
                   key={item.category}
-                  className="rounded-[24px] border border-white/10 bg-white/5 p-4"
+                  className="rounded-[26px] border border-white/10 bg-white/[0.045] p-4 backdrop-blur-sm"
                 >
-                  <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                  <p className="text-xs uppercase tracking-[0.24em] text-slate-400">
                     {item.label}
                   </p>
-                  <p className="mt-3 text-2xl font-semibold text-white">
+                  <p className="mt-3 text-2xl font-semibold text-white sm:text-[2rem]">
                     {formatCurrency(item.value, currency)}
                   </p>
-                  <p className="mt-2 text-sm text-slate-300/75">
-                    {item.positions} positions • {formatCompactNumber(item.items)} units
-                  </p>
+                  <div className="mt-3 flex items-center justify-between text-sm text-slate-300/80">
+                    <span>{item.positions} поз.</span>
+                    <span>{formatCompactNumber(item.items)} шт.</span>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
 
           {snapshot.summary.warnings.length > 0 ? (
-            <div className="mt-6 rounded-[24px] border border-amber-300/20 bg-amber-300/8 px-5 py-4 text-sm text-amber-100/90">
+            <div className="relative mt-6 rounded-[26px] border border-amber-300/20 bg-amber-300/8 px-5 py-4 text-sm text-amber-100/92">
               <p className="text-xs uppercase tracking-[0.24em] text-amber-200/70">
-                Data warnings
+                Статус данных
               </p>
               <div className="mt-3 space-y-2">
                 {snapshot.summary.warnings.slice(0, 4).map((warning) => (
@@ -169,16 +186,16 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
 
         <section className="grid gap-6 xl:grid-cols-3">
           <SectionCard
-            title="Allocation"
-            eyebrow="Portfolio mix"
-            description="Asset class exposure based on current marked value."
+            title="Структура портфеля"
+            eyebrow="Аллокация"
+            description="Доля каждого класса активов в текущей оценке портфеля."
           >
             <AllocationChart data={snapshot.charts.allocation} currency={currency} />
           </SectionCard>
           <SectionCard
-            title="Cost vs Value"
-            eyebrow="Category performance"
-            description="Shows how current marked value compares to known cost basis."
+            title="Себестоимость vs стоимость"
+            eyebrow="По категориям"
+            description="Сравнение текущей оценки с известной себестоимостью по каждому блоку."
           >
             <CategoryPerformanceChart
               data={snapshot.charts.categoryPerformance}
@@ -186,9 +203,9 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
             />
           </SectionCard>
           <SectionCard
-            title="CS2 Type Mix"
-            eyebrow="Inventory composition"
-            description="Current CS2 value split by stickers, skins, cases and other buckets."
+            title="Срез CS2 по типам"
+            eyebrow="Композиция инвентаря"
+            description="Как текущая стоимость CS2 распределена между наклейками, скинами, кейсами и прочими сегментами."
           >
             <Cs2TypeChart data={snapshot.charts.cs2ByType} currency={currency} />
           </SectionCard>
@@ -196,16 +213,16 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
 
         <section className="grid gap-6 xl:grid-cols-3">
           <SectionCard
-            title="Top Holdings"
-            eyebrow="Concentration"
-            description="Largest cross-category positions by marked value."
+            title="Крупнейшие позиции"
+            eyebrow="Концентрация"
+            description="Топ кросс-категорийных позиций по текущей стоимости."
           >
             <HoldingsList holdings={snapshot.summary.topHoldings} currency={currency} />
           </SectionCard>
           <SectionCard
-            title="Largest CS2 Positions"
-            eyebrow="Top 10"
-            description="Highest-value CS2 exposures at current sheet pricing."
+            title="Топ CS2 по стоимости"
+            eyebrow="10 крупнейших"
+            description="Самые крупные CS2-позиции по текущей оценке."
           >
             <Cs2MiniList
               positions={snapshot.cs2.topPositions}
@@ -214,9 +231,9 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
             />
           </SectionCard>
           <SectionCard
-            title="Risk / Illiquid"
-            eyebrow="Top 10"
-            description="Heuristic ranking combining concentration, missing prices and niche liquidity."
+            title="Риск и неликвид"
+            eyebrow="10 позиций"
+            description="Ранжирование по концентрации, ликвидности и полноте ценовых данных."
           >
             <Cs2MiniList
               positions={snapshot.cs2.riskPositions}
@@ -227,18 +244,18 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
         </section>
 
         <SectionCard
-          title="CS2 Positions"
-          eyebrow="Interactive inventory"
-          description="Search, filter and sort the full CS2 inventory without exposing data publicly outside the private route."
+          title="Позиции CS2"
+          eyebrow="Основной реестр"
+          description="Поиск, фильтр и сортировка всех CS2-активов. На мобильном таблица автоматически переходит в карточки."
         >
           <Cs2Table positions={snapshot.cs2.positions} currency={currency} />
         </SectionCard>
 
-        <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+        <section className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
           <SectionCard
-            title="Telegram Gifts"
-            eyebrow="Manual price lane"
-            description="Prices remain sheet-driven until an external provider is connected."
+            title="Подарки Telegram"
+            eyebrow="Оценка через TON"
+            description="Цены берутся из таблицы в TON и автоматически конвертируются в USD по live-курсу."
           >
             <TelegramGiftsList
               positions={snapshot.telegramGifts.positions}
@@ -246,9 +263,9 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
             />
           </SectionCard>
           <SectionCard
-            title="Crypto"
-            eyebrow="Live quotes"
-            description="BTC and mapped symbols refresh from CoinGecko, with sheet fallback when the API is unavailable."
+            title="Крипта"
+            eyebrow="Live-котировки"
+            description="BTC и другие поддержанные тикеры обновляются через CoinGecko, а при сбое используется резерв из таблицы."
           >
             <CryptoPanel positions={snapshot.crypto.positions} currency={currency} />
           </SectionCard>
@@ -257,3 +274,4 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
     </main>
   );
 }
+

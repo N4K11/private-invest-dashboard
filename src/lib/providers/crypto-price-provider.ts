@@ -112,7 +112,7 @@ export async function resolveCryptoPositions(rows: NormalizedCryptoRow[]) {
 
   const warnings = positions.some((position) => !position.isLivePrice)
     ? [
-        "Some crypto prices are using sheet fallback because live market quotes are unavailable for part of the portfolio.",
+        "Часть крипто-позиций использует резервную цену из таблицы, потому что live-котировка недоступна.",
       ]
     : [];
 

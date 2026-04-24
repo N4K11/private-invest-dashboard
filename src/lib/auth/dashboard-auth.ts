@@ -132,7 +132,7 @@ export function sanitizeRedirectPath(redirectTo?: string | null) {
   return redirectTo;
 }
 
-export function unauthorizedResponse(message = "Unauthorized", status = 401) {
+export function unauthorizedResponse(message = "Нет доступа", status = 401) {
   return NextResponse.json(
     { error: message },
     {

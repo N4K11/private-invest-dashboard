@@ -11,6 +11,7 @@ import {
   YAxis,
 } from "recharts";
 
+import { formatCs2TypeLabel } from "@/lib/presentation";
 import { formatCurrency } from "@/lib/utils";
 import type { Cs2TypeBreakdownDatum } from "@/types/portfolio";
 
@@ -44,12 +45,14 @@ export function Cs2TypeChart({ data, currency }: Cs2TypeChartProps) {
             type="category"
             dataKey="type"
             stroke="rgba(226,232,240,0.55)"
+            tickFormatter={(value) => formatCs2TypeLabel(value)}
             tickLine={false}
             axisLine={false}
-            width={80}
+            width={92}
           />
           <Tooltip
             formatter={(value) => formatCurrency(Number(value ?? 0), currency)}
+            labelFormatter={(label) => formatCs2TypeLabel(String(label))}
             contentStyle={{
               borderRadius: 18,
               border: "1px solid rgba(255,255,255,0.12)",

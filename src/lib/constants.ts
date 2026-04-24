@@ -19,11 +19,11 @@ export const CATEGORY_META: Record<
     color: "#00d1a0",
   },
   telegram: {
-    label: "Telegram Gifts",
+    label: "Подарки Telegram",
     color: "#3d8bff",
   },
   crypto: {
-    label: "Crypto",
+    label: "Крипта",
     color: "#f3b23a",
   },
 };
@@ -32,46 +32,14 @@ export const CS2_TYPE_OPTIONS: {
   label: string;
   value: Cs2AssetType | "all";
 }[] = [
-  { label: "All", value: "all" },
-  { label: "Skins", value: "skins" },
-  { label: "Stickers", value: "stickers" },
-  { label: "Cases", value: "cases" },
-  { label: "Charms", value: "charms" },
-  { label: "Graffiti", value: "graffiti" },
-  { label: "Other", value: "other" },
+  { label: "Все", value: "all" },
+  { label: "Скины", value: "skins" },
+  { label: "Наклейки", value: "stickers" },
+  { label: "Кейсы", value: "cases" },
+  { label: "Брелоки", value: "charms" },
+  { label: "Граффити", value: "graffiti" },
+  { label: "Другое", value: "other" },
 ];
-
-export const REQUIRED_SHEET_TABS = [
-  "Summary",
-  "CS2_Positions",
-  "Telegram_Gifts",
-  "Crypto",
-  "Transactions",
-  "Settings",
-] as const;
-
-export const REQUIRED_SHEET_COLUMNS = {
-  Summary: ["metric", "value"],
-  CS2_Positions: [
-    "name",
-    "type",
-    "quantity",
-    "average_entry_price",
-    "current_price",
-    "notes",
-  ],
-  Telegram_Gifts: ["name", "quantity", "estimated_price", "notes"],
-  Crypto: [
-    "symbol",
-    "name",
-    "quantity",
-    "average_entry_price",
-    "current_price",
-    "notes",
-  ],
-  Transactions: ["date", "category", "asset", "quantity", "price", "notes"],
-  Settings: ["key", "value"],
-} as const;
 
 export const COINGECKO_SYMBOL_MAP: Record<string, string> = {
   ADA: "cardano",
@@ -99,3 +67,4 @@ export const CS2_TYPE_RISK_WEIGHT: Record<Cs2AssetType, number> = {
   graffiti: 22,
   other: 12,
 };
+

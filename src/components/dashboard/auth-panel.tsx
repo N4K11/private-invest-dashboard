@@ -38,13 +38,13 @@ export function AuthPanel({ redirectTo, disabled = false }: AuthPanelProps) {
         | null;
 
       if (!response.ok) {
-        setError(payload?.error ?? "Access denied.");
+        setError(payload?.error ?? "Доступ отклонен.");
         return;
       }
 
       window.location.assign(payload?.redirectTo ?? redirectTo);
     } catch {
-      setError("Network error while validating the dashboard token.");
+      setError("Сетевая ошибка при проверке токена доступа.");
     } finally {
       setIsSubmitting(false);
     }
@@ -57,7 +57,7 @@ export function AuthPanel({ redirectTo, disabled = false }: AuthPanelProps) {
           htmlFor="dashboard-token"
           className="text-xs uppercase tracking-[0.24em] text-slate-400"
         >
-          Dashboard token
+          Токен доступа
         </label>
         <input
           id="dashboard-token"
@@ -67,20 +67,21 @@ export function AuthPanel({ redirectTo, disabled = false }: AuthPanelProps) {
           onChange={(event) => setToken(event.target.value)}
           disabled={isSubmitting || disabled}
           className="w-full rounded-2xl border border-white/12 bg-white/5 px-4 py-3 text-base text-white outline-none transition focus:border-cyan-300/50 focus:bg-white/8"
-          placeholder="Enter private access token"
+          placeholder="Введи приватный токен"
         />
       </div>
       {error ? <p className="text-sm text-rose-300">{error}</p> : null}
       <button
         type="submit"
         disabled={isSubmitting || disabled || token.trim().length === 0}
-        className="inline-flex items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#0fd0a5,#377dff)] px-5 py-3 text-sm font-medium text-slate-950 transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+        className="inline-flex items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#14d9aa,#377dff)] px-5 py-3 text-sm font-medium text-slate-950 transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {disabled ? "Configure secrets first" : isSubmitting ? "Checking access..." : "Unlock dashboard"}
+        {disabled ? "Сначала настрой секреты" : isSubmitting ? "Проверяю доступ..." : "Открыть дашборд"}
       </button>
       <p className="text-sm leading-6 text-slate-400">
-        You can also append <span className="font-mono text-slate-200">?token=...</span> to the private URL for one-off access.
+        Можно также открыть приватную ссылку сразу с параметром <span className="font-mono text-slate-200">?token=...</span>.
       </p>
     </form>
   );
 }
+

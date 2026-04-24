@@ -173,8 +173,9 @@ export async function fetchSpreadsheetWorkbook(): Promise<RawSpreadsheetWorkbook
       return await fetchDriveWorkbook(spreadsheetId, auth);
     } catch (driveError) {
       throw new Error(
-        `Google Sheets API cannot read this document directly. Drive fallback failed: ${getErrorMessage(driveError)}. If the source file was uploaded from Excel, enable Google Drive API and share the file with the service account.`,
+        `Google Sheets API не может прочитать этот документ напрямую. Drive fallback завершился ошибкой: ${getErrorMessage(driveError)}. Если файл был загружен из Excel, включи Google Drive API и выдай доступ service account.`,
       );
     }
   }
 }
+

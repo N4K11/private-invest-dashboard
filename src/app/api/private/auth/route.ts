@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
 
   if (!rateLimit.success) {
     return NextResponse.json(
-      { error: "Too many auth attempts. Try again later." },
+      { error: "Слишком много попыток входа. Попробуй позже." },
       {
         status: 429,
         headers: {
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
 
   if (!isDashboardConfigured()) {
     return NextResponse.json(
-      { error: "Dashboard secrets are not configured yet." },
+      { error: "Секреты dashboard еще не настроены." },
       {
         status: 503,
         headers: {
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
   const payload = loginPayloadSchema.safeParse(await request.json().catch(() => null));
   if (!payload.success) {
     return NextResponse.json(
-      { error: "Invalid auth payload." },
+      { error: "Некорректный auth payload." },
       {
         status: 400,
         headers: {
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (!isValidDashboardToken(payload.data.token)) {
-    return unauthorizedResponse("Invalid dashboard token.");
+    return unauthorizedResponse("Неверный токен dashboard.");
   }
 
   const response = NextResponse.json(

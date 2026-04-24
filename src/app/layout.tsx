@@ -4,11 +4,11 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Private Invest Dashboard",
-    template: "%s | Private Invest Dashboard",
+    default: "Приватный инвестиционный терминал",
+    template: "%s | Приватный инвестиционный терминал",
   },
   description:
-    "Private investment dashboard for digital assets powered by Google Sheets and live crypto pricing.",
+    "Приватный инвестиционный терминал для цифровых активов на Google Sheets с live-оценкой крипты и CS2.",
 };
 
 export default function RootLayout({
@@ -17,10 +17,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full antialiased">
+    <html lang="ru" className="h-full antialiased">
       <body className="min-h-full bg-background text-foreground font-sans">
         {children}
       </body>
     </html>
   );
 }
+

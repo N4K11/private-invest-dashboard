@@ -21,31 +21,31 @@ function buildSummaryCards(params: {
   return [
     {
       id: "total-value",
-      label: "Total value",
+      label: "Общая стоимость",
       value: params.totalValue,
-      hint: "Marked-to-market across CS2, gifts and crypto",
+      hint: "Текущая оценка по CS2, подаркам Telegram и крипте.",
       tone: "neutral",
     },
     {
       id: "total-pnl",
-      label: "Net PnL",
+      label: "Чистый PnL",
       value: params.totalPnl,
-      hint: "Based on current prices vs average entry",
+      hint: "Считается там, где есть цена входа или корректная текущая цена.",
       tone: params.totalPnl >= 0 ? "positive" : "negative",
     },
     {
       id: "net-roi",
-      label: "Net ROI",
+      label: "ROI",
       value: params.totalRoi ?? "—",
-      hint: "Aggregated only where cost basis exists",
+      hint: "Показывается только для активов с известной себестоимостью.",
       tone:
         params.totalRoi === null ? "neutral" : params.totalRoi >= 0 ? "positive" : "negative",
     },
     {
       id: "positions-count",
-      label: "Tracked positions",
+      label: "Позиции",
       value: params.positionsCount,
-      hint: `${params.itemsCount.toLocaleString("en-US")} units/items across all categories`,
+      hint: `${params.itemsCount.toLocaleString("ru-RU")} единиц и предметов в портфеле`,
       tone: "neutral",
     },
   ];
@@ -171,3 +171,4 @@ export async function getPortfolioSnapshot(): Promise<PortfolioSnapshot> {
     },
   };
 }
+

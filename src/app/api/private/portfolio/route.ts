@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
 
   if (!rateLimit.success) {
     return NextResponse.json(
-      { error: "Rate limit exceeded." },
+      { error: "Превышен лимит запросов." },
       {
         status: 429,
         headers: {

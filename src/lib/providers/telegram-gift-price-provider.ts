@@ -64,7 +64,7 @@ export async function resolveTelegramGiftPositions(
       notes:
         row.notes ??
         (row.estimatedPriceQuoteSymbol === "TON" && tonUsdPrice !== null
-          ? `Converted from TON using live quote ${tonUsdPrice.toFixed(2)} USD`
+          ? `Конвертация из TON по live-курсу ${tonUsdPrice.toFixed(2)} USD`
           : null),
       priceSource:
         row.estimatedPriceQuoteSymbol === "TON"
@@ -79,13 +79,13 @@ export async function resolveTelegramGiftPositions(
 
   if (requiresTonQuote && tonUsdPrice === null) {
     warnings.push(
-      "Telegram Gifts are priced in TON in the sheet, but the live TON/USD quote is unavailable. Values are shown in raw TON until market conversion succeeds.",
+      "Подарки Telegram в таблице указаны в TON, но live-курс TON/USD сейчас недоступен. До восстановления конвертации значения показываются в номинале TON.",
     );
   }
 
   if (positions.some((position) => position.estimatedPrice === null)) {
     warnings.push(
-      "Some Telegram Gifts are missing estimated prices. Fill the estimated_price column or Price_TON column in Google Sheets for accurate valuation.",
+      "У части подарков Telegram нет цены. Заполни estimated_price или Price_TON в таблице.",
     );
   }
 
@@ -94,3 +94,4 @@ export async function resolveTelegramGiftPositions(
     warnings,
   };
 }
+

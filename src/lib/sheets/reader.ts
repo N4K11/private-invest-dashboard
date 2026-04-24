@@ -19,7 +19,7 @@ function getErrorMessage(error: unknown) {
     return error.message;
   }
 
-  return "Unknown Google Sheets error";
+  return "Неизвестная ошибка Google Sheets";
 }
 
 export async function getPortfolioSource(): Promise<PortfolioSource> {
@@ -31,7 +31,7 @@ export async function getPortfolioSource(): Promise<PortfolioSource> {
       return {
         workbook,
         sourceMode: "demo" as const,
-        sourceLabel: "Demo dataset",
+        sourceLabel: "Демо-данные",
         warnings: workbook.warnings,
         lastUpdatedAt: new Date().toISOString(),
       };
@@ -42,7 +42,7 @@ export async function getPortfolioSource(): Promise<PortfolioSource> {
       return {
         workbook,
         sourceMode: "live" as const,
-        sourceLabel: "Google Sheets + live market data",
+        sourceLabel: "Google Sheets + live-оценка",
         warnings: workbook.warnings,
         lastUpdatedAt: new Date().toISOString(),
       };
@@ -51,10 +51,11 @@ export async function getPortfolioSource(): Promise<PortfolioSource> {
       return {
         workbook,
         sourceMode: "fallback" as const,
-        sourceLabel: "Fallback demo dataset",
-        warnings: [`Google Sheets read failed: ${getErrorMessage(error)}`],
+        sourceLabel: "Fallback-режим",
+        warnings: [`Ошибка чтения Google Sheets: ${getErrorMessage(error)}`],
         lastUpdatedAt: new Date().toISOString(),
       };
     }
   });
 }
+

@@ -18,7 +18,7 @@ type DashboardPageProps = {
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
-    title: "Private Portfolio Dashboard",
+    title: "Приватный инвестиционный терминал",
     robots: {
       index: false,
       follow: false,
@@ -37,24 +37,24 @@ function LockedState({
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-5xl items-center justify-center px-4 py-8 sm:px-6">
       <SectionCard
-        title="Private dashboard access"
-        eyebrow="Token gate"
-        description="This route exists, but the portfolio payload stays server-side until the request is authorized."
+        title="Приватный доступ к терминалу"
+        eyebrow="Токен-защита"
+        description="Маршрут существует, но данные портфеля остаются на сервере до успешной авторизации."
         className="w-full max-w-2xl"
       >
         <div className="space-y-6">
           <div className="rounded-[24px] border border-white/10 bg-white/5 p-5 text-sm leading-7 text-slate-300/80">
             <p>
-              Use the env-based dashboard token, or pass it as a query string token for a single request.
+              Используй секретный токен из env или передай его в query string для одноразового входа.
             </p>
             <p className="mt-3 text-cyan-100/80">
-              API routes remain private and will not return portfolio data without a valid token or session cookie.
+              Закрытый API не отдаст данные без валидного токена или session-cookie.
             </p>
           </div>
           <AuthPanel redirectTo={routePath} disabled={!configured} />
           {!configured ? (
             <div className="rounded-[24px] border border-amber-300/20 bg-amber-300/8 p-5 text-sm leading-7 text-amber-100/85">
-              Configure <span className="font-mono">PRIVATE_DASHBOARD_SLUG</span> and <span className="font-mono">DASHBOARD_SECRET_TOKEN</span> in your env file before deploying this route.
+              Настрой <span className="font-mono">PRIVATE_DASHBOARD_SLUG</span> и <span className="font-mono">DASHBOARD_SECRET_TOKEN</span> в env перед публикацией этого маршрута.
             </div>
           ) : null}
         </div>
@@ -87,3 +87,4 @@ export default async function DashboardPage({
   const snapshot = await getPortfolioSnapshot();
   return <DashboardShell snapshot={snapshot} />;
 }
+

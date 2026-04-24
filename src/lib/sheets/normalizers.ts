@@ -19,6 +19,7 @@ export interface NormalizedCs2Row {
   name: string;
   type: Cs2AssetType;
   quantity: number;
+  wear: string | null;
   averageEntryPrice: number | null;
   currentPrice: number | null;
   notes: string | null;
@@ -164,9 +165,7 @@ function normalizeCs2Type(value: string | null, name?: string | null): Cs2AssetT
     return "stickers";
   }
 
-  if (
-    ["skin", "skins", "skins_knives", "скин", "скины"].includes(normalized)
-  ) {
+  if (["skin", "skins", "skins_knives", "скин", "скины"].includes(normalized)) {
     return "skins";
   }
 
@@ -206,8 +205,7 @@ function normalizeSummary(values?: SheetCellValue[][]) {
     return rows
       .map((row) => ({
         metric:
-          getString(row, ["metric", "key", "name", "метрика", "показатель"]) ??
-          "",
+          getString(row, ["metric", "key", "name", "метрика", "показатель"]) ?? "",
         value: getString(row, ["value", "значение"]) ?? "",
       }))
       .filter((row) => row.metric);
@@ -250,8 +248,8 @@ function buildCs2Notes(row: SheetRow) {
   const wear = getString(row, ["wear", "condition", "float", "состояние"]);
 
   const details = [
-    rarity ? `Rarity: ${rarity}` : null,
-    wear ? `Wear: ${wear}` : null,
+    rarity ? `Редкость: ${rarity}` : null,
+    wear ? `Состояние: ${wear}` : null,
   ].filter((value): value is string => Boolean(value));
 
   return details.length > 0 ? details.join(" | ") : null;
@@ -274,6 +272,7 @@ function normalizeCs2Rows(values?: SheetCellValue[][]) {
         ),
         quantity:
           getNumber(row, ["quantity", "qty", "amount", "count", "количество"]) ?? 0,
+        wear: getString(row, ["wear", "condition", "float", "состояние"]),
         averageEntryPrice: getNumber(row, [
           "average_entry_price",
           "avg_entry_price",
@@ -291,12 +290,7 @@ function normalizeCs2Rows(values?: SheetCellValue[][]) {
         ]),
         notes: buildCs2Notes(row),
         market: getString(row, ["market", "exchange", "source_market", "рынок"]),
-        manualRiskScore: getNumber(row, [
-          "risk_score",
-          "illiquidity_score",
-          "риск",
-          "риск_скор",
-        ]),
+        manualRiskScore: getNumber(row, ["risk_score", "illiquidity_score", "риск", "риск_скор"]),
         liquidityLabel: getString(row, ["liquidity", "liquidity_label", "ликвидность"]),
       } satisfies NormalizedCs2Row;
     })
@@ -326,8 +320,7 @@ function normalizeTelegramRows(values?: SheetCellValue[][]) {
         quantity:
           getNumber(row, ["quantity", "qty", "amount", "count", "количество"]) ?? 0,
         estimatedPrice: directPrice ?? tonPrice,
-        estimatedPriceQuoteSymbol:
-          directPrice !== null ? null : tonPrice !== null ? "TON" : null,
+        estimatedPriceQuoteSymbol: directPrice !== null ? null : tonPrice !== null ? "TON" : null,
         notes: getString(row, ["notes", "comment", "заметки", "комментарий"]),
       } satisfies NormalizedTelegramGiftRow;
     })
@@ -383,7 +376,7 @@ export function normalizeWorkbook(workbook: RawSpreadsheetWorkbook): NormalizedW
   const warnings: string[] = [];
 
   if (!getSheetValues(workbook, "Summary")) {
-    warnings.push("Missing recognized summary sheet. Expected: Summary.");
+    warnings.push("Не найден лист Summary.");
   }
 
   if (
@@ -392,7 +385,7 @@ export function normalizeWorkbook(workbook: RawSpreadsheetWorkbook): NormalizedW
     !getSheetValues(workbook, "Crypto")
   ) {
     warnings.push(
-      "No supported asset tabs found. Recognized sheet names: CS2_Positions / CS2 Assets, Telegram_Gifts / Telegram Gifts, Crypto.",
+      "Не найдено ни одного поддерживаемого листа активов. Ожидаются: CS2_Positions / CS2 Assets, Telegram_Gifts / Telegram Gifts, Crypto.",
     );
   }
 
