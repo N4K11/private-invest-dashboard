@@ -87,6 +87,7 @@ export interface NormalizedTransactionRow {
   fees: number | null;
   currency: string | null;
   notes: string | null;
+  sheetRef: SheetRowRef;
 }
 
 export interface NormalizedPortfolioHistoryRow {
@@ -419,7 +420,11 @@ function normalizeCryptoRows(
   return normalizedRows;
 }
 
-function normalizeTransactions(values?: SheetCellValue[][]) {
+function normalizeTransactions(
+  values: SheetCellValue[][] | undefined,
+  sheetName: string,
+  isCanonical: boolean,
+) {
   return sheetToRows(values).map((row, index) => ({
     id:
       getString(row, getFieldAliases("Transactions", "id")) ??
@@ -433,6 +438,7 @@ function normalizeTransactions(values?: SheetCellValue[][]) {
     fees: getNumber(row, getFieldAliases("Transactions", "fees")),
     currency: getString(row, getFieldAliases("Transactions", "currency")),
     notes: getString(row, getFieldAliases("Transactions", "notes")),
+    sheetRef: buildSheetRef(sheetName, index, isCanonical),
   }));
 }
 
@@ -539,9 +545,14 @@ export function normalizeWorkbook(workbook: RawSpreadsheetWorkbook): NormalizedW
       cryptoSheet.matchedName ?? "Crypto",
       cryptoSheet.isCanonical,
     ),
-    transactionRows: normalizeTransactions(transactionsSheet.values),
+    transactionRows: normalizeTransactions(
+      transactionsSheet.values,
+      transactionsSheet.matchedName ?? "Transactions",
+      transactionsSheet.isCanonical,
+    ),
     portfolioHistoryRows: normalizePortfolioHistory(historySheet.values),
     auditLogRows: normalizeAuditLog(auditSheet.values),
     settings: normalizeSettings(settingsSheet.values),
   };
 }
+

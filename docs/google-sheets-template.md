@@ -98,6 +98,13 @@ Recommended `action` values:
 - `price_update`
 - `fee`
 
+How the dashboard interprets them:
+- `buy`: increases quantity and cost basis
+- `sell`: decreases quantity and calculates realized PnL using average cost
+- `transfer`: moves quantity in or out without realized PnL; use negative quantity for outbound transfers
+- `price_update`: updates the latest manual mark price without changing quantity
+- `fee`: records a standalone expense that reduces realized PnL
+
 ### `Portfolio_History`
 - `date`
 - `totalValue`
@@ -142,6 +149,14 @@ When saving, the write layer can automatically append missing canonical columns 
 
 Every create/update action appends a row to `Audit_Log`.
 
+Transaction rows immediately affect:
+- average entry price
+- cost basis
+- realized PnL
+- unrealized PnL
+- ROI
+- fees
+
 ## Permission model
 - `Viewer` access for the service account: dashboard works in read-only mode
 - `Editor` access for the service account: admin mode can write back to the workbook
@@ -167,3 +182,4 @@ A legacy workbook can be runtime-compatible even if canonical migration is still
 - Live providers such as CoinGecko or Steam Market may override sheet values at runtime, but the sheet still acts as the fallback layer.
 - Use `Settings.currency=USD` unless you explicitly want another reporting currency.
 - When you add new provider-specific columns, update both the normalizer and `scripts/validate-google-sheet.mjs`.
+

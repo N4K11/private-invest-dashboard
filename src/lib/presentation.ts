@@ -1,4 +1,10 @@
-﻿import type { Cs2AssetType, Cs2Position } from "@/types/portfolio";
+﻿import { CATEGORY_META } from "@/lib/constants";
+import type {
+  AssetCategory,
+  Cs2AssetType,
+  Cs2Position,
+  TransactionAction,
+} from "@/types/portfolio";
 
 const cs2TypeLabels: Record<Cs2AssetType, string> = {
   stickers: "Наклейки",
@@ -24,6 +30,15 @@ const priceSourceLabels: Record<string, string> = {
   sheet_fallback: "Резерв из таблицы",
   ton_sheet_x_coingecko: "TON по live-курсу",
   ton_sheet_nominal: "TON из таблицы",
+  transaction_price_update: "Последний price update",
+};
+
+const transactionActionLabels: Record<TransactionAction, string> = {
+  buy: "Покупка",
+  sell: "Продажа",
+  transfer: "Трансфер",
+  price_update: "Обновление цены",
+  fee: "Комиссия",
 };
 
 export function formatCs2TypeLabel(type: string) {
@@ -38,4 +53,14 @@ export function formatPriceSourceLabel(source: string) {
   return priceSourceLabels[source] ?? source.replace(/_/g, " ");
 }
 
+export function formatAssetCategoryLabel(category: AssetCategory | null) {
+  if (!category) {
+    return "Неизвестная категория";
+  }
 
+  return CATEGORY_META[category].label;
+}
+
+export function formatTransactionActionLabel(action: string) {
+  return transactionActionLabels[action as TransactionAction] ?? action.replace(/_/g, " ");
+}

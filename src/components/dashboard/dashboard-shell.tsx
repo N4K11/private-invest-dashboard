@@ -11,8 +11,13 @@ import { PositionEditorDrawer, type AdminEditorState } from "@/components/dashbo
 import { SectionCard } from "@/components/dashboard/section-card";
 import { SummaryCard } from "@/components/dashboard/summary-card";
 import { TelegramGiftsList } from "@/components/dashboard/telegram-gifts-list";
+import { TransactionEditorDrawer } from "@/components/dashboard/transaction-editor-drawer";
+import { TransactionHistoryTable } from "@/components/dashboard/transaction-history-table";
 import { CATEGORY_META } from "@/lib/constants";
-import type { AdminMutationInput } from "@/lib/admin/schema";
+import type {
+  AdminMutationInput,
+  AdminTransactionMutationInput,
+} from "@/lib/admin/schema";
 import { formatCs2TypeLabel, formatLiquidityLabel } from "@/lib/presentation";
 import {
   formatCompactNumber,
@@ -142,12 +147,16 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
   const [currentSnapshot, setCurrentSnapshot] = useState(snapshot);
   const [isAdminMode, setIsAdminMode] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isSavingPosition, setIsSavingPosition] = useState(false);
+  const [isSavingTransaction, setIsSavingTransaction] = useState(false);
   const [isAdminLoading, setIsAdminLoading] = useState(false);
   const [adminMeta, setAdminMeta] = useState<AdminMeta | null>(null);
   const [editorState, setEditorState] = useState<AdminEditorState | null>(null);
   const [editorError, setEditorError] = useState<string | null>(null);
   const [editorValidationErrors, setEditorValidationErrors] = useState<ValidationError[]>([]);
+  const [isTransactionDrawerOpen, setIsTransactionDrawerOpen] = useState(false);
+  const [transactionError, setTransactionError] = useState<string | null>(null);
+  const [transactionValidationErrors, setTransactionValidationErrors] = useState<ValidationError[]>([]);
   const [toast, setToast] = useState<{ tone: "success" | "error"; message: string } | null>(null);
 
   const currency = currentSnapshot.settings.currency ?? "USD";
@@ -215,6 +224,11 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
       }
 
       setCurrentSnapshot(payload);
+    } catch (error) {
+      setToast({
+        tone: "error",
+        message: error instanceof Error ? error.message : "Не удалось обновить dashboard.",
+      });
     } finally {
       setIsRefreshing(false);
     }
@@ -229,12 +243,30 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
     }
   }
 
+  function openPositionEditor(state: AdminEditorState) {
+    setTransactionDrawerOpen(false);
+    setTransactionError(null);
+    setTransactionValidationErrors([]);
+    setEditorError(null);
+    setEditorValidationErrors([]);
+    setEditorState(state);
+  }
+
+  function setTransactionDrawerOpen(open: boolean) {
+    setIsTransactionDrawerOpen(open);
+    if (open) {
+      setEditorState(null);
+      setEditorError(null);
+      setEditorValidationErrors([]);
+    }
+  }
+
   async function handleEditorSubmit(payload: AdminMutationInput) {
     if (!window.confirm(payload.operation === "create" ? "Создать новую позицию в Google Sheets?" : "Сохранить изменения в Google Sheets?")) {
       return;
     }
 
-    setIsSaving(true);
+    setIsSavingPosition(true);
     setEditorError(null);
     setEditorValidationErrors([]);
 
@@ -279,7 +311,61 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
         message,
       });
     } finally {
-      setIsSaving(false);
+      setIsSavingPosition(false);
+    }
+  }
+
+  async function handleTransactionSubmit(payload: AdminTransactionMutationInput) {
+    if (!window.confirm("Записать новую транзакцию в Google Sheets?")) {
+      return;
+    }
+
+    setIsSavingTransaction(true);
+    setTransactionError(null);
+    setTransactionValidationErrors([]);
+
+    try {
+      const response = await dashboardFetch("/api/private/admin/transactions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const body = (await response.json().catch(() => null)) as
+        | { error?: string; details?: ValidationError[] }
+        | { ok?: boolean }
+        | null;
+
+      if (!response.ok) {
+        const errorMessage = body && "error" in body ? body.error : undefined;
+        const details = body && "details" in body && Array.isArray(body.details) ? body.details : [];
+
+        setTransactionError(errorMessage ?? "Не удалось записать транзакцию.");
+        setTransactionValidationErrors(details);
+        setToast({
+          tone: "error",
+          message: errorMessage ?? "Не удалось записать транзакцию в Google Sheets.",
+        });
+        return;
+      }
+
+      await refreshSnapshot();
+      setTransactionDrawerOpen(false);
+      setToast({
+        tone: "success",
+        message: "Транзакция сохранена и уже участвует в расчетах PnL/ROI.",
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Сетевая ошибка при сохранении транзакции.";
+      setTransactionError(message);
+      setToast({
+        tone: "error",
+        message,
+      });
+    } finally {
+      setIsSavingTransaction(false);
     }
   }
 
@@ -306,10 +392,10 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
                 </div>
                 <div>
                   <h1 className="max-w-4xl text-3xl font-semibold tracking-tight text-white sm:text-5xl xl:text-[3.35rem]">
-                    Личный инвестиционный терминал для CS2-активов, подарков Telegram и крипты на одной приватной витрине.
+                    Приватный investment terminal с transaction-driven учетом по CS2, подаркам Telegram и крипте.
                   </h1>
                   <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-300/82 sm:text-base lg:text-lg">
-                    Данные читаются из Google Sheets, подарки Telegram считаются по live-курсу TON, а CS2 подтягивает цены через Steam Market там, где позицию удается точно сматчить.
+                    Dashboard считает не только текущую стоимость, но и cost basis, realized/unrealized PnL, ROI и комиссии на основе листа Transactions с fallback на позиции из таблицы.
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-3 text-sm text-slate-300">
@@ -321,6 +407,9 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
                   </span>
                   <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
                     {currentSnapshot.summary.positionsCount.toLocaleString("ru-RU")} позиций
+                  </span>
+                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+                    {currentSnapshot.transactions.items.length.toLocaleString("ru-RU")} транзакций
                   </span>
                 </div>
               </div>
@@ -339,6 +428,9 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
                       <span>{item.positions} поз.</span>
                       <span>{formatCompactNumber(item.items)} шт.</span>
                     </div>
+                    <p className={item.pnl >= 0 ? "mt-3 text-sm text-emerald-300" : "mt-3 text-sm text-rose-300"}>
+                      {formatCurrency(item.pnl, currency, 2)} {formatPercent(item.roi)}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -359,9 +451,9 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                   <p className="text-xs uppercase tracking-[0.24em] text-cyan-200/70">Admin mode</p>
-                  <h2 className="mt-2 text-xl font-semibold text-white">Защищенное редактирование портфеля</h2>
+                  <h2 className="mt-2 text-xl font-semibold text-white">Позиции и Transactions под token-gate</h2>
                   <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300/82">
-                    Меняй quantity, entry price, ручные цены, статус и заметки прямо в dashboard. Все изменения пишутся обратно в Google Sheets и логируются в Audit_Log.
+                    Меняй позиции, добавляй сделки, price updates и комиссии прямо из dashboard. Все изменения пишутся обратно в Google Sheets и логируются в Audit_Log.
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-3">
@@ -405,14 +497,17 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
                   ) : null}
 
                   <div className="flex flex-wrap gap-3">
-                    <button type="button" onClick={() => setEditorState({ entityType: "cs2", operation: "create" })} disabled={!adminMeta?.canWrite} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white transition hover:bg-white/8 disabled:cursor-not-allowed disabled:opacity-40">
+                    <button type="button" onClick={() => openPositionEditor({ entityType: "cs2", operation: "create" })} disabled={!adminMeta?.canWrite} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white transition hover:bg-white/8 disabled:cursor-not-allowed disabled:opacity-40">
                       + Добавить CS2
                     </button>
-                    <button type="button" onClick={() => setEditorState({ entityType: "telegram", operation: "create" })} disabled={!adminMeta?.canWrite} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white transition hover:bg-white/8 disabled:cursor-not-allowed disabled:opacity-40">
+                    <button type="button" onClick={() => openPositionEditor({ entityType: "telegram", operation: "create" })} disabled={!adminMeta?.canWrite} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white transition hover:bg-white/8 disabled:cursor-not-allowed disabled:opacity-40">
                       + Добавить Gift
                     </button>
-                    <button type="button" onClick={() => setEditorState({ entityType: "crypto", operation: "create" })} disabled={!adminMeta?.canWrite} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white transition hover:bg-white/8 disabled:cursor-not-allowed disabled:opacity-40">
+                    <button type="button" onClick={() => openPositionEditor({ entityType: "crypto", operation: "create" })} disabled={!adminMeta?.canWrite} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white transition hover:bg-white/8 disabled:cursor-not-allowed disabled:opacity-40">
                       + Добавить Crypto
+                    </button>
+                    <button type="button" onClick={() => setTransactionDrawerOpen(true)} disabled={!adminMeta?.canWrite} className="rounded-2xl border border-cyan-300/20 bg-cyan-300/10 px-4 py-3 text-sm font-medium text-cyan-100 transition hover:bg-cyan-300/16 disabled:cursor-not-allowed disabled:opacity-40">
+                      + Добавить транзакцию
                     </button>
                   </div>
                 </div>
@@ -420,7 +515,7 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
             </div>
           </section>
 
-          <section className="grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
             {currentSnapshot.summary.cards.map((card) => (
               <SummaryCard key={card.id} card={card} currency={currency} />
             ))}
@@ -487,9 +582,7 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
               currency={currency}
               adminEnabled={adminReady}
               onEditPosition={(position) => {
-                setEditorError(null);
-                setEditorValidationErrors([]);
-                setEditorState({
+                openPositionEditor({
                   entityType: "cs2",
                   operation: "update",
                   position,
@@ -502,16 +595,14 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
             <SectionCard
               title="Подарки Telegram"
               eyebrow="Оценка через TON"
-              description="Цены берутся из таблицы в TON и автоматически конвертируются в USD по live-курсу."
+              description="Цены берутся из таблицы в TON и автоматически конвертируются в USD по live-курсу. Если есть transactions, они переопределяют cost basis и PnL."
             >
               <TelegramGiftsList
                 positions={currentSnapshot.telegramGifts.positions}
                 currency={currency}
                 adminEnabled={adminReady}
                 onEditPosition={(position) => {
-                  setEditorError(null);
-                  setEditorValidationErrors([]);
-                  setEditorState({
+                  openPositionEditor({
                     entityType: "telegram",
                     operation: "update",
                     position,
@@ -522,16 +613,14 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
             <SectionCard
               title="Крипта"
               eyebrow="Live pricing"
-              description="Котировки подтягиваются через CoinGecko, а при недоступности провайдера используется резервная цена из таблицы."
+              description="Котировки подтягиваются через CoinGecko, а при недоступности провайдера используется резервная цена из таблицы или последний price update из Transactions."
             >
               <CryptoPanel
                 positions={currentSnapshot.crypto.positions}
                 currency={currency}
                 adminEnabled={adminReady}
                 onEditPosition={(position) => {
-                  setEditorError(null);
-                  setEditorValidationErrors([]);
-                  setEditorState({
+                  openPositionEditor({
                     entityType: "crypto",
                     operation: "update",
                     position,
@@ -540,6 +629,19 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
               />
             </SectionCard>
           </section>
+
+          <SectionCard
+            title="История Transactions"
+            eyebrow="PnL engine"
+            description="Покупки, продажи, трансферы, price updates и комиссии. Эта таблица напрямую управляет average entry, realized/unrealized PnL, ROI и fees."
+          >
+            <TransactionHistoryTable
+              transactions={currentSnapshot.transactions.items}
+              currency={currency}
+              adminEnabled={adminReady}
+              onAddTransaction={() => setTransactionDrawerOpen(true)}
+            />
+          </SectionCard>
         </div>
       </main>
 
@@ -551,9 +653,9 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
           canWrite={Boolean(adminMeta?.canWrite)}
           error={editorError}
           validationErrors={editorValidationErrors}
-          isSubmitting={isSaving}
+          isSubmitting={isSavingPosition}
           onClose={() => {
-            if (isSaving) {
+            if (isSavingPosition) {
               return;
             }
 
@@ -567,6 +669,26 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
         />
       ) : null}
 
+      <TransactionEditorDrawer
+        open={isTransactionDrawerOpen}
+        canWrite={Boolean(adminMeta?.canWrite)}
+        error={transactionError}
+        validationErrors={transactionValidationErrors}
+        isSubmitting={isSavingTransaction}
+        onClose={() => {
+          if (isSavingTransaction) {
+            return;
+          }
+
+          setTransactionDrawerOpen(false);
+          setTransactionError(null);
+          setTransactionValidationErrors([]);
+        }}
+        onSubmit={(payload) => {
+          handleTransactionSubmit(payload).catch(() => undefined);
+        }}
+      />
+
       {toast ? (
         <div className="fixed bottom-4 right-4 z-50 max-w-sm rounded-3xl border border-white/10 px-4 py-4 shadow-[0_20px_80px_rgba(0,0,0,0.42)] backdrop-blur-xl sm:bottom-6 sm:right-6">
           <div className={toast.tone === "success" ? "rounded-[20px] border border-emerald-400/20 bg-emerald-400/12 px-4 py-4 text-sm text-emerald-50" : "rounded-[20px] border border-rose-400/20 bg-rose-400/12 px-4 py-4 text-sm text-rose-50"}>
@@ -577,7 +699,3 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
     </>
   );
 }
-
-
-
-

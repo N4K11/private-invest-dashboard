@@ -16,8 +16,11 @@ Implemented right now:
 - crypto panel with CoinGecko live pricing and sheet fallback
 - CS2 live pricing through Steam Market matching where a reliable match is available
 - protected admin mode with add/edit actions directly from the dashboard
+- transaction-driven PnL / ROI with cost basis, realized and unrealized PnL
+- transaction history table with filters by category, date, name and action
+- transaction form for buy / sell / transfer / price_update / fee
 - write-back to native Google Sheets and Drive-hosted Excel workbooks
-- Audit_Log append on every admin create/update action
+- Audit_Log append on every admin create/update action, including transactions
 - simple in-memory cache and rate limiting
 - `robots.txt` and `noindex/nofollow` protection for the private surface
 
@@ -45,9 +48,12 @@ src/
     api/private/portfolio
     api/private/admin/meta
     api/private/admin/positions
+    api/private/admin/transactions
     invest-dashboard/[dashboardSlug]
   components/dashboard/
     position-editor-drawer.tsx
+    transaction-editor-drawer.tsx
+    transaction-history-table.tsx
   lib/
     admin/
     auth/
@@ -125,6 +131,8 @@ Current capabilities:
 - edit notes
 - edit `priceConfidence` and `liquidityNote` for Telegram Gifts
 - add new CS2 / Telegram / Crypto positions
+- add transaction rows for `buy`, `sell`, `transfer`, `price_update`, `fee`
+- transaction history filters by category, date, action and asset name
 - append every mutation to `Audit_Log`
 - support both canonical sheets and legacy alias tabs such as `CS2 Assets` / `Telegram Gifts`
 
@@ -206,13 +214,12 @@ This project currently uses Node-oriented server modules and `googleapis`, so Ve
 6. If the provider depends on extra sheet columns, update `src/lib/sheets/schema.json`, the normalizer and `scripts/validate-google-sheet.mjs`.
 
 ## What still needs to be done for full portfolio operations
-- transaction-driven PnL and ROI calculations
 - portfolio history snapshots and performance-over-time charts
 - explicit delete flow with hard confirmation if physical row removal is ever needed
 - Telegram Gifts pricing workflow with stronger confidence / stale-price tracking
 - broader CS2 market coverage through additional providers beyond the current Steam Market layer
 - durable cache/rate limit storage via Redis or similar for multi-instance production
-- optional admin actions for editing transactions and settings
+- optional admin actions for editing existing transactions and settings
 
 ## Verification commands
 ```bash
@@ -220,3 +227,4 @@ npm run typecheck
 npm run lint
 npm run build
 ```
+

@@ -1,43 +1,72 @@
 ﻿import { DEFAULT_CURRENCY } from "@/lib/constants";
 import { buildCategoryBreakdown, buildTopHoldings } from "@/lib/portfolio/metrics";
+import {
+  buildTransactionRecords,
+  computeAssetAccounting,
+} from "@/lib/portfolio/transaction-accounting";
 import { resolveCryptoPositions } from "@/lib/providers/crypto-price-provider";
 import { resolveCs2Positions } from "@/lib/providers/cs2-price-provider";
 import { resolveTelegramGiftPositions } from "@/lib/providers/telegram-gift-price-provider";
 import { getPortfolioSource } from "@/lib/sheets/reader";
 import type {
   CategoryPerformanceDatum,
+  CryptoPosition,
+  Cs2Position,
   Cs2TypeBreakdownDatum,
   PortfolioSnapshot,
   SummaryCardDatum,
+  TelegramGiftPosition,
 } from "@/types/portfolio";
 
 function buildSummaryCards(params: {
   totalValue: number;
-  totalPnl: number;
+  totalCost: number;
+  realizedPnl: number;
+  unrealizedPnl: number;
   totalRoi: number | null;
   positionsCount: number;
   itemsCount: number;
+  totalFees: number;
 }): SummaryCardDatum[] {
   return [
     {
       id: "total-value",
-      label: "Общая стоимость",
+      label: "Текущая стоимость",
       value: params.totalValue,
-      hint: "Текущая оценка по CS2, подаркам Telegram и крипте.",
+      hint: "Суммарная оценка всех открытых позиций на текущий момент.",
+      format: "currency",
       tone: "neutral",
     },
     {
-      id: "total-pnl",
-      label: "Чистый PnL",
-      value: params.totalPnl,
-      hint: "Считается там, где есть цена входа или корректная текущая цена.",
-      tone: params.totalPnl >= 0 ? "positive" : "negative",
+      id: "total-cost",
+      label: "Cost basis",
+      value: params.totalCost,
+      hint: "Себестоимость только открытых позиций после учета покупок, продаж и трансферов.",
+      format: "currency",
+      tone: "neutral",
     },
     {
-      id: "net-roi",
-      label: "ROI",
+      id: "realized-pnl",
+      label: "Realized PnL",
+      value: params.realizedPnl,
+      hint: `Закрытая прибыль/убыток с учетом комиссий. Всего комиссий: ${params.totalFees.toFixed(2)}.`,
+      format: "currency",
+      tone: params.realizedPnl >= 0 ? "positive" : "negative",
+    },
+    {
+      id: "unrealized-pnl",
+      label: "Unrealized PnL",
+      value: params.unrealizedPnl,
+      hint: "Переоценка по текущим открытым позициям относительно их остаточной себестоимости.",
+      format: "currency",
+      tone: params.unrealizedPnl >= 0 ? "positive" : "negative",
+    },
+    {
+      id: "total-roi",
+      label: "Total ROI",
       value: params.totalRoi ?? "—",
-      hint: "Показывается только для активов с известной себестоимостью.",
+      hint: "ROI по суммарному вложенному капиталу, включая transaction-driven cost basis.",
+      format: "percent",
       tone:
         params.totalRoi === null ? "neutral" : params.totalRoi >= 0 ? "positive" : "negative",
     },
@@ -46,6 +75,7 @@ function buildSummaryCards(params: {
       label: "Позиции",
       value: params.positionsCount,
       hint: `${params.itemsCount.toLocaleString("ru-RU")} единиц и предметов в портфеле`,
+      format: "compact",
       tone: "neutral",
     },
   ];
@@ -78,6 +108,152 @@ function buildCategoryPerformanceData(
   }));
 }
 
+function applyAccountingToCs2(
+  positions: Cs2Position[],
+  transactions: import("@/lib/sheets/normalizers").NormalizedTransactionRow[],
+) {
+  let totalInvestedCapital = 0;
+
+  const nextPositions = positions.map((position) => {
+    const accounting = computeAssetAccounting({
+      category: "cs2",
+      assetNames: [position.name],
+      sheetQuantity: position.quantity,
+      fallbackEntryPrice: position.averageEntryPrice,
+      currentPrice: position.currentPrice,
+      transactions,
+    });
+
+    totalInvestedCapital += accounting.investedCapital;
+
+    const useTransactionPrice =
+      accounting.latestPriceUpdate !== null &&
+      (position.currentPrice === null || position.priceSource === "entry_price_fallback");
+    const currentPrice = useTransactionPrice ? accounting.latestPriceUpdate : accounting.currentPrice;
+
+    return {
+      ...position,
+      quantity: accounting.quantity,
+      quantitySource: accounting.quantitySource,
+      averageEntryPrice: accounting.averageEntryPrice,
+      currentPrice,
+      totalValue: accounting.totalValue,
+      totalCost: accounting.totalCost,
+      pnl: accounting.pnl,
+      pnlPercent: accounting.pnlPercent,
+      realizedPnl: accounting.realizedPnl,
+      unrealizedPnl: accounting.unrealizedPnl,
+      fees: accounting.fees,
+      transactionCount: accounting.transactionCount,
+      priceSource: useTransactionPrice ? "transaction_price_update" : position.priceSource,
+      isPriceEstimated: currentPrice === null,
+    } satisfies Cs2Position;
+  });
+
+  return {
+    positions: nextPositions,
+    investedCapital: totalInvestedCapital,
+  };
+}
+
+function applyAccountingToTelegram(
+  positions: TelegramGiftPosition[],
+  transactions: import("@/lib/sheets/normalizers").NormalizedTransactionRow[],
+) {
+  let totalInvestedCapital = 0;
+
+  const nextPositions = positions.map((position) => {
+    const accounting = computeAssetAccounting({
+      category: "telegram",
+      assetNames: [position.name],
+      sheetQuantity: position.quantity,
+      fallbackEntryPrice: position.averageEntryPrice ?? position.entryPrice,
+      currentPrice: position.estimatedPrice ?? position.currentPrice,
+      transactions,
+    });
+
+    totalInvestedCapital += accounting.investedCapital;
+
+    const useTransactionPrice =
+      accounting.latestPriceUpdate !== null &&
+      ((position.estimatedPrice ?? position.currentPrice) === null ||
+        position.priceSource === "manual_sheet");
+    const estimatedPrice = useTransactionPrice ? accounting.latestPriceUpdate : accounting.currentPrice;
+
+    return {
+      ...position,
+      quantity: accounting.quantity,
+      quantitySource: accounting.quantitySource,
+      entryPrice: accounting.averageEntryPrice,
+      averageEntryPrice: accounting.averageEntryPrice,
+      currentPrice: useTransactionPrice ? accounting.latestPriceUpdate : position.currentPrice,
+      estimatedPrice,
+      totalValue: accounting.totalValue,
+      totalCost: accounting.totalCost,
+      pnl: accounting.pnl,
+      pnlPercent: accounting.pnlPercent,
+      realizedPnl: accounting.realizedPnl,
+      unrealizedPnl: accounting.unrealizedPnl,
+      fees: accounting.fees,
+      transactionCount: accounting.transactionCount,
+      priceSource: useTransactionPrice ? "transaction_price_update" : position.priceSource,
+    } satisfies TelegramGiftPosition;
+  });
+
+  return {
+    positions: nextPositions,
+    investedCapital: totalInvestedCapital,
+  };
+}
+
+function applyAccountingToCrypto(
+  positions: CryptoPosition[],
+  transactions: import("@/lib/sheets/normalizers").NormalizedTransactionRow[],
+) {
+  let totalInvestedCapital = 0;
+
+  const nextPositions = positions.map((position) => {
+    const accounting = computeAssetAccounting({
+      category: "crypto",
+      assetNames: [position.symbol, position.name],
+      sheetQuantity: position.quantity,
+      fallbackEntryPrice: position.averageEntryPrice,
+      currentPrice: position.currentPrice,
+      transactions,
+    });
+
+    totalInvestedCapital += accounting.investedCapital;
+
+    const useTransactionPrice =
+      accounting.latestPriceUpdate !== null &&
+      (!position.isLivePrice || position.priceSource === "entry_price_fallback");
+    const currentPrice = useTransactionPrice ? accounting.latestPriceUpdate : accounting.currentPrice;
+
+    return {
+      ...position,
+      quantity: accounting.quantity,
+      quantitySource: accounting.quantitySource,
+      averageEntryPrice: accounting.averageEntryPrice,
+      currentPrice,
+      totalValue: accounting.totalValue,
+      totalCost: accounting.totalCost,
+      pnl: accounting.pnl,
+      pnlPercent: accounting.pnlPercent,
+      realizedPnl: accounting.realizedPnl,
+      unrealizedPnl: accounting.unrealizedPnl,
+      fees: accounting.fees,
+      transactionCount: accounting.transactionCount,
+      priceSource: useTransactionPrice ? "transaction_price_update" : position.priceSource,
+      isLivePrice: useTransactionPrice ? false : position.isLivePrice,
+    } satisfies CryptoPosition;
+  });
+
+  return {
+    positions: nextPositions,
+    investedCapital: totalInvestedCapital,
+  };
+}
+
 export async function getPortfolioSnapshot(): Promise<PortfolioSnapshot> {
   const source = await getPortfolioSource();
   const [cs2Result, telegramResult, cryptoResult] = await Promise.all([
@@ -85,12 +261,18 @@ export async function getPortfolioSnapshot(): Promise<PortfolioSnapshot> {
     resolveTelegramGiftPositions(source.workbook.telegramRows),
     resolveCryptoPositions(source.workbook.cryptoRows),
   ]);
+  const rawTransactions = source.workbook.transactionRows;
+  const transactions = buildTransactionRecords(rawTransactions);
 
-  const cs2Positions = cs2Result.positions.sort((left, right) => right.totalValue - left.totalValue);
-  const telegramPositions = telegramResult.positions.sort(
+  const accountedCs2 = applyAccountingToCs2(cs2Result.positions, rawTransactions);
+  const accountedTelegram = applyAccountingToTelegram(telegramResult.positions, rawTransactions);
+  const accountedCrypto = applyAccountingToCrypto(cryptoResult.positions, rawTransactions);
+
+  const cs2Positions = accountedCs2.positions.sort((left, right) => right.totalValue - left.totalValue);
+  const telegramPositions = accountedTelegram.positions.sort(
     (left, right) => right.totalValue - left.totalValue,
   );
-  const cryptoPositions = cryptoResult.positions.sort((left, right) => right.totalValue - left.totalValue);
+  const cryptoPositions = accountedCrypto.positions.sort((left, right) => right.totalValue - left.totalValue);
 
   const breakdown = buildCategoryBreakdown({
     cs2Positions,
@@ -100,8 +282,13 @@ export async function getPortfolioSnapshot(): Promise<PortfolioSnapshot> {
 
   const totalValue = breakdown.reduce((sum, item) => sum + item.value, 0);
   const totalCost = breakdown.reduce((sum, item) => sum + item.cost, 0);
-  const totalPnl = totalValue - totalCost;
-  const totalRoi = totalCost > 0 ? (totalPnl / totalCost) * 100 : null;
+  const realizedPnl = breakdown.reduce((sum, item) => sum + item.realizedPnl, 0);
+  const unrealizedPnl = breakdown.reduce((sum, item) => sum + item.unrealizedPnl, 0);
+  const totalPnl = realizedPnl + unrealizedPnl;
+  const totalFees = breakdown.reduce((sum, item) => sum + item.fees, 0);
+  const totalInvestedCapital =
+    accountedCs2.investedCapital + accountedTelegram.investedCapital + accountedCrypto.investedCapital;
+  const totalRoi = totalInvestedCapital > 0 ? (totalPnl / totalInvestedCapital) * 100 : null;
   const positionsCount =
     cs2Positions.length + telegramPositions.length + cryptoPositions.length;
   const itemsCount = breakdown.reduce((sum, item) => sum + item.items, 0);
@@ -117,6 +304,9 @@ export async function getPortfolioSnapshot(): Promise<PortfolioSnapshot> {
       totalValue,
       totalCost,
       totalPnl,
+      realizedPnl,
+      unrealizedPnl,
+      totalFees,
       totalRoi,
       positionsCount,
       itemsCount,
@@ -124,10 +314,13 @@ export async function getPortfolioSnapshot(): Promise<PortfolioSnapshot> {
       topHoldings,
       cards: buildSummaryCards({
         totalValue,
-        totalPnl,
+        totalCost,
+        realizedPnl,
+        unrealizedPnl,
         totalRoi,
         positionsCount,
         itemsCount,
+        totalFees,
       }),
       lastUpdatedAt: source.lastUpdatedAt,
       sourceMode: source.sourceMode,
@@ -152,6 +345,9 @@ export async function getPortfolioSnapshot(): Promise<PortfolioSnapshot> {
     },
     crypto: {
       positions: cryptoPositions,
+    },
+    transactions: {
+      items: transactions,
     },
     charts: {
       allocation: breakdown

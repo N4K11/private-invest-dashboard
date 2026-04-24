@@ -9,6 +9,7 @@ import {
   adminEntityTypeSchema,
   type AdminEntityType,
   type AdminMutationInput,
+  type AdminTransactionMutationInput,
 } from "@/lib/admin/schema";
 import type { RawSpreadsheetWorkbook, SheetCellValue } from "@/lib/sheets/normalizers";
 import {
@@ -37,7 +38,7 @@ export interface AdminWriteStatus {
 
 export interface AdminMutationResult {
   entityId: string;
-  entityType: AdminEntityType;
+  entityType: AdminEntityType | "transaction";
   operation: "create" | "update";
   sheetName: string;
   rowNumber: number;
@@ -216,14 +217,14 @@ function appendAuditLog(
   workbook: MutableWorkbook,
   params: {
     action: string;
-    entityType: AdminEntityType;
+    entityType: AdminEntityType | "transaction";
     entityId: string;
     before: CanonicalRecord | null;
     after: CanonicalRecord;
     notes: string;
   },
 ) {
-  const { sheetName, values, headerMap } = ensureAuditLogSheet(workbook);
+  const { values, headerMap } = ensureAuditLogSheet(workbook);
   const nextRowNumber = values.length + 1;
   const timestamp = new Date().toISOString();
 
@@ -236,19 +237,32 @@ function appendAuditLog(
     after: JSON.stringify(params.after),
     notes: params.notes,
   });
-
-  return sheetName;
 }
 
 function generateEntityId(entityType: AdminEntityType, primaryKey: string) {
   return toSlugFragment(`${entityType}-${primaryKey}-${Date.now().toString(36)}`);
 }
 
-function getEntitySheetName(workbook: MutableWorkbook, entityType: AdminEntityType) {
-  return findMatchedSheetName(workbook.availableSheets, ENTITY_SHEET_MAP[entityType]) ?? ENTITY_SHEET_MAP[entityType];
+function generateTransactionId(assetType: string, assetName: string) {
+  return toSlugFragment(`tx-${assetType}-${assetName}-${Date.now().toString(36)}`);
 }
 
-function buildNextRecord(input: AdminMutationInput, existingRecord: CanonicalRecord | null, timestamp: string) {
+function getEntitySheetName(workbook: MutableWorkbook, entityType: AdminEntityType) {
+  return (
+    findMatchedSheetName(workbook.availableSheets, ENTITY_SHEET_MAP[entityType]) ??
+    ENTITY_SHEET_MAP[entityType]
+  );
+}
+
+function getTransactionsSheetName(workbook: MutableWorkbook) {
+  return findMatchedSheetName(workbook.availableSheets, "Transactions") ?? "Transactions";
+}
+
+function buildNextPositionRecord(
+  input: AdminMutationInput,
+  existingRecord: CanonicalRecord | null,
+  timestamp: string,
+) {
   if (input.entityType === "cs2") {
     return {
       id: existingRecord?.id ?? generateEntityId("cs2", input.data.name),
@@ -314,6 +328,24 @@ function buildNextRecord(input: AdminMutationInput, existingRecord: CanonicalRec
     notes: input.data.notes ?? "",
     lastUpdated: timestamp,
     currency: existingRecord?.currency ?? "USD",
+  } satisfies CanonicalRecord;
+}
+
+function buildNextTransactionRecord(
+  input: AdminTransactionMutationInput,
+  timestamp: string,
+) {
+  return {
+    id: generateTransactionId(input.data.assetType, input.data.assetName),
+    date: input.data.date,
+    assetType: input.data.assetType,
+    assetName: input.data.assetName,
+    action: input.data.action,
+    quantity: input.data.quantity,
+    price: input.data.price,
+    fees: input.data.fees ?? (input.data.action === "fee" ? input.data.price ?? 0 : 0),
+    currency: input.data.currency ?? "USD",
+    notes: input.data.notes ?? `Создано через admin mode ${timestamp}`,
   } satisfies CanonicalRecord;
 }
 
@@ -426,6 +458,37 @@ async function persistDriveWorkbook(document: SpreadsheetDocument, workbook: Mut
   });
 }
 
+async function persistWorkbook(
+  document: SpreadsheetDocument,
+  workbook: MutableWorkbook,
+  touchedSheets: string[],
+) {
+  if (document.mode === "native_sheet") {
+    await persistNativeWorkbook(document, workbook, touchedSheets);
+    return;
+  }
+
+  await persistDriveWorkbook(document, workbook);
+}
+
+async function loadWritableDocument() {
+  const document = await fetchSpreadsheetDocument({ writeAccess: true });
+  const access = await assertEditorAccess(document.fileId);
+
+  if (!access.canEdit) {
+    throw new Error(
+      "Service account имеет только Viewer-доступ к файлу. Выдай ему Editor-доступ перед сохранением изменений.",
+    );
+  }
+
+  return document;
+}
+
+function invalidatePortfolioCaches() {
+  forgetRemembered("portfolio-source");
+  forgetRememberedByPrefix("coingecko:");
+}
+
 export async function getAdminWriteStatus(): Promise<AdminWriteStatus> {
   if (!isGoogleSheetsConfigured()) {
     return {
@@ -467,15 +530,7 @@ export async function getAdminWriteStatus(): Promise<AdminWriteStatus> {
 export async function applyAdminMutation(input: AdminMutationInput): Promise<AdminMutationResult> {
   adminEntityTypeSchema.parse(input.entityType);
 
-  const document = await fetchSpreadsheetDocument({ writeAccess: true });
-  const access = await assertEditorAccess(document.fileId);
-
-  if (!access.canEdit) {
-    throw new Error(
-      "Service account имеет только Viewer-доступ к файлу. Выдай ему Editor-доступ перед сохранением изменений.",
-    );
-  }
-
+  const document = await loadWritableDocument();
   const workbook = cloneWorkbook(document.workbook);
   const timestamp = new Date().toISOString();
   const canonicalSheet = ENTITY_SHEET_MAP[input.entityType];
@@ -484,10 +539,11 @@ export async function applyAdminMutation(input: AdminMutationInput): Promise<Adm
 
   const { values, headerMap } = getCanonicalHeaderMap(workbook, targetSheetName, canonicalSheet);
   const rowNumber = input.operation === "update" ? input.rowRef.rowNumber : values.length + 1;
-  const beforeRecord = input.operation === "update"
-    ? buildCanonicalRecord(values, input.rowRef.rowNumber, canonicalSheet)
-    : null;
-  const nextRecord = buildNextRecord(input, beforeRecord, timestamp);
+  const beforeRecord =
+    input.operation === "update"
+      ? buildCanonicalRecord(values, input.rowRef.rowNumber, canonicalSheet)
+      : null;
+  const nextRecord = buildNextPositionRecord(input, beforeRecord, timestamp);
 
   setRecordValues(values, rowNumber, headerMap, nextRecord);
   appendAuditLog(workbook, {
@@ -502,16 +558,13 @@ export async function applyAdminMutation(input: AdminMutationInput): Promise<Adm
         : `Обновление позиции через admin mode (${targetSheetName}:${rowNumber})`,
   });
 
-  const touchedSheets = [targetSheetName, findMatchedSheetName(workbook.availableSheets, "Audit_Log") ?? "Audit_Log"];
+  const touchedSheets = [
+    targetSheetName,
+    findMatchedSheetName(workbook.availableSheets, "Audit_Log") ?? "Audit_Log",
+  ];
 
-  if (document.mode === "native_sheet") {
-    await persistNativeWorkbook(document, workbook, touchedSheets);
-  } else {
-    await persistDriveWorkbook(document, workbook);
-  }
-
-  forgetRemembered("portfolio-source");
-  forgetRememberedByPrefix("coingecko:");
+  await persistWorkbook(document, workbook, touchedSheets);
+  invalidatePortfolioCaches();
 
   return {
     entityId: String(nextRecord.id),
@@ -522,5 +575,40 @@ export async function applyAdminMutation(input: AdminMutationInput): Promise<Adm
   };
 }
 
+export async function applyTransactionMutation(
+  input: AdminTransactionMutationInput,
+): Promise<AdminMutationResult> {
+  const document = await loadWritableDocument();
+  const workbook = cloneWorkbook(document.workbook);
+  const timestamp = new Date().toISOString();
+  const sheetName = getTransactionsSheetName(workbook);
+  const { values, headerMap } = getCanonicalHeaderMap(workbook, sheetName, "Transactions");
+  const rowNumber = values.length + 1;
+  const nextRecord = buildNextTransactionRecord(input, timestamp);
 
+  setRecordValues(values, rowNumber, headerMap, nextRecord);
+  appendAuditLog(workbook, {
+    action: "create_transaction",
+    entityType: "transaction",
+    entityId: String(nextRecord.id),
+    before: null,
+    after: nextRecord,
+    notes: `Создание транзакции через admin mode (${sheetName}:${rowNumber})`,
+  });
 
+  const touchedSheets = [
+    sheetName,
+    findMatchedSheetName(workbook.availableSheets, "Audit_Log") ?? "Audit_Log",
+  ];
+
+  await persistWorkbook(document, workbook, touchedSheets);
+  invalidatePortfolioCaches();
+
+  return {
+    entityId: String(nextRecord.id),
+    entityType: "transaction",
+    operation: "create",
+    sheetName,
+    rowNumber,
+  };
+}

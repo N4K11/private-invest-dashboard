@@ -220,7 +220,7 @@ export async function resolveCs2Positions(rows: NormalizedCs2Row[]) {
 
   const provisional = rows.map((row, index) => {
     const liveQuote = liveQuotes[index];
-    const resolvedCurrentPrice = liveQuote.price ?? row.currentPrice;
+    const resolvedCurrentPrice = liveQuote.price ?? row.currentPrice ?? row.averageEntryPrice ?? null;
     const metrics = computeMoneyMetrics(
       row.quantity,
       row.averageEntryPrice,
@@ -230,6 +230,7 @@ export async function resolveCs2Positions(rows: NormalizedCs2Row[]) {
     return {
       row,
       liveQuote,
+      currentPrice: resolvedCurrentPrice,
       totalValue: metrics.totalValue,
       totalCost: metrics.totalCost,
       pnl: metrics.pnl,
@@ -245,7 +246,7 @@ export async function resolveCs2Positions(rows: NormalizedCs2Row[]) {
     const riskScore = deriveCs2RiskScore({
       type: item.row.type,
       totalValue: item.totalValue,
-      currentPrice: item.liveQuote.price ?? item.row.currentPrice,
+      currentPrice: item.currentPrice,
       quantity: item.row.quantity,
       notes: item.row.notes,
       concentrationShare,
@@ -253,7 +254,6 @@ export async function resolveCs2Positions(rows: NormalizedCs2Row[]) {
     });
 
     const fallbackLiquidity = riskScoreToLiquidityLabel(riskScore);
-    const resolvedCurrentPrice = item.liveQuote.price ?? item.row.currentPrice;
 
     return {
       id: item.row.id,
@@ -261,13 +261,18 @@ export async function resolveCs2Positions(rows: NormalizedCs2Row[]) {
       type: item.row.type,
       category: item.row.category ?? null,
       quantity: item.row.quantity,
+      quantitySource: "sheet",
       averageEntryPrice: item.row.averageEntryPrice,
       manualCurrentPrice: item.row.manualCurrentPrice ?? item.row.currentPrice,
-      currentPrice: resolvedCurrentPrice,
+      currentPrice: item.currentPrice,
       totalValue: item.totalValue,
       totalCost: item.totalCost,
       pnl: item.pnl,
       pnlPercent: item.pnlPercent,
+      realizedPnl: 0,
+      unrealizedPnl: item.pnl,
+      fees: 0,
+      transactionCount: 0,
       riskScore,
       liquidityLabel: normalizeLiquidityLabel(item.row.liquidityLabel, fallbackLiquidity),
       priceSource: item.liveQuote.success
@@ -280,7 +285,7 @@ export async function resolveCs2Positions(rows: NormalizedCs2Row[]) {
       lastUpdated: item.row.lastUpdated ?? null,
       notes: item.row.notes,
       rowRef: item.row.sheetRef,
-      isPriceEstimated: resolvedCurrentPrice === null,
+      isPriceEstimated: item.liveQuote.price === null && item.row.currentPrice === null,
     };
   });
 

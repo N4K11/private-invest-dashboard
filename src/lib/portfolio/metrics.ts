@@ -40,6 +40,9 @@ export function buildCategoryBreakdown(params: {
     items: number;
     cost: number;
     value: number;
+    realizedPnl: number;
+    unrealizedPnl: number;
+    fees: number;
   }[] = [
     {
       category: "cs2",
@@ -47,13 +50,19 @@ export function buildCategoryBreakdown(params: {
       items: params.cs2Positions.reduce((sum, item) => sum + item.quantity, 0),
       cost: params.cs2Positions.reduce((sum, item) => sum + item.totalCost, 0),
       value: params.cs2Positions.reduce((sum, item) => sum + item.totalValue, 0),
+      realizedPnl: params.cs2Positions.reduce((sum, item) => sum + item.realizedPnl, 0),
+      unrealizedPnl: params.cs2Positions.reduce((sum, item) => sum + item.unrealizedPnl, 0),
+      fees: params.cs2Positions.reduce((sum, item) => sum + item.fees, 0),
     },
     {
       category: "telegram",
       positions: params.telegramPositions.length,
       items: params.telegramPositions.reduce((sum, item) => sum + item.quantity, 0),
-      cost: 0,
+      cost: params.telegramPositions.reduce((sum, item) => sum + item.totalCost, 0),
       value: params.telegramPositions.reduce((sum, item) => sum + item.totalValue, 0),
+      realizedPnl: params.telegramPositions.reduce((sum, item) => sum + item.realizedPnl, 0),
+      unrealizedPnl: params.telegramPositions.reduce((sum, item) => sum + item.unrealizedPnl, 0),
+      fees: params.telegramPositions.reduce((sum, item) => sum + item.fees, 0),
     },
     {
       category: "crypto",
@@ -61,11 +70,14 @@ export function buildCategoryBreakdown(params: {
       items: params.cryptoPositions.reduce((sum, item) => sum + item.quantity, 0),
       cost: params.cryptoPositions.reduce((sum, item) => sum + item.totalCost, 0),
       value: params.cryptoPositions.reduce((sum, item) => sum + item.totalValue, 0),
+      realizedPnl: params.cryptoPositions.reduce((sum, item) => sum + item.realizedPnl, 0),
+      unrealizedPnl: params.cryptoPositions.reduce((sum, item) => sum + item.unrealizedPnl, 0),
+      fees: params.cryptoPositions.reduce((sum, item) => sum + item.fees, 0),
     },
   ];
 
   return categories.map((item) => {
-    const pnl = item.value - item.cost;
+    const pnl = item.realizedPnl + item.unrealizedPnl;
     return {
       category: item.category,
       label: CATEGORY_META[item.category].label,
@@ -73,6 +85,9 @@ export function buildCategoryBreakdown(params: {
       value: item.value,
       cost: item.cost,
       pnl,
+      realizedPnl: item.realizedPnl,
+      unrealizedPnl: item.unrealizedPnl,
+      fees: item.fees,
       roi: item.cost > 0 ? (pnl / item.cost) * 100 : null,
       positions: item.positions,
       items: item.items,

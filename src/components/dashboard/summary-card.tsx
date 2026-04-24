@@ -11,12 +11,16 @@ function formatCardValue(card: SummaryCardDatum, currency: string) {
     return card.value;
   }
 
-  if (card.id === "net-roi") {
+  if (card.format === "percent") {
     return formatPercent(card.value);
   }
 
-  if (card.id === "positions-count") {
+  if (card.format === "compact") {
     return formatCompactNumber(card.value);
+  }
+
+  if (card.format === "text") {
+    return String(card.value);
   }
 
   return formatCurrency(card.value, currency);

@@ -2,6 +2,7 @@
   AssetCategory,
   CategoryBreakdown,
   Cs2AssetType,
+  TransactionAction,
 } from "@/types/portfolio";
 
 export const DASHBOARD_BASE_PATH = "invest-dashboard";
@@ -54,6 +55,18 @@ export const TELEGRAM_PRICE_CONFIDENCE_OPTIONS = [
   { label: "Средняя", value: "medium" },
   { label: "Высокая", value: "high" },
 ] as const;
+
+export const TRANSACTION_ACTION_OPTIONS: {
+  label: string;
+  value: TransactionAction | "all";
+}[] = [
+  { label: "Все действия", value: "all" },
+  { label: "Покупка", value: "buy" },
+  { label: "Продажа", value: "sell" },
+  { label: "Трансфер", value: "transfer" },
+  { label: "Обновление цены", value: "price_update" },
+  { label: "Комиссия", value: "fee" },
+];
 
 export const COINGECKO_SYMBOL_MAP: Record<string, string> = {
   ADA: "cardano",

@@ -52,17 +52,30 @@ export async function resolveTelegramGiftPositions(rows: NormalizedTelegramGiftR
           ? row.estimatedPrice * tonUsdPrice
           : row.estimatedPrice
         : row.estimatedPrice;
+    const averageEntryPrice = row.entryPrice ?? null;
+    const totalCost = row.quantity * (averageEntryPrice ?? 0);
+    const totalValue = row.quantity * (estimatedPrice ?? 0);
+    const pnl = totalValue - totalCost;
 
     return {
       id: row.id,
       name: row.name,
       collection: row.collection ?? null,
       quantity: row.quantity,
-      entryPrice: row.entryPrice ?? null,
+      quantitySource: "sheet",
+      entryPrice: averageEntryPrice,
+      averageEntryPrice,
       manualCurrentPrice: row.manualCurrentPrice ?? null,
       currentPrice: row.currentPrice ?? null,
       estimatedPrice,
-      totalValue: row.quantity * (estimatedPrice ?? 0),
+      totalValue,
+      totalCost,
+      pnl,
+      pnlPercent: totalCost > 0 ? (pnl / totalCost) * 100 : null,
+      realizedPnl: 0,
+      unrealizedPnl: pnl,
+      fees: 0,
+      transactionCount: 0,
       priceConfidence: row.priceConfidence ?? null,
       liquidityNote: row.liquidityNote ?? null,
       status: row.status ?? null,
