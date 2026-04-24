@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import { useEffect, useState } from "react";
 import {
   Cell,
   Pie,
@@ -17,6 +18,16 @@ type AllocationChartProps = {
 };
 
 export function AllocationChart({ data, currency }: AllocationChartProps) {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  if (!isMounted) {
+    return <div className="h-[320px] w-full rounded-2xl bg-white/5" />;
+  }
+
   return (
     <div className="h-[320px] w-full">
       <ResponsiveContainer width="100%" height="100%">
