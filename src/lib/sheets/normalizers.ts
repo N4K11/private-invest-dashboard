@@ -1,4 +1,10 @@
-﻿import { parseNumberish, toSlugFragment } from "@/lib/utils";
+﻿import {
+  getFieldAliases,
+  getMissingRequiredFields,
+  getWorkbookSheet,
+  normalizeSheetHeader,
+} from "@/lib/sheets/schema";
+import { parseNumberish, toSlugFragment } from "@/lib/utils";
 import type { Cs2AssetType } from "@/types/portfolio";
 
 export type SheetCellValue = string | number | boolean | null | undefined;
@@ -21,7 +27,13 @@ export interface NormalizedCs2Row {
   quantity: number;
   wear: string | null;
   averageEntryPrice: number | null;
+  manualCurrentPrice?: number | null;
   currentPrice: number | null;
+  sheetPriceSource?: string | null;
+  currency?: string | null;
+  status?: string | null;
+  category?: string | null;
+  lastUpdated?: string | null;
   notes: string | null;
   market: string | null;
   manualRiskScore: number | null;
@@ -34,6 +46,15 @@ export interface NormalizedTelegramGiftRow {
   quantity: number;
   estimatedPrice: number | null;
   estimatedPriceQuoteSymbol: string | null;
+  entryPrice?: number | null;
+  manualCurrentPrice?: number | null;
+  currentPrice?: number | null;
+  collection?: string | null;
+  priceConfidence?: string | null;
+  liquidityNote?: string | null;
+  status?: string | null;
+  lastUpdated?: string | null;
+  priceSource?: string | null;
   notes: string | null;
 }
 
@@ -44,16 +65,44 @@ export interface NormalizedCryptoRow {
   quantity: number;
   averageEntryPrice: number | null;
   currentPrice: number | null;
+  priceSource?: string | null;
+  walletNote?: string | null;
+  status?: string | null;
+  currency?: string | null;
+  lastUpdated?: string | null;
   notes: string | null;
 }
 
 export interface NormalizedTransactionRow {
   id: string;
   date: string | null;
-  category: string | null;
-  asset: string | null;
+  assetType: string | null;
+  assetName: string | null;
+  action: string | null;
   quantity: number | null;
   price: number | null;
+  fees: number | null;
+  currency: string | null;
+  notes: string | null;
+}
+
+export interface NormalizedPortfolioHistoryRow {
+  date: string | null;
+  totalValue: number | null;
+  cs2Value: number | null;
+  telegramValue: number | null;
+  cryptoValue: number | null;
+  totalPnl: number | null;
+  notes: string | null;
+}
+
+export interface NormalizedAuditLogRow {
+  date: string | null;
+  userAction: string | null;
+  entityType: string | null;
+  entityId: string | null;
+  before: string | null;
+  after: string | null;
   notes: string | null;
 }
 
@@ -66,27 +115,12 @@ export interface NormalizedWorkbook {
   telegramRows: NormalizedTelegramGiftRow[];
   cryptoRows: NormalizedCryptoRow[];
   transactionRows: NormalizedTransactionRow[];
+  portfolioHistoryRows: NormalizedPortfolioHistoryRow[];
+  auditLogRows: NormalizedAuditLogRow[];
   settings: Record<string, string>;
 }
 
 type SheetRow = Record<string, SheetCellValue>;
-
-const SHEET_ALIASES = {
-  Summary: ["Summary"],
-  CS2_Positions: ["CS2_Positions", "CS2 Assets"],
-  Telegram_Gifts: ["Telegram_Gifts", "Telegram Gifts"],
-  Crypto: ["Crypto"],
-  Transactions: ["Transactions"],
-  Settings: ["Settings"],
-} as const;
-
-function normalizeHeader(value: SheetCellValue) {
-  return String(value ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, "_")
-    .replace(/^_+|_+$/g, "");
-}
 
 function cleanString(value: SheetCellValue) {
   if (value === null || value === undefined) {
@@ -104,7 +138,7 @@ function sheetToRows(values?: SheetCellValue[][]) {
 
   const [headerRow, ...dataRows] = values;
   const headers = headerRow.map((cell, index) => {
-    const normalized = normalizeHeader(cell);
+    const normalized = normalizeSheetHeader(cell);
     return normalized || `column_${index + 1}`;
   });
 
@@ -119,7 +153,7 @@ function sheetToRows(values?: SheetCellValue[][]) {
 }
 
 function getCell(row: SheetRow, aliases: string[]) {
-  for (const alias of aliases.map((value) => normalizeHeader(value))) {
+  for (const alias of aliases.map((value) => normalizeSheetHeader(value))) {
     if (alias in row) {
       return row[alias];
     }
@@ -136,22 +170,9 @@ function getNumber(row: SheetRow, aliases: string[]) {
   return parseNumberish(getCell(row, aliases));
 }
 
-function getSheetValues(
-  workbook: RawSpreadsheetWorkbook,
-  logicalSheetName: keyof typeof SHEET_ALIASES,
-) {
-  for (const alias of SHEET_ALIASES[logicalSheetName]) {
-    if (workbook.sheets[alias]) {
-      return workbook.sheets[alias];
-    }
-  }
-
-  return undefined;
-}
-
 function normalizeCs2Type(value: string | null, name?: string | null): Cs2AssetType {
-  const normalized = normalizeHeader(value ?? "");
-  const normalizedName = normalizeHeader(name ?? "");
+  const normalized = normalizeSheetHeader(value ?? "");
+  const normalizedName = normalizeSheetHeader(name ?? "");
 
   if (normalizedName.includes("graffiti") || normalizedName.includes("граффити")) {
     return "graffiti";
@@ -204,9 +225,8 @@ function normalizeSummary(values?: SheetCellValue[][]) {
   if (rows.length > 0) {
     return rows
       .map((row) => ({
-        metric:
-          getString(row, ["metric", "key", "name", "метрика", "показатель"]) ?? "",
-        value: getString(row, ["value", "значение"]) ?? "",
+        metric: getString(row, getFieldAliases("Summary", "metric")) ?? "",
+        value: getString(row, getFieldAliases("Summary", "value")) ?? "",
       }))
       .filter((row) => row.metric);
   }
@@ -227,8 +247,8 @@ function normalizeSettings(values?: SheetCellValue[][]) {
   const rows = sheetToRows(values);
 
   return rows.reduce<Record<string, string>>((settings, row) => {
-    const key = getString(row, ["key", "setting", "name", "ключ"]);
-    const value = getString(row, ["value", "значение"]);
+    const key = getString(row, getFieldAliases("Settings", "key"));
+    const value = getString(row, getFieldAliases("Settings", "value"));
 
     if (key && value) {
       settings[key] = value;
@@ -239,13 +259,13 @@ function normalizeSettings(values?: SheetCellValue[][]) {
 }
 
 function buildCs2Notes(row: SheetRow) {
-  const explicitNotes = getString(row, ["notes", "comment", "заметки", "комментарий"]);
+  const explicitNotes = getString(row, getFieldAliases("CS2_Positions", "notes"));
   if (explicitNotes) {
     return explicitNotes;
   }
 
-  const rarity = getString(row, ["rarity", "grade", "редкость"]);
-  const wear = getString(row, ["wear", "condition", "float", "состояние"]);
+  const rarity = getString(row, getFieldAliases("CS2_Positions", "rarity"));
+  const wear = getString(row, getFieldAliases("CS2_Positions", "wear"));
 
   const details = [
     rarity ? `Редкость: ${rarity}` : null,
@@ -256,148 +276,236 @@ function buildCs2Notes(row: SheetRow) {
 }
 
 function normalizeCs2Rows(values?: SheetCellValue[][]) {
-  return sheetToRows(values)
-    .map((row, index) => {
-      const name = getString(row, ["name", "item_name", "asset_name", "название", "предмет"]);
-      if (!name) {
-        return null;
-      }
+  const normalizedRows: NormalizedCs2Row[] = [];
 
-      return {
-        id: toSlugFragment(`cs2-${name}-${index + 1}`),
+  for (const [index, row] of sheetToRows(values).entries()) {
+    const name = getString(row, getFieldAliases("CS2_Positions", "assetName"));
+    if (!name) {
+      continue;
+    }
+
+    const explicitCurrentPrice = getNumber(row, getFieldAliases("CS2_Positions", "currentPrice"));
+    const manualCurrentPrice = getNumber(row, getFieldAliases("CS2_Positions", "manualCurrentPrice"));
+
+    normalizedRows.push({
+      id:
+        getString(row, getFieldAliases("CS2_Positions", "id")) ??
+        toSlugFragment(`cs2-${name}-${index + 1}`),
+      name,
+      type: normalizeCs2Type(
+        getString(row, getFieldAliases("CS2_Positions", "assetType")) ??
+          getString(row, getFieldAliases("CS2_Positions", "category")),
         name,
-        type: normalizeCs2Type(
-          getString(row, ["type", "category", "asset_type", "тип", "категория"]),
-          name,
-        ),
-        quantity:
-          getNumber(row, ["quantity", "qty", "amount", "count", "количество"]) ?? 0,
-        wear: getString(row, ["wear", "condition", "float", "состояние"]),
-        averageEntryPrice: getNumber(row, [
-          "average_entry_price",
-          "avg_entry_price",
-          "entry_price",
-          "buy_price",
-          "средняя_цена_входа",
-          "цена_входа",
-        ]),
-        currentPrice: getNumber(row, [
-          "current_price",
-          "market_price",
-          "price_now",
-          "текущая_цена",
-          "цена_сейчас",
-        ]),
-        notes: buildCs2Notes(row),
-        market: getString(row, ["market", "exchange", "source_market", "рынок"]),
-        manualRiskScore: getNumber(row, ["risk_score", "illiquidity_score", "риск", "риск_скор"]),
-        liquidityLabel: getString(row, ["liquidity", "liquidity_label", "ликвидность"]),
-      } satisfies NormalizedCs2Row;
-    })
-    .filter((row): row is NormalizedCs2Row => Boolean(row));
+      ),
+      category: getString(row, getFieldAliases("CS2_Positions", "category")),
+      quantity: getNumber(row, getFieldAliases("CS2_Positions", "quantity")) ?? 0,
+      wear: getString(row, getFieldAliases("CS2_Positions", "wear")),
+      averageEntryPrice: getNumber(row, getFieldAliases("CS2_Positions", "entryPrice")),
+      manualCurrentPrice,
+      currentPrice: explicitCurrentPrice ?? manualCurrentPrice,
+      sheetPriceSource: getString(row, getFieldAliases("CS2_Positions", "priceSource")),
+      currency: getString(row, getFieldAliases("CS2_Positions", "currency")),
+      status: getString(row, getFieldAliases("CS2_Positions", "status")),
+      lastUpdated: getString(row, getFieldAliases("CS2_Positions", "lastUpdated")),
+      notes: buildCs2Notes(row),
+      market: getString(row, getFieldAliases("CS2_Positions", "market")),
+      manualRiskScore: getNumber(row, getFieldAliases("CS2_Positions", "riskScore")),
+      liquidityLabel: getString(row, getFieldAliases("CS2_Positions", "liquidityLabel")),
+    });
+  }
+
+  return normalizedRows;
 }
 
 function normalizeTelegramRows(values?: SheetCellValue[][]) {
-  return sheetToRows(values)
-    .map((row, index) => {
-      const name = getString(row, ["name", "gift", "title", "название", "подарок"]);
-      if (!name) {
-        return null;
-      }
+  const normalizedRows: NormalizedTelegramGiftRow[] = [];
 
-      const directPrice = getNumber(row, [
-        "estimated_price",
-        "price",
-        "manual_price",
-        "approx_price",
-        "примерная_цена",
-      ]);
-      const tonPrice = getNumber(row, ["price_ton", "ton_price"]);
+  for (const [index, row] of sheetToRows(values).entries()) {
+    const name = getString(row, getFieldAliases("Telegram_Gifts", "giftName"));
+    if (!name) {
+      continue;
+    }
 
-      return {
-        id: toSlugFragment(`telegram-${name}-${index + 1}`),
-        name,
-        quantity:
-          getNumber(row, ["quantity", "qty", "amount", "count", "количество"]) ?? 0,
-        estimatedPrice: directPrice ?? tonPrice,
-        estimatedPriceQuoteSymbol: directPrice !== null ? null : tonPrice !== null ? "TON" : null,
-        notes: getString(row, ["notes", "comment", "заметки", "комментарий"]),
-      } satisfies NormalizedTelegramGiftRow;
-    })
-    .filter((row): row is NormalizedTelegramGiftRow => Boolean(row));
+    const currentPrice = getNumber(row, getFieldAliases("Telegram_Gifts", "currentPrice"));
+    const manualCurrentPrice = getNumber(row, getFieldAliases("Telegram_Gifts", "manualCurrentPrice"));
+    const tonPrice = getNumber(row, getFieldAliases("Telegram_Gifts", "priceTon"));
+
+    normalizedRows.push({
+      id:
+        getString(row, getFieldAliases("Telegram_Gifts", "id")) ??
+        toSlugFragment(`telegram-${name}-${index + 1}`),
+      name,
+      collection: getString(row, getFieldAliases("Telegram_Gifts", "collection")),
+      quantity: getNumber(row, getFieldAliases("Telegram_Gifts", "quantity")) ?? 0,
+      entryPrice: getNumber(row, getFieldAliases("Telegram_Gifts", "entryPrice")),
+      manualCurrentPrice,
+      currentPrice,
+      estimatedPrice: currentPrice ?? manualCurrentPrice ?? tonPrice,
+      estimatedPriceQuoteSymbol:
+        currentPrice !== null || manualCurrentPrice !== null
+          ? null
+          : tonPrice !== null
+            ? "TON"
+            : null,
+      priceConfidence: getString(row, getFieldAliases("Telegram_Gifts", "priceConfidence")),
+      liquidityNote: getString(row, getFieldAliases("Telegram_Gifts", "liquidityNote")),
+      status: getString(row, getFieldAliases("Telegram_Gifts", "status")),
+      lastUpdated: getString(row, getFieldAliases("Telegram_Gifts", "lastUpdated")),
+      priceSource:
+        getString(row, ["price_source", "priceSource", "source"]) ??
+        (tonPrice !== null
+          ? "ton_sheet"
+          : manualCurrentPrice !== null || currentPrice !== null
+            ? "manual_sheet"
+            : null),
+      notes: getString(row, getFieldAliases("Telegram_Gifts", "notes")),
+    });
+  }
+
+  return normalizedRows;
 }
 
 function normalizeCryptoRows(values?: SheetCellValue[][]) {
-  return sheetToRows(values)
-    .map((row, index) => {
-      const symbol = getString(row, ["symbol", "ticker", "монета", "тикер"]);
-      if (!symbol) {
-        return null;
-      }
+  const normalizedRows: NormalizedCryptoRow[] = [];
 
-      const name =
-        getString(row, ["name", "asset", "coin_name", "название", "актив"]) ??
-        symbol.toUpperCase();
+  for (const [index, row] of sheetToRows(values).entries()) {
+    const symbol = getString(row, getFieldAliases("Crypto", "symbol"));
+    if (!symbol) {
+      continue;
+    }
 
-      return {
-        id: toSlugFragment(`crypto-${symbol}-${index + 1}`),
-        symbol: symbol.toUpperCase(),
-        name,
-        quantity:
-          getNumber(row, ["quantity", "qty", "amount", "count", "количество"]) ?? 0,
-        averageEntryPrice: getNumber(row, [
-          "average_entry_price",
-          "avg_entry_price",
-          "entry_price",
-          "buy_price",
-          "средняя_цена_входа",
-          "цена_входа",
-        ]),
-        currentPrice: getNumber(row, ["current_price", "market_price", "текущая_цена"]),
-        notes: getString(row, ["notes", "comment", "заметки", "комментарий"]),
-      } satisfies NormalizedCryptoRow;
-    })
-    .filter((row): row is NormalizedCryptoRow => Boolean(row));
+    normalizedRows.push({
+      id:
+        getString(row, getFieldAliases("Crypto", "id")) ??
+        toSlugFragment(`crypto-${symbol}-${index + 1}`),
+      symbol: symbol.toUpperCase(),
+      name: getString(row, getFieldAliases("Crypto", "name")) ?? symbol.toUpperCase(),
+      quantity: getNumber(row, getFieldAliases("Crypto", "quantity")) ?? 0,
+      averageEntryPrice: getNumber(row, getFieldAliases("Crypto", "entryPrice")),
+      currentPrice: getNumber(row, getFieldAliases("Crypto", "currentPrice")),
+      priceSource: getString(row, getFieldAliases("Crypto", "priceSource")),
+      walletNote: getString(row, getFieldAliases("Crypto", "walletNote")),
+      status: getString(row, getFieldAliases("Crypto", "status")),
+      currency: getString(row, getFieldAliases("Crypto", "currency")),
+      lastUpdated: getString(row, getFieldAliases("Crypto", "lastUpdated")),
+      notes: getString(row, getFieldAliases("Crypto", "notes")),
+    });
+  }
+
+  return normalizedRows;
 }
 
 function normalizeTransactions(values?: SheetCellValue[][]) {
   return sheetToRows(values).map((row, index) => ({
-    id: toSlugFragment(`tx-${index + 1}`),
-    date: getString(row, ["date", "datetime", "дата"]),
-    category: getString(row, ["category", "тип", "категория"]),
-    asset: getString(row, ["asset", "name", "актив", "название"]),
-    quantity: getNumber(row, ["quantity", "qty", "количество"]),
-    price: getNumber(row, ["price", "unit_price", "цена"]),
-    notes: getString(row, ["notes", "comment", "заметки", "комментарий"]),
+    id:
+      getString(row, getFieldAliases("Transactions", "id")) ??
+      toSlugFragment(`tx-${index + 1}`),
+    date: getString(row, getFieldAliases("Transactions", "date")),
+    assetType: getString(row, getFieldAliases("Transactions", "assetType")),
+    assetName: getString(row, getFieldAliases("Transactions", "assetName")),
+    action: getString(row, getFieldAliases("Transactions", "action")),
+    quantity: getNumber(row, getFieldAliases("Transactions", "quantity")),
+    price: getNumber(row, getFieldAliases("Transactions", "price")),
+    fees: getNumber(row, getFieldAliases("Transactions", "fees")),
+    currency: getString(row, getFieldAliases("Transactions", "currency")),
+    notes: getString(row, getFieldAliases("Transactions", "notes")),
   }));
+}
+
+function normalizePortfolioHistory(values?: SheetCellValue[][]) {
+  return sheetToRows(values).map((row) => ({
+    date: getString(row, getFieldAliases("Portfolio_History", "date")),
+    totalValue: getNumber(row, getFieldAliases("Portfolio_History", "totalValue")),
+    cs2Value: getNumber(row, getFieldAliases("Portfolio_History", "cs2Value")),
+    telegramValue: getNumber(row, getFieldAliases("Portfolio_History", "telegramValue")),
+    cryptoValue: getNumber(row, getFieldAliases("Portfolio_History", "cryptoValue")),
+    totalPnl: getNumber(row, getFieldAliases("Portfolio_History", "totalPnl")),
+    notes: getString(row, getFieldAliases("Portfolio_History", "notes")),
+  }));
+}
+
+function normalizeAuditLog(values?: SheetCellValue[][]) {
+  return sheetToRows(values).map((row) => ({
+    date: getString(row, getFieldAliases("Audit_Log", "date")),
+    userAction: getString(row, getFieldAliases("Audit_Log", "userAction")),
+    entityType: getString(row, getFieldAliases("Audit_Log", "entityType")),
+    entityId: getString(row, getFieldAliases("Audit_Log", "entityId")),
+    before: getString(row, getFieldAliases("Audit_Log", "before")),
+    after: getString(row, getFieldAliases("Audit_Log", "after")),
+    notes: getString(row, getFieldAliases("Audit_Log", "notes")),
+  }));
+}
+
+function pushCanonicalColumnWarnings(
+  warnings: string[],
+  logicalSheetName:
+    | "Summary"
+    | "CS2_Positions"
+    | "Telegram_Gifts"
+    | "Crypto"
+    | "Transactions"
+    | "Portfolio_History"
+    | "Settings"
+    | "Audit_Log",
+  values?: SheetCellValue[][],
+  isCanonical = false,
+) {
+  if (!values || !isCanonical) {
+    return;
+  }
+
+  const missingFields = getMissingRequiredFields(logicalSheetName, values);
+  if (missingFields.length === 0) {
+    return;
+  }
+
+  warnings.push(
+    `Лист ${logicalSheetName} не содержит обязательные колонки: ${missingFields.join(", ")}.`,
+  );
 }
 
 export function normalizeWorkbook(workbook: RawSpreadsheetWorkbook): NormalizedWorkbook {
   const warnings: string[] = [];
 
-  if (!getSheetValues(workbook, "Summary")) {
+  const summarySheet = getWorkbookSheet(workbook, "Summary");
+  const cs2Sheet = getWorkbookSheet(workbook, "CS2_Positions");
+  const telegramSheet = getWorkbookSheet(workbook, "Telegram_Gifts");
+  const cryptoSheet = getWorkbookSheet(workbook, "Crypto");
+  const transactionsSheet = getWorkbookSheet(workbook, "Transactions");
+  const historySheet = getWorkbookSheet(workbook, "Portfolio_History");
+  const settingsSheet = getWorkbookSheet(workbook, "Settings");
+  const auditSheet = getWorkbookSheet(workbook, "Audit_Log");
+
+  if (!summarySheet.values) {
     warnings.push("Не найден лист Summary.");
   }
 
-  if (
-    !getSheetValues(workbook, "CS2_Positions") &&
-    !getSheetValues(workbook, "Telegram_Gifts") &&
-    !getSheetValues(workbook, "Crypto")
-  ) {
+  if (!cs2Sheet.values && !telegramSheet.values && !cryptoSheet.values) {
     warnings.push(
       "Не найдено ни одного поддерживаемого листа активов. Ожидаются: CS2_Positions / CS2 Assets, Telegram_Gifts / Telegram Gifts, Crypto.",
     );
   }
 
+  pushCanonicalColumnWarnings(warnings, "Summary", summarySheet.values, summarySheet.isCanonical);
+  pushCanonicalColumnWarnings(warnings, "CS2_Positions", cs2Sheet.values, cs2Sheet.isCanonical);
+  pushCanonicalColumnWarnings(warnings, "Telegram_Gifts", telegramSheet.values, telegramSheet.isCanonical);
+  pushCanonicalColumnWarnings(warnings, "Crypto", cryptoSheet.values, cryptoSheet.isCanonical);
+  pushCanonicalColumnWarnings(warnings, "Transactions", transactionsSheet.values, transactionsSheet.isCanonical);
+  pushCanonicalColumnWarnings(warnings, "Portfolio_History", historySheet.values, historySheet.isCanonical);
+  pushCanonicalColumnWarnings(warnings, "Settings", settingsSheet.values, settingsSheet.isCanonical);
+  pushCanonicalColumnWarnings(warnings, "Audit_Log", auditSheet.values, auditSheet.isCanonical);
+
   return {
     spreadsheetTitle: workbook.spreadsheetTitle,
     availableSheets: workbook.availableSheets,
     warnings,
-    summaryRows: normalizeSummary(getSheetValues(workbook, "Summary")),
-    cs2Rows: normalizeCs2Rows(getSheetValues(workbook, "CS2_Positions")),
-    telegramRows: normalizeTelegramRows(getSheetValues(workbook, "Telegram_Gifts")),
-    cryptoRows: normalizeCryptoRows(getSheetValues(workbook, "Crypto")),
-    transactionRows: normalizeTransactions(getSheetValues(workbook, "Transactions")),
-    settings: normalizeSettings(getSheetValues(workbook, "Settings")),
+    summaryRows: normalizeSummary(summarySheet.values),
+    cs2Rows: normalizeCs2Rows(cs2Sheet.values),
+    telegramRows: normalizeTelegramRows(telegramSheet.values),
+    cryptoRows: normalizeCryptoRows(cryptoSheet.values),
+    transactionRows: normalizeTransactions(transactionsSheet.values),
+    portfolioHistoryRows: normalizePortfolioHistory(historySheet.values),
+    auditLogRows: normalizeAuditLog(auditSheet.values),
+    settings: normalizeSettings(settingsSheet.values),
   };
 }

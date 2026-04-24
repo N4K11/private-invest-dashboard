@@ -2,16 +2,19 @@
 
 Private Next.js dashboard for tracking CS2 / Steam items, Telegram Gifts and crypto positions from Google Sheets.
 
-## What is implemented in phase 1
+## Current status
+Implemented right now:
 - hidden dashboard route: `/invest-dashboard/[PRIVATE_DASHBOARD_SLUG]`
 - token gate via `DASHBOARD_SECRET_TOKEN`
 - protected private API routes
-- Google Sheets read layer with normalization and demo fallback
-- automatic fallback for Drive-hosted Excel workbooks that cannot be read by Sheets API directly
-- summary cards, allocation charts, category charts
-- full CS2 table with search, filters, sorting and pagination
+- Google Sheets read layer with canonical schema support and legacy workbook compatibility
+- automatic Drive-hosted Excel workbook fallback via `Google Drive API + xlsx`
+- canonical Google Sheets validator for tabs and required columns
+- summary cards, allocation charts and category charts
+- full CS2 table with search, filters, sorting, pagination and mobile cards
 - Telegram Gifts panel with sheet-driven pricing
 - crypto panel with CoinGecko live pricing and sheet fallback
+- CS2 live pricing through Steam Market matching where a reliable match is available
 - simple in-memory cache and rate limiting
 - `robots.txt` and `noindex/nofollow` protection for the private surface
 
@@ -22,12 +25,13 @@ Private Next.js dashboard for tracking CS2 / Steam items, Telegram Gifts and cry
 - Tailwind CSS v4
 - Recharts
 - Google Sheets API (`googleapis`)
-- `xlsx` for Drive workbook fallback
+- Google Drive API fallback for uploaded Excel workbooks
+- `xlsx` for workbook parsing
 
-## Read-only scope in this version
-This release is intentionally read-only.
+## Current scope
+This release is still read-only.
 
-Admin write-back to Google Sheets is not included yet. The codebase is already split into modular providers and a server-side Sheets layer so write access can be added in phase 2 with a service account that has editor permissions.
+Admin write-back to Google Sheets is not included yet. The codebase is already split into modular providers and a server-side Sheets layer, so write access can be added later with a service account that has editor permissions.
 
 ## Project structure
 ```text
@@ -45,6 +49,8 @@ src/
     providers/
     security/
     sheets/
+      schema.json
+      schema.ts
   types/
 docs/
   google-sheets-template.md
@@ -67,7 +73,7 @@ Copy `.env.example` to `.env.local` and fill in:
 - `COINGECKO_API_KEY`: optional, improves quota handling for live crypto pricing
 - `DEFAULT_CURRENCY`: reporting currency, default `USD`
 - `PORTFOLIO_CACHE_TTL_SECONDS`: Google Sheets cache TTL
-- `PRICE_CACHE_TTL_SECONDS`: crypto price cache TTL
+- `PRICE_CACHE_TTL_SECONDS`: live price cache TTL
 - `RATE_LIMIT_WINDOW_SECONDS`: auth/API rate-limit window
 - `RATE_LIMIT_MAX_REQUESTS`: max requests per window
 
@@ -77,7 +83,7 @@ Copy `.env.example` to `.env.local` and fill in:
 3. If the source file was uploaded from Excel and is being edited in Drive, also enable the Google Drive API.
 4. Create a service account.
 5. Download the JSON key, then map its values into env vars.
-6. Share the target spreadsheet or Drive workbook with the service-account email as `Viewer` for phase 1.
+6. Share the target spreadsheet or Drive workbook with the service-account email as `Viewer` for read-only mode.
 7. Put the spreadsheet id or full URL into `GOOGLE_SHEETS_SPREADSHEET_ID`.
 8. Run the validator:
 
@@ -88,9 +94,11 @@ node --env-file=.env.local scripts/validate-google-sheet.mjs
 ## Sheet structure
 See [docs/google-sheets-template.md](docs/google-sheets-template.md).
 
-The normalization layer already tolerates multiple English/Russian aliases, so you can launch read-only mode before doing a perfect migration.
+The project now distinguishes between:
+- canonical schema: the target long-term tab and column structure
+- legacy compatibility: older workbooks that can still be loaded by the current read-only dashboard
 
-If the validator says that the source is a Drive-hosted workbook, the app will download and parse the workbook directly instead of relying on Sheets API value reads.
+If the validator says `Runtime compatibility: OK` but `Canonical structure ready: NO`, the dashboard can still run, but the sheet should eventually be migrated to the canonical layout.
 
 ## Local development
 ```bash
@@ -158,13 +166,14 @@ This project currently uses Node-oriented server modules and `googleapis`, so Ve
 3. Return normalized typed positions and warnings.
 4. Wire the provider into `src/lib/portfolio/build-portfolio.ts`.
 5. Document new env vars in `.env.example` and `README.md`.
+6. If the provider depends on extra sheet columns, update `src/lib/sheets/schema.json`, the normalizer and `scripts/validate-google-sheet.mjs`.
 
-## What still needs to be done for full auto-tracking
-- CS2 live pricing adapter with Steam Market / CSFloat / Pricempire / Buff integration
-- real liquidity signals for CS2 instead of the current heuristic risk scoring
-- Telegram Gifts external price discovery or OTC pricing feed
-- write-back admin mode for editing positions directly from the dashboard
-- transaction history charts and performance-over-time analytics
+## What still needs to be done for full portfolio operations
+- admin write-back mode for editing positions directly from the dashboard
+- transaction-driven PnL and ROI calculations
+- portfolio history snapshots and performance-over-time charts
+- Telegram Gifts pricing workflow with confidence / stale-price tracking
+- broader CS2 market coverage through additional providers beyond the current Steam Market layer
 - durable cache/rate limit storage via Redis or similar for multi-instance production
 
 ## Verification commands

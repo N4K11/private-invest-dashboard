@@ -275,7 +275,7 @@ export async function resolveCs2Positions(rows: NormalizedCs2Row[]) {
       priceSource: item.liveQuote.success
         ? "steam_market_live"
         : item.row.currentPrice !== null
-          ? "manual_sheet"
+          ? item.row.sheetPriceSource ?? "manual_sheet"
           : "entry_price_fallback",
       market: item.liveQuote.success ? "Steam Community Market" : item.row.market,
       notes: item.row.notes,
@@ -304,3 +304,4 @@ export async function resolveCs2Positions(rows: NormalizedCs2Row[]) {
     warnings,
   };
 }
+

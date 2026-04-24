@@ -71,7 +71,7 @@ export async function resolveTelegramGiftPositions(
           ? tonUsdPrice !== null
             ? "ton_sheet_x_coingecko"
             : "ton_sheet_nominal"
-          : "manual_sheet",
+          : row.priceSource ?? "manual_sheet",
     };
   });
 
@@ -94,4 +94,5 @@ export async function resolveTelegramGiftPositions(
     warnings,
   };
 }
+
 

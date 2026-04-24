@@ -1,38 +1,8 @@
 ﻿import { google } from "googleapis";
 import * as XLSX from "xlsx";
+import sheetSchema from "../src/lib/sheets/schema.json" with { type: "json" };
 
-const supportedTabs = {
-  Summary: {
-    aliases: ["Summary"],
-    required: true,
-    supportedHeaders: ["metric", "value"],
-  },
-  CS2_Positions: {
-    aliases: ["CS2_Positions", "CS2 Assets"],
-    required: false,
-    supportedHeaders: ["name", "type/category", "quantity", "current_price optional"],
-  },
-  Telegram_Gifts: {
-    aliases: ["Telegram_Gifts", "Telegram Gifts"],
-    required: false,
-    supportedHeaders: ["name/gift", "quantity", "estimated_price or price_ton", "notes optional"],
-  },
-  Crypto: {
-    aliases: ["Crypto"],
-    required: false,
-    supportedHeaders: ["symbol", "name", "quantity", "average_entry_price", "current_price optional"],
-  },
-  Transactions: {
-    aliases: ["Transactions"],
-    required: false,
-    supportedHeaders: ["date", "category", "asset", "quantity", "price", "notes"],
-  },
-  Settings: {
-    aliases: ["Settings"],
-    required: false,
-    supportedHeaders: ["key", "value"],
-  },
-};
+const runtimeAssetTabs = ["CS2_Positions", "Telegram_Gifts", "Crypto"];
 
 function normalizeSpreadsheetId(value) {
   if (!value) {
@@ -41,6 +11,14 @@ function normalizeSpreadsheetId(value) {
 
   const match = value.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
   return match?.[1] ?? value.trim();
+}
+
+function normalizeHeader(value) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "_")
+    .replace(/^_+|_+$/g, "");
 }
 
 function getCredentials() {
@@ -83,6 +61,29 @@ function toSheetValues(sheet) {
   });
 }
 
+function findMatchedTab(availableTabs, logicalTab) {
+  const config = sheetSchema.tabs[logicalTab];
+  return config.aliases.find((alias) => availableTabs.includes(alias)) ?? null;
+}
+
+function getHeaderKeys(values) {
+  return (values?.[0] ?? [])
+    .map((value) => normalizeHeader(value))
+    .filter(Boolean);
+}
+
+function getMissingRequiredFields(logicalTab, values) {
+  const presentHeaders = new Set(getHeaderKeys(values));
+
+  return sheetSchema.tabs[logicalTab].fields
+    .filter((field) => field.required)
+    .filter(
+      (field) =>
+        !field.aliases.some((alias) => presentHeaders.has(normalizeHeader(alias))),
+    )
+    .map((field) => field.key);
+}
+
 async function main() {
   const spreadsheetId = normalizeSpreadsheetId(
     process.env.GOOGLE_SHEETS_SPREADSHEET_ID,
@@ -113,6 +114,7 @@ async function main() {
   let title = spreadsheetId;
   let availableTabs = [];
   let valuesByTab = {};
+  let sourceMode = "native_sheets";
 
   try {
     const metadata = await sheets.spreadsheets.get({
@@ -129,7 +131,7 @@ async function main() {
     for (const tab of availableTabs) {
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId,
-        range: `${tab}!1:2`,
+        range: `${tab}!1:3`,
       });
 
       valuesByTab[tab] = response.data.values ?? [];
@@ -158,31 +160,70 @@ async function main() {
     title = workbook.Props?.Title ?? metadata.data.name ?? spreadsheetId;
     availableTabs = workbook.SheetNames;
     valuesByTab = Object.fromEntries(
-      workbook.SheetNames.map((tab) => [tab, toSheetValues(workbook.Sheets[tab]).slice(0, 2)]),
+      workbook.SheetNames.map((tab) => [tab, toSheetValues(workbook.Sheets[tab]).slice(0, 3)]),
     );
-
-    console.log("Detected a Drive-hosted workbook. Using download fallback.");
-    console.log("");
+    sourceMode = "drive_workbook_fallback";
   }
 
   console.log(`Spreadsheet: ${title}`);
+  console.log(`Source mode: ${sourceMode}`);
   console.log(`Available tabs: ${availableTabs.join(", ")}`);
   console.log("");
 
-  for (const [logicalTab, config] of Object.entries(supportedTabs)) {
-    const matchedTab = config.aliases.find((alias) => availableTabs.includes(alias));
+  let canonicalMissing = 0;
+  let canonicalColumnGaps = 0;
+
+  for (const logicalTab of Object.keys(sheetSchema.tabs)) {
+    const config = sheetSchema.tabs[logicalTab];
+    const matchedTab = findMatchedTab(availableTabs, logicalTab);
 
     if (!matchedTab) {
-      console.log(`[${config.required ? "missing" : "optional missing"}] ${logicalTab}`);
+      canonicalMissing += 1;
+      console.log(`[missing canonical] ${logicalTab}`);
       console.log(`  accepted sheet names: ${config.aliases.join(", ")}`);
-      console.log(`  supported headers: ${config.supportedHeaders.join(", ")}`);
+      console.log(
+        `  required columns: ${config.fields.filter((field) => field.required).map((field) => field.key).join(", ")}`,
+      );
       continue;
     }
 
-    const currentHeaders = valuesByTab[matchedTab]?.[0] ?? [];
-    console.log(`[ok] ${logicalTab}${matchedTab !== logicalTab ? ` -> ${matchedTab}` : ""}`);
-    console.log(`  current headers: ${currentHeaders.join(", ") || "<empty>"}`);
-    console.log(`  supported headers: ${config.supportedHeaders.join(", ")}`);
+    const values = valuesByTab[matchedTab] ?? [];
+    const headerKeys = getHeaderKeys(values);
+    const missingFields = matchedTab === logicalTab ? getMissingRequiredFields(logicalTab, values) : [];
+
+    if (matchedTab !== logicalTab) {
+      console.log(`[legacy alias] ${logicalTab} -> ${matchedTab}`);
+      console.log(`  current headers: ${headerKeys.join(", ") || "<empty>"}`);
+      console.log(
+        `  canonical columns still recommended: ${config.fields.filter((field) => field.required).map((field) => field.key).join(", ")}`,
+      );
+      continue;
+    }
+
+    if (missingFields.length > 0) {
+      canonicalColumnGaps += 1;
+      console.log(`[needs columns] ${logicalTab}`);
+      console.log(`  current headers: ${headerKeys.join(", ") || "<empty>"}`);
+      console.log(`  missing required columns: ${missingFields.join(", ")}`);
+      continue;
+    }
+
+    console.log(`[ok] ${logicalTab}`);
+    console.log(`  current headers: ${headerKeys.join(", ") || "<empty>"}`);
+  }
+
+  console.log("");
+
+  const hasSummary = Boolean(findMatchedTab(availableTabs, "Summary"));
+  const hasAnyRuntimeAssetSheet = runtimeAssetTabs.some((tab) => findMatchedTab(availableTabs, tab));
+  const runtimeCompatible = hasSummary && hasAnyRuntimeAssetSheet;
+  const canonicalReady = canonicalMissing === 0 && canonicalColumnGaps === 0;
+
+  console.log(`Runtime compatibility: ${runtimeCompatible ? "OK" : "FAIL"}`);
+  console.log(`Canonical structure ready: ${canonicalReady ? "YES" : "NO"}`);
+
+  if (!runtimeCompatible) {
+    process.exitCode = 1;
   }
 }
 

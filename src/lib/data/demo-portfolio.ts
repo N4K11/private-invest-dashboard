@@ -15,7 +15,9 @@ export function createDemoWorkbook(
       "Telegram_Gifts",
       "Crypto",
       "Transactions",
+      "Portfolio_History",
       "Settings",
+      "Audit_Log",
     ],
     warnings:
       options.warnings ?? [
@@ -100,7 +102,7 @@ export function createDemoWorkbook(
         market: "Цена из таблицы",
         manualRiskScore: 84,
         liquidityLabel: "Низкая",
-      },
+      }
     ],
     telegramRows: [
       {
@@ -126,7 +128,7 @@ export function createDemoWorkbook(
         estimatedPrice: 1280,
         estimatedPriceQuoteSymbol: null,
         notes: "Очень тонкий рынок",
-      },
+      }
     ],
     cryptoRows: [
       {
@@ -146,9 +148,11 @@ export function createDemoWorkbook(
         averageEntryPrice: 2.72,
         currentPrice: null,
         notes: "Экспозиция на экосистему Telegram",
-      },
+      }
     ],
     transactionRows: [],
+    portfolioHistoryRows: [],
+    auditLogRows: [],
     settings: {
       currency: "USD",
       owner_label: "Приватный портфель",

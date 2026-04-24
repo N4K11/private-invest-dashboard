@@ -1,57 +1,154 @@
 ﻿# Google Sheets template
 
-The dashboard is optimized for these tabs:
+The dashboard now supports two modes at the same time:
 
-## Required tabs
+1. Canonical structure: the long-term schema the project expects going forward.
+2. Legacy compatibility: older workbooks such as `CS2 Assets` / `Telegram Gifts` still load in read-only mode.
+
+If you are building or migrating the spreadsheet now, use the canonical structure below.
+
+## Canonical tabs
 - `Summary`
 - `CS2_Positions`
 - `Telegram_Gifts`
 - `Crypto`
 - `Transactions`
+- `Portfolio_History`
 - `Settings`
+- `Audit_Log`
 
-## Recommended columns
+## Required columns
+
+### `Summary`
+- `metric`
+- `value`
 
 ### `CS2_Positions`
-- `name`
-- `type`
+- `id`
+- `assetType`
+- `assetName`
+- `category`
 - `quantity`
-- `average_entry_price`
-- `current_price`
+- `entryPrice`
+- `manualCurrentPrice`
+- `currentPrice`
+- `priceSource`
+- `currency`
+- `status`
 - `notes`
+- `lastUpdated`
+
+Optional but supported:
+- `wear`
+- `rarity`
+- `riskScore`
+- `liquidityLabel`
 - `market`
-- `risk_score`
-- `liquidity`
 
 ### `Telegram_Gifts`
-- `name`
+- `id`
+- `giftName`
+- `collection`
 - `quantity`
-- `estimated_price`
+- `entryPrice`
+- `manualCurrentPrice`
+- `currentPrice`
+- `priceConfidence`
+- `liquidityNote`
+- `status`
 - `notes`
+- `lastUpdated`
+
+Optional but supported:
+- `price_ton`
+- `total_ton`
 
 ### `Crypto`
+- `id`
 - `symbol`
 - `name`
 - `quantity`
-- `average_entry_price`
-- `current_price`
+- `entryPrice`
+- `currentPrice`
+- `priceSource`
+- `walletNote`
+- `status`
 - `notes`
+- `lastUpdated`
+
+Optional but supported:
+- `currency`
 
 ### `Transactions`
+- `id`
 - `date`
-- `category`
-- `asset`
+- `assetType`
+- `assetName`
+- `action`
 - `quantity`
 - `price`
+- `fees`
+- `currency`
+- `notes`
+
+Recommended `action` values:
+- `buy`
+- `sell`
+- `transfer`
+- `price_update`
+- `fee`
+
+### `Portfolio_History`
+- `date`
+- `totalValue`
+- `cs2Value`
+- `telegramValue`
+- `cryptoValue`
+- `totalPnl`
 - `notes`
 
 ### `Settings`
 - `key`
 - `value`
 
+Recommended keys:
+- `currency`
+- `owner_label`
+
+### `Audit_Log`
+- `date`
+- `userAction`
+- `entityType`
+- `entityId`
+- `before`
+- `after`
+- `notes`
+
+## Legacy compatibility
+The read-only dashboard still accepts these older layouts:
+- `CS2 Assets` as an alias for `CS2_Positions`
+- `Telegram Gifts` as an alias for `Telegram_Gifts`
+- legacy price fields like `average_entry_price`, `current_price`, `estimated_price`, `price_ton`
+- legacy naming columns like `name`, `gift`, `item_name`, `ticker`
+
+This keeps the current workbook working while you migrate to the canonical schema.
+
+## Validation workflow
+Run:
+
+```bash
+node --env-file=.env.local scripts/validate-google-sheet.mjs
+```
+
+The validator reports two independent states:
+- `Runtime compatibility`: whether the current read-only dashboard can load the workbook.
+- `Canonical structure ready`: whether the workbook already matches the target schema exactly.
+
+A legacy workbook can be runtime-compatible even if canonical migration is still incomplete.
+
 ## Notes
-- The normalization layer already accepts several aliases in English and Russian, so you do not need a perfect migration before the first read-only launch.
-- `current_price` for `CS2_Positions` and `estimated_price` for `Telegram_Gifts` are currently manual fields from Google Sheets.
-- `Crypto.current_price` is optional because live pricing comes from CoinGecko when a mapped symbol exists.
-- Use `Settings.currency=USD` unless you intentionally want another reporting currency.
-- Add new price-provider-specific columns only after updating the provider module in `src/lib/providers`.
+- `currentPrice` is the preferred resolved current price from the sheet.
+- `manualCurrentPrice` is the manual fallback maintained by the operator.
+- Live providers such as CoinGecko or Steam Market may override sheet values at runtime, but the sheet still acts as the fallback layer.
+- Use `Settings.currency=USD` unless you explicitly want another reporting currency.
+- When you add new provider-specific columns, update both the normalizer and `scripts/validate-google-sheet.mjs`.

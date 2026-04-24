@@ -104,7 +104,7 @@ export async function resolveCryptoPositions(rows: NormalizedCryptoRow[]) {
       priceSource: quote?.isLive
         ? quote.source
         : row.currentPrice !== null
-          ? "manual_sheet"
+          ? row.priceSource ?? "manual_sheet"
           : "entry_price_fallback",
       isLivePrice: quote?.isLive ?? false,
     };
