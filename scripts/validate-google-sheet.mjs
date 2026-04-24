@@ -1,27 +1,37 @@
 ﻿import { google } from "googleapis";
 import * as XLSX from "xlsx";
 
-const requiredTabs = {
-  Summary: ["metric", "value"],
-  CS2_Positions: [
-    "name",
-    "type",
-    "quantity",
-    "average_entry_price",
-    "current_price",
-    "notes",
-  ],
-  Telegram_Gifts: ["name", "quantity", "estimated_price", "notes"],
-  Crypto: [
-    "symbol",
-    "name",
-    "quantity",
-    "average_entry_price",
-    "current_price",
-    "notes",
-  ],
-  Transactions: ["date", "category", "asset", "quantity", "price", "notes"],
-  Settings: ["key", "value"],
+const supportedTabs = {
+  Summary: {
+    aliases: ["Summary"],
+    required: true,
+    supportedHeaders: ["metric", "value"],
+  },
+  CS2_Positions: {
+    aliases: ["CS2_Positions", "CS2 Assets"],
+    required: false,
+    supportedHeaders: ["name", "type/category", "quantity", "current_price optional"],
+  },
+  Telegram_Gifts: {
+    aliases: ["Telegram_Gifts", "Telegram Gifts"],
+    required: false,
+    supportedHeaders: ["name/gift", "quantity", "estimated_price or price_ton", "notes optional"],
+  },
+  Crypto: {
+    aliases: ["Crypto"],
+    required: false,
+    supportedHeaders: ["symbol", "name", "quantity", "average_entry_price", "current_price optional"],
+  },
+  Transactions: {
+    aliases: ["Transactions"],
+    required: false,
+    supportedHeaders: ["date", "category", "asset", "quantity", "price", "notes"],
+  },
+  Settings: {
+    aliases: ["Settings"],
+    required: false,
+    supportedHeaders: ["key", "value"],
+  },
 };
 
 function normalizeSpreadsheetId(value) {
@@ -159,18 +169,20 @@ async function main() {
   console.log(`Available tabs: ${availableTabs.join(", ")}`);
   console.log("");
 
-  for (const [tab, headers] of Object.entries(requiredTabs)) {
-    const exists = availableTabs.includes(tab);
-    if (!exists) {
-      console.log(`[missing] ${tab}`);
-      console.log(`  expected headers: ${headers.join(", ")}`);
+  for (const [logicalTab, config] of Object.entries(supportedTabs)) {
+    const matchedTab = config.aliases.find((alias) => availableTabs.includes(alias));
+
+    if (!matchedTab) {
+      console.log(`[${config.required ? "missing" : "optional missing"}] ${logicalTab}`);
+      console.log(`  accepted sheet names: ${config.aliases.join(", ")}`);
+      console.log(`  supported headers: ${config.supportedHeaders.join(", ")}`);
       continue;
     }
 
-    const currentHeaders = valuesByTab[tab]?.[0] ?? [];
-    console.log(`[ok] ${tab}`);
+    const currentHeaders = valuesByTab[matchedTab]?.[0] ?? [];
+    console.log(`[ok] ${logicalTab}${matchedTab !== logicalTab ? ` -> ${matchedTab}` : ""}`);
     console.log(`  current headers: ${currentHeaders.join(", ") || "<empty>"}`);
-    console.log(`  expected headers: ${headers.join(", ")}`);
+    console.log(`  supported headers: ${config.supportedHeaders.join(", ")}`);
   }
 }
 

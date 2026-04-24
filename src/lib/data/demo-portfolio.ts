@@ -102,6 +102,7 @@ export function createDemoWorkbook(
         name: "TON Founder Chest",
         quantity: 6,
         estimatedPrice: 820,
+        estimatedPriceQuoteSymbol: null,
         notes: "Manual OTC reference",
       },
       {
@@ -109,6 +110,7 @@ export function createDemoWorkbook(
         name: "Premium Badge Gift",
         quantity: 22,
         estimatedPrice: 145,
+        estimatedPriceQuoteSymbol: null,
         notes: "Updated manually from marketplace chat",
       },
       {
@@ -116,6 +118,7 @@ export function createDemoWorkbook(
         name: "Limited Access Pass",
         quantity: 3,
         estimatedPrice: 1280,
+        estimatedPriceQuoteSymbol: null,
         notes: "Very thin market",
       },
     ],

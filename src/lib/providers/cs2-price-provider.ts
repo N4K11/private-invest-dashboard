@@ -89,7 +89,7 @@ export async function resolveCs2Positions(rows: NormalizedCs2Row[]) {
     positions,
     warnings: positions.some((position) => position.isPriceEstimated)
       ? [
-          "Some CS2 positions are using entry-price fallback because current market prices are not set in Google Sheets yet.",
+          "Some CS2 positions are missing current market prices in the workbook. Until a CS2 price feed or sheet prices are added, those rows fall back to entry price or zero value.",
         ]
       : [],
   };
