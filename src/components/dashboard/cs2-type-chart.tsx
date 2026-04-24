@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import {
   Bar,
   BarChart,
@@ -19,12 +19,10 @@ type Cs2TypeChartProps = {
   currency: string;
 };
 
-export function Cs2TypeChart({ data, currency }: Cs2TypeChartProps) {
-  const [isMounted, setIsMounted] = useState(false);
+const subscribe = () => () => undefined;
 
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
+export function Cs2TypeChart({ data, currency }: Cs2TypeChartProps) {
+  const isMounted = useSyncExternalStore(subscribe, () => true, () => false);
 
   if (!isMounted) {
     return <div className="h-[320px] w-full rounded-2xl bg-white/5" />;

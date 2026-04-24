@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import {
   Cell,
   Pie,
@@ -17,12 +17,10 @@ type AllocationChartProps = {
   currency: string;
 };
 
-export function AllocationChart({ data, currency }: AllocationChartProps) {
-  const [isMounted, setIsMounted] = useState(false);
+const subscribe = () => () => undefined;
 
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
+export function AllocationChart({ data, currency }: AllocationChartProps) {
+  const isMounted = useSyncExternalStore(subscribe, () => true, () => false);
 
   if (!isMounted) {
     return <div className="h-[320px] w-full rounded-2xl bg-white/5" />;

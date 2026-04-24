@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import {
   Bar,
   BarChart,
@@ -19,15 +19,13 @@ type CategoryPerformanceChartProps = {
   currency: string;
 };
 
+const subscribe = () => () => undefined;
+
 export function CategoryPerformanceChart({
   data,
   currency,
 }: CategoryPerformanceChartProps) {
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
+  const isMounted = useSyncExternalStore(subscribe, () => true, () => false);
 
   if (!isMounted) {
     return <div className="h-[320px] w-full rounded-2xl bg-white/5" />;

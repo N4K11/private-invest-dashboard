@@ -1,4 +1,5 @@
 ﻿import { google } from "googleapis";
+import * as XLSX from "xlsx";
 
 const requiredTabs = {
   Summary: ["metric", "value"],
@@ -47,6 +48,31 @@ function getCredentials() {
   };
 }
 
+function getErrorMessage(error) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return String(error);
+}
+
+function isUnsupportedSheetDocumentError(error) {
+  return /not supported for this document/i.test(getErrorMessage(error));
+}
+
+function toSheetValues(sheet) {
+  if (!sheet) {
+    return [];
+  }
+
+  return XLSX.utils.sheet_to_json(sheet, {
+    header: 1,
+    raw: true,
+    defval: null,
+    blankrows: false,
+  });
+}
+
 async function main() {
   const spreadsheetId = normalizeSpreadsheetId(
     process.env.GOOGLE_SHEETS_SPREADSHEET_ID,
@@ -66,20 +92,68 @@ async function main() {
   const auth = new google.auth.JWT({
     email: credentials.email,
     key: credentials.key,
-    scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+    scopes: [
+      "https://www.googleapis.com/auth/spreadsheets.readonly",
+      "https://www.googleapis.com/auth/drive.readonly",
+    ],
   });
 
   const sheets = google.sheets({ version: "v4", auth });
-  const metadata = await sheets.spreadsheets.get({
-    spreadsheetId,
-    fields: "properties.title,sheets.properties.title",
-  });
 
-  const title = metadata.data.properties?.title ?? spreadsheetId;
-  const availableTabs =
-    metadata.data.sheets
-      ?.map((sheet) => sheet.properties?.title)
-      .filter(Boolean) ?? [];
+  let title = spreadsheetId;
+  let availableTabs = [];
+  let valuesByTab = {};
+
+  try {
+    const metadata = await sheets.spreadsheets.get({
+      spreadsheetId,
+      fields: "properties.title,sheets.properties.title",
+    });
+
+    title = metadata.data.properties?.title ?? spreadsheetId;
+    availableTabs =
+      metadata.data.sheets
+        ?.map((sheet) => sheet.properties?.title)
+        .filter(Boolean) ?? [];
+
+    for (const tab of availableTabs) {
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: `${tab}!1:2`,
+      });
+
+      valuesByTab[tab] = response.data.values ?? [];
+    }
+  } catch (error) {
+    if (!isUnsupportedSheetDocumentError(error)) {
+      throw error;
+    }
+
+    const drive = google.drive({ version: "v3", auth });
+    const metadata = await drive.files.get({
+      fileId: spreadsheetId,
+      fields: "id,name,mimeType",
+    });
+    const fileResponse = await drive.files.get(
+      {
+        fileId: spreadsheetId,
+        alt: "media",
+      },
+      {
+        responseType: "arraybuffer",
+      },
+    );
+    const workbook = XLSX.read(Buffer.from(fileResponse.data), { type: "buffer" });
+
+    title = workbook.Props?.Title ?? metadata.data.name ?? spreadsheetId;
+    availableTabs = workbook.SheetNames;
+    valuesByTab = Object.fromEntries(
+      workbook.SheetNames.map((tab) => [tab, toSheetValues(workbook.Sheets[tab]).slice(0, 2)]),
+    );
+
+    console.log("Detected a Drive-hosted workbook. Using download fallback.");
+    console.log("");
+  }
 
   console.log(`Spreadsheet: ${title}`);
   console.log(`Available tabs: ${availableTabs.join(", ")}`);
@@ -93,12 +167,7 @@ async function main() {
       continue;
     }
 
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range: `${tab}!1:2`,
-    });
-
-    const currentHeaders = response.data.values?.[0] ?? [];
+    const currentHeaders = valuesByTab[tab]?.[0] ?? [];
     console.log(`[ok] ${tab}`);
     console.log(`  current headers: ${currentHeaders.join(", ") || "<empty>"}`);
     console.log(`  expected headers: ${headers.join(", ")}`);

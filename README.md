@@ -7,6 +7,7 @@ Private Next.js dashboard for tracking CS2 / Steam items, Telegram Gifts and cry
 - token gate via `DASHBOARD_SECRET_TOKEN`
 - protected private API routes
 - Google Sheets read layer with normalization and demo fallback
+- automatic fallback for Drive-hosted Excel workbooks that cannot be read by Sheets API directly
 - summary cards, allocation charts, category charts
 - full CS2 table with search, filters, sorting and pagination
 - Telegram Gifts panel with sheet-driven pricing
@@ -21,6 +22,7 @@ Private Next.js dashboard for tracking CS2 / Steam items, Telegram Gifts and cry
 - Tailwind CSS v4
 - Recharts
 - Google Sheets API (`googleapis`)
+- `xlsx` for Drive workbook fallback
 
 ## Read-only scope in this version
 This release is intentionally read-only.
@@ -72,11 +74,12 @@ Copy `.env.example` to `.env.local` and fill in:
 ## Google Sheets setup
 1. Create or reuse a Google Cloud project.
 2. Enable the Google Sheets API.
-3. Create a service account.
-4. Download the JSON key, then map its values into env vars.
-5. Share the target spreadsheet with the service-account email as `Viewer` for phase 1.
-6. Put the spreadsheet id or full URL into `GOOGLE_SHEETS_SPREADSHEET_ID`.
-7. Run the validator:
+3. If the source file was uploaded from Excel and is being edited in Drive, also enable the Google Drive API.
+4. Create a service account.
+5. Download the JSON key, then map its values into env vars.
+6. Share the target spreadsheet or Drive workbook with the service-account email as `Viewer` for phase 1.
+7. Put the spreadsheet id or full URL into `GOOGLE_SHEETS_SPREADSHEET_ID`.
+8. Run the validator:
 
 ```bash
 node --env-file=.env.local scripts/validate-google-sheet.mjs
@@ -86,6 +89,8 @@ node --env-file=.env.local scripts/validate-google-sheet.mjs
 See [docs/google-sheets-template.md](docs/google-sheets-template.md).
 
 The normalization layer already tolerates multiple English/Russian aliases, so you can launch read-only mode before doing a perfect migration.
+
+If the validator says that the source is a Drive-hosted workbook, the app will download and parse the workbook directly instead of relying on Sheets API value reads.
 
 ## Local development
 ```bash
