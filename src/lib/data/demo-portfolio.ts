@@ -1,6 +1,12 @@
 ﻿import type { NormalizedWorkbook } from "@/lib/sheets/normalizers";
 
-export function createDemoWorkbook(): NormalizedWorkbook {
+type CreateDemoWorkbookOptions = {
+  warnings?: string[];
+};
+
+export function createDemoWorkbook(
+  options: CreateDemoWorkbookOptions = {},
+): NormalizedWorkbook {
   return {
     spreadsheetTitle: "Demo Portfolio",
     availableSheets: [
@@ -11,9 +17,10 @@ export function createDemoWorkbook(): NormalizedWorkbook {
       "Transactions",
       "Settings",
     ],
-    warnings: [
-      "Google Sheets is not configured yet. The dashboard is showing demo data until service-account access is enabled.",
-    ],
+    warnings:
+      options.warnings ?? [
+        "Google Sheets is not configured yet. The dashboard is showing demo data until service-account access is enabled.",
+      ],
     summaryRows: [],
     cs2Rows: [
       {

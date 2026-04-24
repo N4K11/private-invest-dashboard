@@ -47,15 +47,12 @@ export async function getPortfolioSource(): Promise<PortfolioSource> {
         lastUpdatedAt: new Date().toISOString(),
       };
     } catch (error) {
-      const workbook = createDemoWorkbook();
+      const workbook = createDemoWorkbook({ warnings: [] });
       return {
         workbook,
         sourceMode: "fallback" as const,
         sourceLabel: "Fallback demo dataset",
-        warnings: [
-          `Google Sheets read failed: ${getErrorMessage(error)}`,
-          ...workbook.warnings,
-        ],
+        warnings: [`Google Sheets read failed: ${getErrorMessage(error)}`],
         lastUpdatedAt: new Date().toISOString(),
       };
     }
