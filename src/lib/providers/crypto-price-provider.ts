@@ -83,11 +83,7 @@ export async function resolveCryptoPositions(rows: NormalizedCryptoRow[]) {
   const positions: CryptoPosition[] = rows.map((row) => {
     const quote = quotes[row.symbol];
     const currentPrice = quote?.price ?? row.currentPrice ?? row.averageEntryPrice ?? null;
-    const metrics = computeMoneyMetrics(
-      row.quantity,
-      row.averageEntryPrice,
-      currentPrice,
-    );
+    const metrics = computeMoneyMetrics(row.quantity, row.averageEntryPrice, currentPrice);
 
     return {
       id: row.id,
@@ -95,11 +91,15 @@ export async function resolveCryptoPositions(rows: NormalizedCryptoRow[]) {
       name: row.name,
       quantity: row.quantity,
       averageEntryPrice: row.averageEntryPrice,
+      manualCurrentPrice: row.currentPrice,
       currentPrice,
       totalValue: metrics.totalValue,
       totalCost: metrics.totalCost,
       pnl: metrics.pnl,
       pnlPercent: metrics.pnlPercent,
+      walletNote: row.walletNote ?? null,
+      status: row.status ?? null,
+      lastUpdated: row.lastUpdated ?? null,
       notes: row.notes,
       priceSource: quote?.isLive
         ? quote.source
@@ -107,6 +107,7 @@ export async function resolveCryptoPositions(rows: NormalizedCryptoRow[]) {
           ? row.priceSource ?? "manual_sheet"
           : "entry_price_fallback",
       isLivePrice: quote?.isLive ?? false,
+      rowRef: row.sheetRef,
     };
   });
 

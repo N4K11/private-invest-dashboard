@@ -10,6 +10,21 @@ const GOOGLE_READONLY_SCOPES = [
   "https://www.googleapis.com/auth/drive.readonly",
 ];
 
+const GOOGLE_WRITE_SCOPES = [
+  "https://www.googleapis.com/auth/spreadsheets",
+  "https://www.googleapis.com/auth/drive",
+];
+
+export type SpreadsheetDocumentMode = "native_sheet" | "drive_workbook";
+
+export interface SpreadsheetDocument {
+  fileId: string;
+  mode: SpreadsheetDocumentMode;
+  workbook: RawSpreadsheetWorkbook;
+  fileName?: string;
+  mimeType?: string;
+}
+
 function getGoogleCredentials() {
   const env = getEnv();
 
@@ -31,13 +46,13 @@ function getGoogleCredentials() {
   };
 }
 
-function createGoogleAuth() {
+export function createGoogleAuth(options?: { writeAccess?: boolean }) {
   const credentials = getGoogleCredentials();
 
   return new google.auth.JWT({
     email: credentials.email,
     key: credentials.key,
-    scopes: [...GOOGLE_READONLY_SCOPES],
+    scopes: options?.writeAccess ? [...GOOGLE_WRITE_SCOPES] : [...GOOGLE_READONLY_SCOPES],
   });
 }
 
@@ -66,10 +81,10 @@ function getWorkbookSheetValues(sheet?: XLSX.WorkSheet) {
   }) as SheetCellValue[][];
 }
 
-async function fetchNativeSpreadsheetWorkbook(
+async function fetchNativeSpreadsheetDocument(
   spreadsheetId: string,
   auth: InstanceType<typeof google.auth.JWT>,
-): Promise<RawSpreadsheetWorkbook> {
+): Promise<SpreadsheetDocument> {
   const sheets = google.sheets({ version: "v4", auth });
 
   const metadataResponse = await sheets.spreadsheets.get({
@@ -82,7 +97,7 @@ async function fetchNativeSpreadsheetWorkbook(
       ?.map((sheet) => sheet.properties?.title)
       .filter((title): title is string => Boolean(title)) ?? [];
 
-  const ranges = availableSheets.map((sheetName) => `${sheetName}!A:Z`);
+  const ranges = availableSheets.map((sheetName) => `${sheetName}!A:ZZ`);
 
   const valuesResponse = ranges.length
     ? await sheets.spreadsheets.values.batchGet({
@@ -101,16 +116,22 @@ async function fetchNativeSpreadsheetWorkbook(
   }, {});
 
   return {
-    spreadsheetTitle: metadataResponse.data.properties?.title ?? undefined,
-    availableSheets,
-    sheets: workbookSheets,
+    fileId: spreadsheetId,
+    mode: "native_sheet",
+    fileName: metadataResponse.data.properties?.title ?? undefined,
+    mimeType: "application/vnd.google-apps.spreadsheet",
+    workbook: {
+      spreadsheetTitle: metadataResponse.data.properties?.title ?? undefined,
+      availableSheets,
+      sheets: workbookSheets,
+    },
   };
 }
 
-async function fetchDriveWorkbook(
+async function fetchDriveSpreadsheetDocument(
   fileId: string,
   auth: InstanceType<typeof google.auth.JWT>,
-): Promise<RawSpreadsheetWorkbook> {
+): Promise<SpreadsheetDocument> {
   const drive = google.drive({ version: "v3", auth });
 
   const metadataResponse = await drive.files.get({
@@ -142,17 +163,22 @@ async function fetchDriveWorkbook(
   );
 
   return {
-    spreadsheetTitle:
-      workbook.Props?.Title ??
-      metadataResponse.data.name ??
-      metadataResponse.data.id ??
-      undefined,
-    availableSheets,
-    sheets: workbookSheets,
+    fileId,
+    mode: "drive_workbook",
+    fileName: metadataResponse.data.name ?? metadataResponse.data.id ?? undefined,
+    mimeType:
+      metadataResponse.data.mimeType ??
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    workbook: {
+      spreadsheetTitle:
+        workbook.Props?.Title ?? metadataResponse.data.name ?? metadataResponse.data.id ?? undefined,
+      availableSheets,
+      sheets: workbookSheets,
+    },
   };
 }
 
-export async function fetchSpreadsheetWorkbook(): Promise<RawSpreadsheetWorkbook> {
+export async function fetchSpreadsheetDocument(options?: { writeAccess?: boolean }) {
   const env = getEnv();
   const spreadsheetId = env.GOOGLE_SHEETS_SPREADSHEET_ID;
 
@@ -160,17 +186,17 @@ export async function fetchSpreadsheetWorkbook(): Promise<RawSpreadsheetWorkbook
     throw new Error("Missing GOOGLE_SHEETS_SPREADSHEET_ID");
   }
 
-  const auth = createGoogleAuth();
+  const auth = createGoogleAuth({ writeAccess: options?.writeAccess });
 
   try {
-    return await fetchNativeSpreadsheetWorkbook(spreadsheetId, auth);
+    return await fetchNativeSpreadsheetDocument(spreadsheetId, auth);
   } catch (error) {
     if (!isUnsupportedSheetDocumentError(error)) {
       throw error;
     }
 
     try {
-      return await fetchDriveWorkbook(spreadsheetId, auth);
+      return await fetchDriveSpreadsheetDocument(spreadsheetId, auth);
     } catch (driveError) {
       throw new Error(
         `Google Sheets API не может прочитать этот документ напрямую. Drive fallback завершился ошибкой: ${getErrorMessage(driveError)}. Если файл был загружен из Excel, включи Google Drive API и выдай доступ service account.`,
@@ -179,3 +205,7 @@ export async function fetchSpreadsheetWorkbook(): Promise<RawSpreadsheetWorkbook
   }
 }
 
+export async function fetchSpreadsheetWorkbook(): Promise<RawSpreadsheetWorkbook> {
+  const document = await fetchSpreadsheetDocument();
+  return document.workbook;
+}

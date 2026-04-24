@@ -39,9 +39,7 @@ async function fetchTonUsdPrice() {
   });
 }
 
-export async function resolveTelegramGiftPositions(
-  rows: NormalizedTelegramGiftRow[],
-) {
+export async function resolveTelegramGiftPositions(rows: NormalizedTelegramGiftRow[]) {
   const requiresTonQuote = rows.some(
     (row) => row.estimatedPrice !== null && row.estimatedPriceQuoteSymbol === "TON",
   );
@@ -58,9 +56,17 @@ export async function resolveTelegramGiftPositions(
     return {
       id: row.id,
       name: row.name,
+      collection: row.collection ?? null,
       quantity: row.quantity,
+      entryPrice: row.entryPrice ?? null,
+      manualCurrentPrice: row.manualCurrentPrice ?? null,
+      currentPrice: row.currentPrice ?? null,
       estimatedPrice,
       totalValue: row.quantity * (estimatedPrice ?? 0),
+      priceConfidence: row.priceConfidence ?? null,
+      liquidityNote: row.liquidityNote ?? null,
+      status: row.status ?? null,
+      lastUpdated: row.lastUpdated ?? null,
       notes:
         row.notes ??
         (row.estimatedPriceQuoteSymbol === "TON" && tonUsdPrice !== null
@@ -72,6 +78,7 @@ export async function resolveTelegramGiftPositions(
             ? "ton_sheet_x_coingecko"
             : "ton_sheet_nominal"
           : row.priceSource ?? "manual_sheet",
+      rowRef: row.sheetRef,
     };
   });
 
@@ -94,5 +101,3 @@ export async function resolveTelegramGiftPositions(
     warnings,
   };
 }
-
-

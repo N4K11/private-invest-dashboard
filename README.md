@@ -6,7 +6,7 @@ Private Next.js dashboard for tracking CS2 / Steam items, Telegram Gifts and cry
 Implemented right now:
 - hidden dashboard route: `/invest-dashboard/[PRIVATE_DASHBOARD_SLUG]`
 - token gate via `DASHBOARD_SECRET_TOKEN`
-- protected private API routes
+- protected private API routes for auth, portfolio data and admin write-back
 - Google Sheets read layer with canonical schema support and legacy workbook compatibility
 - automatic Drive-hosted Excel workbook fallback via `Google Drive API + xlsx`
 - canonical Google Sheets validator for tabs and required columns
@@ -15,6 +15,9 @@ Implemented right now:
 - Telegram Gifts panel with sheet-driven pricing
 - crypto panel with CoinGecko live pricing and sheet fallback
 - CS2 live pricing through Steam Market matching where a reliable match is available
+- protected admin mode with add/edit actions directly from the dashboard
+- write-back to native Google Sheets and Drive-hosted Excel workbooks
+- Audit_Log append on every admin create/update action
 - simple in-memory cache and rate limiting
 - `robots.txt` and `noindex/nofollow` protection for the private surface
 
@@ -26,12 +29,13 @@ Implemented right now:
 - Recharts
 - Google Sheets API (`googleapis`)
 - Google Drive API fallback for uploaded Excel workbooks
-- `xlsx` for workbook parsing
+- `xlsx` for workbook parsing and write-back
+- `zod` for env and admin payload validation
 
 ## Current scope
-This release is still read-only.
+This release is now read/write-capable if the Google service account has `Editor` access to the spreadsheet or Drive workbook.
 
-Admin write-back to Google Sheets is not included yet. The codebase is already split into modular providers and a server-side Sheets layer, so write access can be added later with a service account that has editor permissions.
+If the service account only has `Viewer`, the dashboard stays fully usable in read-only mode, but admin mode shows a clear write-permission error and does not save changes.
 
 ## Project structure
 ```text
@@ -39,9 +43,13 @@ src/
   app/
     api/private/auth
     api/private/portfolio
+    api/private/admin/meta
+    api/private/admin/positions
     invest-dashboard/[dashboardSlug]
   components/dashboard/
+    position-editor-drawer.tsx
   lib/
+    admin/
     auth/
     cache/
     data/
@@ -49,8 +57,10 @@ src/
     providers/
     security/
     sheets/
+      client.ts
       schema.json
       schema.ts
+      writeback.ts
   types/
 docs/
   google-sheets-template.md
@@ -77,15 +87,19 @@ Copy `.env.example` to `.env.local` and fill in:
 - `RATE_LIMIT_WINDOW_SECONDS`: auth/API rate-limit window
 - `RATE_LIMIT_MAX_REQUESTS`: max requests per window
 
+No new env vars are required specifically for admin mode. The only operational requirement is `Editor` access for the service account.
+
 ## Google Sheets setup
 1. Create or reuse a Google Cloud project.
 2. Enable the Google Sheets API.
 3. If the source file was uploaded from Excel and is being edited in Drive, also enable the Google Drive API.
 4. Create a service account.
 5. Download the JSON key, then map its values into env vars.
-6. Share the target spreadsheet or Drive workbook with the service-account email as `Viewer` for read-only mode.
-7. Put the spreadsheet id or full URL into `GOOGLE_SHEETS_SPREADSHEET_ID`.
-8. Run the validator:
+6. Share the target spreadsheet or Drive workbook with the service-account email.
+7. Use `Viewer` if you want strict read-only mode.
+8. Use `Editor` if you want dashboard admin mode and write-back.
+9. Put the spreadsheet id or full URL into `GOOGLE_SHEETS_SPREADSHEET_ID`.
+10. Run the validator:
 
 ```bash
 node --env-file=.env.local scripts/validate-google-sheet.mjs
@@ -96,9 +110,30 @@ See [docs/google-sheets-template.md](docs/google-sheets-template.md).
 
 The project now distinguishes between:
 - canonical schema: the target long-term tab and column structure
-- legacy compatibility: older workbooks that can still be loaded by the current read-only dashboard
+- legacy compatibility: older workbooks that can still be loaded today
 
-If the validator says `Runtime compatibility: OK` but `Canonical structure ready: NO`, the dashboard can still run, but the sheet should eventually be migrated to the canonical layout.
+If the validator says `Runtime compatibility: OK` but `Canonical structure ready: NO`, the dashboard can still run. Admin mode also works with many legacy layouts because the write layer can append missing canonical columns into the target sheet when saving.
+
+## Admin mode
+Admin mode is available only after the standard dashboard token gate.
+
+Current capabilities:
+- edit quantity
+- edit entry price
+- edit manual current price / sheet fallback price
+- edit status
+- edit notes
+- edit `priceConfidence` and `liquidityNote` for Telegram Gifts
+- add new CS2 / Telegram / Crypto positions
+- append every mutation to `Audit_Log`
+- support both canonical sheets and legacy alias tabs such as `CS2 Assets` / `Telegram Gifts`
+
+Current safety behavior:
+- all admin routes require the same token/session as portfolio API
+- all admin payloads are validated on the server
+- rate limiting is applied to admin routes too
+- positions are not physically deleted by the UI
+- use `archived` or `dead` to retire a position without removing history
 
 ## Local development
 ```bash
@@ -156,9 +191,11 @@ This project currently uses Node-oriented server modules and `googleapis`, so Ve
 - all secrets stay in env vars only
 - dashboard data is never rendered without a valid token/session
 - private API routes require the same access token/session
+- admin API routes require the same access token/session
 - the private route is marked `noindex, nofollow`
 - `robots.txt` disallows the private dashboard prefix
-- simple in-memory rate limiting is enabled for auth and data routes
+- simple in-memory rate limiting is enabled for auth, data and admin routes
+- secrets are not printed into logs or client bundles
 
 ## Add new price providers
 1. Create a provider in `src/lib/providers`.
@@ -169,12 +206,13 @@ This project currently uses Node-oriented server modules and `googleapis`, so Ve
 6. If the provider depends on extra sheet columns, update `src/lib/sheets/schema.json`, the normalizer and `scripts/validate-google-sheet.mjs`.
 
 ## What still needs to be done for full portfolio operations
-- admin write-back mode for editing positions directly from the dashboard
 - transaction-driven PnL and ROI calculations
 - portfolio history snapshots and performance-over-time charts
-- Telegram Gifts pricing workflow with confidence / stale-price tracking
+- explicit delete flow with hard confirmation if physical row removal is ever needed
+- Telegram Gifts pricing workflow with stronger confidence / stale-price tracking
 - broader CS2 market coverage through additional providers beyond the current Steam Market layer
 - durable cache/rate limit storage via Redis or similar for multi-instance production
+- optional admin actions for editing transactions and settings
 
 ## Verification commands
 ```bash

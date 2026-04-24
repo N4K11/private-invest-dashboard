@@ -41,6 +41,20 @@ export const CS2_TYPE_OPTIONS: {
   { label: "Другое", value: "other" },
 ];
 
+export const ADMIN_STATUS_OPTIONS = [
+  { label: "Hold", value: "hold" },
+  { label: "Sell", value: "sell" },
+  { label: "Watch", value: "watch" },
+  { label: "Archived", value: "archived" },
+  { label: "Dead", value: "dead" },
+] as const;
+
+export const TELEGRAM_PRICE_CONFIDENCE_OPTIONS = [
+  { label: "Низкая", value: "low" },
+  { label: "Средняя", value: "medium" },
+  { label: "Высокая", value: "high" },
+] as const;
+
 export const COINGECKO_SYMBOL_MAP: Record<string, string> = {
   ADA: "cardano",
   ARB: "arbitrum",
@@ -67,4 +81,3 @@ export const CS2_TYPE_RISK_WEIGHT: Record<Cs2AssetType, number> = {
   graffiti: 22,
   other: 12,
 };
-

@@ -240,8 +240,7 @@ export async function resolveCs2Positions(rows: NormalizedCs2Row[]) {
   const totalCs2Value = provisional.reduce((sum, item) => sum + item.totalValue, 0);
 
   const positions: Cs2Position[] = provisional.map((item) => {
-    const concentrationShare =
-      totalCs2Value > 0 ? item.totalValue / totalCs2Value : 0;
+    const concentrationShare = totalCs2Value > 0 ? item.totalValue / totalCs2Value : 0;
 
     const riskScore = deriveCs2RiskScore({
       type: item.row.type,
@@ -260,25 +259,27 @@ export async function resolveCs2Positions(rows: NormalizedCs2Row[]) {
       id: item.row.id,
       name: item.row.name,
       type: item.row.type,
+      category: item.row.category ?? null,
       quantity: item.row.quantity,
       averageEntryPrice: item.row.averageEntryPrice,
+      manualCurrentPrice: item.row.manualCurrentPrice ?? item.row.currentPrice,
       currentPrice: resolvedCurrentPrice,
       totalValue: item.totalValue,
       totalCost: item.totalCost,
       pnl: item.pnl,
       pnlPercent: item.pnlPercent,
       riskScore,
-      liquidityLabel: normalizeLiquidityLabel(
-        item.row.liquidityLabel,
-        fallbackLiquidity,
-      ),
+      liquidityLabel: normalizeLiquidityLabel(item.row.liquidityLabel, fallbackLiquidity),
       priceSource: item.liveQuote.success
         ? "steam_market_live"
         : item.row.currentPrice !== null
           ? item.row.sheetPriceSource ?? "manual_sheet"
           : "entry_price_fallback",
       market: item.liveQuote.success ? "Steam Community Market" : item.row.market,
+      status: item.row.status ?? null,
+      lastUpdated: item.row.lastUpdated ?? null,
       notes: item.row.notes,
+      rowRef: item.row.sheetRef,
       isPriceEstimated: resolvedCurrentPrice === null,
     };
   });
@@ -304,4 +305,3 @@ export async function resolveCs2Positions(rows: NormalizedCs2Row[]) {
     warnings,
   };
 }
-

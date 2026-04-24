@@ -17,6 +17,8 @@ type SortDirection = "asc" | "desc";
 type Cs2TableProps = {
   positions: Cs2Position[];
   currency: string;
+  adminEnabled?: boolean;
+  onEditPosition?: (position: Cs2Position) => void;
 };
 
 const liquidityTone: Record<Cs2Position["liquidityLabel"], string> = {
@@ -50,7 +52,34 @@ function sortPositions(
   });
 }
 
-export function Cs2Table({ positions, currency }: Cs2TableProps) {
+function EditButton({
+  visible,
+  onClick,
+}: {
+  visible?: boolean;
+  onClick: () => void;
+}) {
+  if (!visible) {
+    return null;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-2xl border border-cyan-300/20 bg-cyan-300/10 px-3 py-2 text-xs font-medium text-cyan-100 transition hover:bg-cyan-300/16"
+    >
+      Редактировать
+    </button>
+  );
+}
+
+export function Cs2Table({
+  positions,
+  currency,
+  adminEnabled = false,
+  onEditPosition,
+}: Cs2TableProps) {
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<(typeof CS2_TYPE_OPTIONS)[number]["value"]>(
     "all",
@@ -67,8 +96,7 @@ export function Cs2Table({ positions, currency }: Cs2TableProps) {
     const next = positions.filter((position) => {
       const matchesType = typeFilter === "all" || position.type === typeFilter;
       const matchesQuery =
-        normalizedQuery.length === 0 ||
-        position.name.toLowerCase().includes(normalizedQuery);
+        normalizedQuery.length === 0 || position.name.toLowerCase().includes(normalizedQuery);
 
       return matchesType && matchesQuery;
     });
@@ -89,9 +117,7 @@ export function Cs2Table({ positions, currency }: Cs2TableProps) {
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[1.5fr_0.85fr_0.85fr_0.72fr]">
           <div className="space-y-2">
-            <label className="text-xs uppercase tracking-[0.24em] text-slate-400">
-              Поиск
-            </label>
+            <label className="text-xs uppercase tracking-[0.24em] text-slate-400">Поиск</label>
             <input
               value={query}
               onChange={(event) => {
@@ -238,13 +264,24 @@ export function Cs2Table({ positions, currency }: Cs2TableProps) {
                   <p className="mt-1">{position.market ?? "Источник: таблица"}</p>
                 </div>
               </div>
+
+              <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/8 pt-4">
+                <div className="text-xs text-slate-400">
+                  <p>Статус: {position.status ?? "—"}</p>
+                  <p className="mt-1">Обновлено: {position.lastUpdated ?? "—"}</p>
+                </div>
+                <EditButton
+                  visible={adminEnabled && Boolean(onEditPosition)}
+                  onClick={() => onEditPosition?.(position)}
+                />
+              </div>
             </article>
           ))
         )}
       </div>
 
       <div className="hidden overflow-hidden rounded-2xl border border-white/10 bg-slate-950/35 lg:block">
-        <div className="grid grid-cols-[1.7fr_0.75fr_0.9fr_0.9fr_1fr_1fr_0.95fr_0.9fr] gap-3 border-b border-white/10 px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">
+        <div className="grid grid-cols-[1.7fr_0.75fr_0.9fr_0.9fr_1fr_1fr_0.95fr_0.9fr_0.9fr] gap-3 border-b border-white/10 px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">
           <span>Позиция</span>
           <span>Тип</span>
           <span>Кол-во</span>
@@ -253,6 +290,7 @@ export function Cs2Table({ positions, currency }: Cs2TableProps) {
           <span>Стоимость</span>
           <span>PnL</span>
           <span>Ликвидность</span>
+          <span>Действие</span>
         </div>
         <div className="max-h-[720px] overflow-y-auto">
           {visiblePositions.length === 0 ? (
@@ -263,7 +301,7 @@ export function Cs2Table({ positions, currency }: Cs2TableProps) {
             visiblePositions.map((position) => (
               <div
                 key={position.id}
-                className="grid grid-cols-[1.7fr_0.75fr_0.9fr_0.9fr_1fr_1fr_0.95fr_0.9fr] gap-3 border-b border-white/6 px-4 py-4 text-sm text-slate-200 last:border-b-0"
+                className="grid grid-cols-[1.7fr_0.75fr_0.9fr_0.9fr_1fr_1fr_0.95fr_0.9fr_0.9fr] gap-3 border-b border-white/6 px-4 py-4 text-sm text-slate-200 last:border-b-0"
               >
                 <div>
                   <p className="font-medium text-white">{position.name}</p>
@@ -296,10 +334,14 @@ export function Cs2Table({ positions, currency }: Cs2TableProps) {
                   >
                     {formatLiquidityLabel(position.liquidityLabel)}
                   </span>
-                  <span className="mt-2 block text-xs text-slate-400">
-                    Риск {position.riskScore}
-                  </span>
+                  <span className="mt-2 block text-xs text-slate-400">Риск {position.riskScore}</span>
                 </span>
+                <div className="flex justify-end">
+                  <EditButton
+                    visible={adminEnabled && Boolean(onEditPosition)}
+                    onClick={() => onEditPosition?.(position)}
+                  />
+                </div>
               </div>
             ))
           )}

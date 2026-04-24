@@ -10,6 +10,12 @@ export type Cs2AssetType =
 
 export type DataSourceMode = "live" | "fallback" | "demo";
 
+export interface SheetRowRef {
+  sheetName: string;
+  rowNumber: number;
+  isCanonical: boolean;
+}
+
 export interface CategoryBreakdown {
   category: AssetCategory;
   label: string;
@@ -78,8 +84,10 @@ export interface Cs2Position {
   id: string;
   name: string;
   type: Cs2AssetType;
+  category: string | null;
   quantity: number;
   averageEntryPrice: number | null;
+  manualCurrentPrice: number | null;
   currentPrice: number | null;
   totalValue: number;
   totalCost: number;
@@ -89,18 +97,30 @@ export interface Cs2Position {
   liquidityLabel: "High" | "Medium" | "Low" | "Unknown";
   priceSource: string;
   market: string | null;
+  status: string | null;
+  lastUpdated: string | null;
   notes: string | null;
+  rowRef: SheetRowRef | null;
   isPriceEstimated: boolean;
 }
 
 export interface TelegramGiftPosition {
   id: string;
   name: string;
+  collection: string | null;
   quantity: number;
+  entryPrice: number | null;
+  manualCurrentPrice: number | null;
+  currentPrice: number | null;
   estimatedPrice: number | null;
   totalValue: number;
+  priceConfidence: string | null;
+  liquidityNote: string | null;
+  status: string | null;
+  lastUpdated: string | null;
   notes: string | null;
   priceSource: string;
+  rowRef: SheetRowRef | null;
 }
 
 export interface CryptoPosition {
@@ -109,14 +129,19 @@ export interface CryptoPosition {
   name: string;
   quantity: number;
   averageEntryPrice: number | null;
+  manualCurrentPrice: number | null;
   currentPrice: number | null;
   totalValue: number;
   totalCost: number;
   pnl: number;
   pnlPercent: number | null;
+  walletNote: string | null;
+  status: string | null;
+  lastUpdated: string | null;
   notes: string | null;
   priceSource: string;
   isLivePrice: boolean;
+  rowRef: SheetRowRef | null;
 }
 
 export interface PortfolioCharts {

@@ -1,13 +1,44 @@
-﻿import { formatPriceSourceLabel } from "@/lib/presentation";
+﻿"use client";
+
+import { formatPriceSourceLabel } from "@/lib/presentation";
 import { formatCurrency, formatNumber, formatPercent } from "@/lib/utils";
 import type { CryptoPosition } from "@/types/portfolio";
 
 type CryptoPanelProps = {
   positions: CryptoPosition[];
   currency: string;
+  adminEnabled?: boolean;
+  onEditPosition?: (position: CryptoPosition) => void;
 };
 
-export function CryptoPanel({ positions, currency }: CryptoPanelProps) {
+function EditButton({
+  visible,
+  onClick,
+}: {
+  visible?: boolean;
+  onClick: () => void;
+}) {
+  if (!visible) {
+    return null;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-2xl border border-cyan-300/20 bg-cyan-300/10 px-3 py-2 text-xs font-medium text-cyan-100 transition hover:bg-cyan-300/16"
+    >
+      Редактировать
+    </button>
+  );
+}
+
+export function CryptoPanel({
+  positions,
+  currency,
+  adminEnabled = false,
+  onEditPosition,
+}: CryptoPanelProps) {
   const liveCount = positions.filter((position) => position.isLivePrice).length;
 
   return (
@@ -74,13 +105,24 @@ export function CryptoPanel({ positions, currency }: CryptoPanelProps) {
                   <p className="mt-1 text-xs opacity-80">{formatPercent(position.pnlPercent)}</p>
                 </div>
               </div>
+
+              <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/8 pt-4">
+                <div className="text-xs text-slate-400">
+                  <p>Статус: {position.status ?? "—"}</p>
+                  <p className="mt-1">Кошелек: {position.walletNote ?? "—"}</p>
+                </div>
+                <EditButton
+                  visible={adminEnabled && Boolean(onEditPosition)}
+                  onClick={() => onEditPosition?.(position)}
+                />
+              </div>
             </article>
           ))
         )}
       </div>
 
       <div className="hidden overflow-hidden rounded-2xl border border-white/10 bg-slate-950/30 lg:block">
-        <div className="grid grid-cols-[0.8fr_1.5fr_0.8fr_1fr_1fr_1fr_0.9fr] gap-3 border-b border-white/10 px-4 py-3 text-xs uppercase tracking-[0.22em] text-slate-400">
+        <div className="grid grid-cols-[0.8fr_1.35fr_0.8fr_1fr_1fr_1fr_0.9fr_0.9fr] gap-3 border-b border-white/10 px-4 py-3 text-xs uppercase tracking-[0.22em] text-slate-400">
           <span>Тикер</span>
           <span>Актив</span>
           <span>Кол-во</span>
@@ -88,6 +130,7 @@ export function CryptoPanel({ positions, currency }: CryptoPanelProps) {
           <span>Текущая</span>
           <span>Стоимость</span>
           <span>PnL</span>
+          <span>Действие</span>
         </div>
         <div className="max-h-[420px] overflow-y-auto">
           {positions.length === 0 ? (
@@ -98,7 +141,7 @@ export function CryptoPanel({ positions, currency }: CryptoPanelProps) {
             positions.map((position) => (
               <div
                 key={position.id}
-                className="grid grid-cols-[0.8fr_1.5fr_0.8fr_1fr_1fr_1fr_0.9fr] gap-3 border-b border-white/6 px-4 py-4 text-sm text-slate-200 last:border-b-0"
+                className="grid grid-cols-[0.8fr_1.35fr_0.8fr_1fr_1fr_1fr_0.9fr_0.9fr] gap-3 border-b border-white/6 px-4 py-4 text-sm text-slate-200 last:border-b-0"
               >
                 <span className="font-medium text-white">{position.symbol}</span>
                 <div>
@@ -121,10 +164,14 @@ export function CryptoPanel({ positions, currency }: CryptoPanelProps) {
                 <span>{formatCurrency(position.totalValue, currency, 2)}</span>
                 <span className={position.pnl >= 0 ? "text-emerald-300" : "text-rose-300"}>
                   <span>{formatCurrency(position.pnl, currency, 2)}</span>
-                  <span className="block text-xs opacity-80">
-                    {formatPercent(position.pnlPercent)}
-                  </span>
+                  <span className="block text-xs opacity-80">{formatPercent(position.pnlPercent)}</span>
                 </span>
+                <div className="flex justify-end">
+                  <EditButton
+                    visible={adminEnabled && Boolean(onEditPosition)}
+                    onClick={() => onEditPosition?.(position)}
+                  />
+                </div>
               </div>
             ))
           )}
@@ -133,4 +180,3 @@ export function CryptoPanel({ positions, currency }: CryptoPanelProps) {
     </div>
   );
 }
-

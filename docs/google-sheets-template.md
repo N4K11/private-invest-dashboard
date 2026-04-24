@@ -3,7 +3,7 @@
 The dashboard now supports two modes at the same time:
 
 1. Canonical structure: the long-term schema the project expects going forward.
-2. Legacy compatibility: older workbooks such as `CS2 Assets` / `Telegram Gifts` still load in read-only mode.
+2. Legacy compatibility: older workbooks such as `CS2 Assets` / `Telegram Gifts` still load and can often be edited too.
 
 If you are building or migrating the spreadsheet now, use the canonical structure below.
 
@@ -125,13 +125,28 @@ Recommended keys:
 - `notes`
 
 ## Legacy compatibility
-The read-only dashboard still accepts these older layouts:
+The dashboard still accepts these older layouts:
 - `CS2 Assets` as an alias for `CS2_Positions`
 - `Telegram Gifts` as an alias for `Telegram_Gifts`
 - legacy price fields like `average_entry_price`, `current_price`, `estimated_price`, `price_ton`
 - legacy naming columns like `name`, `gift`, `item_name`, `ticker`
 
 This keeps the current workbook working while you migrate to the canonical schema.
+
+## Admin mode behavior
+Admin mode writes into the matched working tab:
+- canonical tab if it already exists
+- legacy alias tab if the workbook is still on the old layout
+
+When saving, the write layer can automatically append missing canonical columns into the target sheet so that new admin fields such as `status`, `notes`, `lastUpdated`, `priceConfidence` or `walletNote` have a stable place to live.
+
+Every create/update action appends a row to `Audit_Log`.
+
+## Permission model
+- `Viewer` access for the service account: dashboard works in read-only mode
+- `Editor` access for the service account: admin mode can write back to the workbook
+
+For Drive-hosted Excel files you must also have `Google Drive API` enabled, not only `Google Sheets API`.
 
 ## Validation workflow
 Run:
@@ -141,7 +156,7 @@ node --env-file=.env.local scripts/validate-google-sheet.mjs
 ```
 
 The validator reports two independent states:
-- `Runtime compatibility`: whether the current read-only dashboard can load the workbook.
+- `Runtime compatibility`: whether the current dashboard can load the workbook.
 - `Canonical structure ready`: whether the workbook already matches the target schema exactly.
 
 A legacy workbook can be runtime-compatible even if canonical migration is still incomplete.

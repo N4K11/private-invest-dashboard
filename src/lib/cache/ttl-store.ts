@@ -10,10 +10,8 @@ const globalScope = globalThis as typeof globalThis & {
   __portfolioInFlight?: Map<string, InFlightEntry<unknown>>;
 };
 
-const cacheStore =
-  globalScope.__portfolioTtlCache ?? new Map<string, CacheEntry<unknown>>();
-const inFlightStore =
-  globalScope.__portfolioInFlight ?? new Map<string, InFlightEntry<unknown>>();
+const cacheStore = globalScope.__portfolioTtlCache ?? new Map<string, CacheEntry<unknown>>();
+const inFlightStore = globalScope.__portfolioInFlight ?? new Map<string, InFlightEntry<unknown>>();
 
 globalScope.__portfolioTtlCache = cacheStore;
 globalScope.__portfolioInFlight = inFlightStore;
@@ -49,4 +47,23 @@ export async function remember<T>(
 
   inFlightStore.set(key, nextPromise);
   return nextPromise;
+}
+
+export function forgetRemembered(key: string) {
+  cacheStore.delete(key);
+  inFlightStore.delete(key);
+}
+
+export function forgetRememberedByPrefix(prefix: string) {
+  for (const key of [...cacheStore.keys()]) {
+    if (key.startsWith(prefix)) {
+      cacheStore.delete(key);
+    }
+  }
+
+  for (const key of [...inFlightStore.keys()]) {
+    if (key.startsWith(prefix)) {
+      inFlightStore.delete(key);
+    }
+  }
 }

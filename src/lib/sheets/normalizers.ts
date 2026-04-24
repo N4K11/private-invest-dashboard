@@ -5,7 +5,7 @@
   normalizeSheetHeader,
 } from "@/lib/sheets/schema";
 import { parseNumberish, toSlugFragment } from "@/lib/utils";
-import type { Cs2AssetType } from "@/types/portfolio";
+import type { Cs2AssetType, SheetRowRef } from "@/types/portfolio";
 
 export type SheetCellValue = string | number | boolean | null | undefined;
 
@@ -38,6 +38,7 @@ export interface NormalizedCs2Row {
   market: string | null;
   manualRiskScore: number | null;
   liquidityLabel: string | null;
+  sheetRef: SheetRowRef;
 }
 
 export interface NormalizedTelegramGiftRow {
@@ -56,6 +57,7 @@ export interface NormalizedTelegramGiftRow {
   lastUpdated?: string | null;
   priceSource?: string | null;
   notes: string | null;
+  sheetRef: SheetRowRef;
 }
 
 export interface NormalizedCryptoRow {
@@ -71,6 +73,7 @@ export interface NormalizedCryptoRow {
   currency?: string | null;
   lastUpdated?: string | null;
   notes: string | null;
+  sheetRef: SheetRowRef;
 }
 
 export interface NormalizedTransactionRow {
@@ -129,6 +132,14 @@ function cleanString(value: SheetCellValue) {
 
   const normalized = String(value).trim();
   return normalized ? normalized : null;
+}
+
+function buildSheetRef(sheetName: string, rowIndex: number, isCanonical: boolean): SheetRowRef {
+  return {
+    sheetName,
+    rowNumber: rowIndex + 2,
+    isCanonical,
+  };
 }
 
 function sheetToRows(values?: SheetCellValue[][]) {
@@ -203,9 +214,7 @@ function normalizeCs2Type(value: string | null, name?: string | null): Cs2AssetT
   }
 
   if (
-    ["charm", "charms", "keychain", "keychains", "брелок", "брелки"].includes(
-      normalized,
-    ) ||
+    ["charm", "charms", "keychain", "keychains", "брелок", "брелки"].includes(normalized) ||
     normalizedName.includes("брелок") ||
     normalizedName.includes("keychain") ||
     normalizedName.includes("charm")
@@ -275,7 +284,11 @@ function buildCs2Notes(row: SheetRow) {
   return details.length > 0 ? details.join(" | ") : null;
 }
 
-function normalizeCs2Rows(values?: SheetCellValue[][]) {
+function normalizeCs2Rows(
+  values: SheetCellValue[][] | undefined,
+  sheetName: string,
+  isCanonical: boolean,
+) {
   const normalizedRows: NormalizedCs2Row[] = [];
 
   for (const [index, row] of sheetToRows(values).entries()) {
@@ -311,13 +324,18 @@ function normalizeCs2Rows(values?: SheetCellValue[][]) {
       market: getString(row, getFieldAliases("CS2_Positions", "market")),
       manualRiskScore: getNumber(row, getFieldAliases("CS2_Positions", "riskScore")),
       liquidityLabel: getString(row, getFieldAliases("CS2_Positions", "liquidityLabel")),
+      sheetRef: buildSheetRef(sheetName, index, isCanonical),
     });
   }
 
   return normalizedRows;
 }
 
-function normalizeTelegramRows(values?: SheetCellValue[][]) {
+function normalizeTelegramRows(
+  values: SheetCellValue[][] | undefined,
+  sheetName: string,
+  isCanonical: boolean,
+) {
   const normalizedRows: NormalizedTelegramGiftRow[] = [];
 
   for (const [index, row] of sheetToRows(values).entries()) {
@@ -359,13 +377,18 @@ function normalizeTelegramRows(values?: SheetCellValue[][]) {
             ? "manual_sheet"
             : null),
       notes: getString(row, getFieldAliases("Telegram_Gifts", "notes")),
+      sheetRef: buildSheetRef(sheetName, index, isCanonical),
     });
   }
 
   return normalizedRows;
 }
 
-function normalizeCryptoRows(values?: SheetCellValue[][]) {
+function normalizeCryptoRows(
+  values: SheetCellValue[][] | undefined,
+  sheetName: string,
+  isCanonical: boolean,
+) {
   const normalizedRows: NormalizedCryptoRow[] = [];
 
   for (const [index, row] of sheetToRows(values).entries()) {
@@ -389,6 +412,7 @@ function normalizeCryptoRows(values?: SheetCellValue[][]) {
       currency: getString(row, getFieldAliases("Crypto", "currency")),
       lastUpdated: getString(row, getFieldAliases("Crypto", "lastUpdated")),
       notes: getString(row, getFieldAliases("Crypto", "notes")),
+      sheetRef: buildSheetRef(sheetName, index, isCanonical),
     });
   }
 
@@ -500,9 +524,21 @@ export function normalizeWorkbook(workbook: RawSpreadsheetWorkbook): NormalizedW
     availableSheets: workbook.availableSheets,
     warnings,
     summaryRows: normalizeSummary(summarySheet.values),
-    cs2Rows: normalizeCs2Rows(cs2Sheet.values),
-    telegramRows: normalizeTelegramRows(telegramSheet.values),
-    cryptoRows: normalizeCryptoRows(cryptoSheet.values),
+    cs2Rows: normalizeCs2Rows(
+      cs2Sheet.values,
+      cs2Sheet.matchedName ?? "CS2_Positions",
+      cs2Sheet.isCanonical,
+    ),
+    telegramRows: normalizeTelegramRows(
+      telegramSheet.values,
+      telegramSheet.matchedName ?? "Telegram_Gifts",
+      telegramSheet.isCanonical,
+    ),
+    cryptoRows: normalizeCryptoRows(
+      cryptoSheet.values,
+      cryptoSheet.matchedName ?? "Crypto",
+      cryptoSheet.isCanonical,
+    ),
     transactionRows: normalizeTransactions(transactionsSheet.values),
     portfolioHistoryRows: normalizePortfolioHistory(historySheet.values),
     auditLogRows: normalizeAuditLog(auditSheet.values),
