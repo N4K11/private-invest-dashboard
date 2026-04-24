@@ -1,0 +1,79 @@
+﻿import { formatCurrency, formatNumber, formatPercent } from "@/lib/utils";
+import type { CryptoPosition } from "@/types/portfolio";
+
+type CryptoPanelProps = {
+  positions: CryptoPosition[];
+  currency: string;
+};
+
+export function CryptoPanel({ positions, currency }: CryptoPanelProps) {
+  const liveCount = positions.filter((position) => position.isLivePrice).length;
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center gap-3 text-sm text-slate-300">
+        <span className="rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1 text-emerald-200">
+          {liveCount}/{positions.length} live quotes
+        </span>
+        <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-slate-300">
+          CoinGecko primary feed
+        </span>
+      </div>
+      <div className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/30">
+        <div className="grid grid-cols-[0.8fr_1.5fr_0.8fr_1fr_1fr_1fr_0.9fr] gap-3 border-b border-white/10 px-4 py-3 text-xs uppercase tracking-[0.22em] text-slate-400">
+          <span>Symbol</span>
+          <span>Name</span>
+          <span>Qty</span>
+          <span>Entry</span>
+          <span>Live</span>
+          <span>Value</span>
+          <span>PnL</span>
+        </div>
+        <div className="max-h-[420px] overflow-y-auto">
+          {positions.length === 0 ? (
+            <div className="px-4 py-8 text-sm text-slate-400">
+              No crypto positions found in the connected sheet.
+            </div>
+          ) : (
+            positions.map((position) => (
+              <div
+                key={position.id}
+                className="grid grid-cols-[0.8fr_1.5fr_0.8fr_1fr_1fr_1fr_0.9fr] gap-3 border-b border-white/6 px-4 py-4 text-sm text-slate-200 last:border-b-0"
+              >
+                <span className="font-medium text-white">{position.symbol}</span>
+                <div>
+                  <p className="font-medium text-white">{position.name}</p>
+                  <p className="mt-1 text-xs uppercase tracking-[0.18em] text-cyan-200/55">
+                    {position.priceSource}
+                  </p>
+                </div>
+                <span>{formatNumber(position.quantity, 4)}</span>
+                <span>
+                  {position.averageEntryPrice !== null
+                    ? formatCurrency(position.averageEntryPrice, currency, 2)
+                    : "—"}
+                </span>
+                <span>
+                  {position.currentPrice !== null
+                    ? formatCurrency(position.currentPrice, currency, 2)
+                    : "—"}
+                </span>
+                <span>{formatCurrency(position.totalValue, currency)}</span>
+                <span
+                  className={
+                    position.pnl >= 0 ? "text-emerald-300" : "text-rose-300"
+                  }
+                >
+                  <span>{formatCurrency(position.pnl, currency)}</span>
+                  <span className="block text-xs opacity-80">
+                    {formatPercent(position.pnlPercent)}
+                  </span>
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
