@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+﻿import { NextRequest } from "next/server";
 
 import { registerSchema } from "@/lib/auth/schema";
 import { registerUser } from "@/lib/auth/registration";
@@ -26,11 +26,9 @@ export async function POST(request: NextRequest) {
   }
 
   if (!isSaasAuthConfigured()) {
-    return privateApiError(
-      503,
-      "SaaS-авторизация еще не настроена для этого окружения.",
-      { code: "saas_auth_not_configured" },
-    );
+    return privateApiError(503, "SaaS-авторизация еще не настроена для этого окружения.", {
+      code: "saas_auth_not_configured",
+    });
   }
 
   let payload: unknown;

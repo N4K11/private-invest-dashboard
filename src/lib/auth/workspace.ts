@@ -1,10 +1,14 @@
-import "server-only";
+﻿import "server-only";
 
 import type { WorkspaceRole } from "@prisma/client";
 
 import { getPrismaClient } from "@/lib/db/client";
 
 export type WorkspaceRoleKey = "owner" | "admin" | "member" | "viewer";
+
+type WorkspaceContextOptions = {
+  preferredWorkspaceSlug?: string | null;
+};
 
 const WORKSPACE_ROLE_PRIORITY: Record<WorkspaceRole, number> = {
   OWNER: 0,
@@ -32,7 +36,33 @@ export function pickPrimaryMembership<T extends { role: WorkspaceRole; createdAt
   })[0] ?? null;
 }
 
-export async function getCurrentUserWorkspaceContext(userId: string) {
+function pickActiveMembership<
+  T extends {
+    role: WorkspaceRole;
+    createdAt: Date;
+    workspace: { slug: string };
+  },
+>(
+  memberships: T[],
+  preferredWorkspaceSlug?: string | null,
+) {
+  if (preferredWorkspaceSlug) {
+    const preferred = memberships.find(
+      (membership) => membership.workspace.slug === preferredWorkspaceSlug,
+    );
+
+    if (preferred) {
+      return preferred;
+    }
+  }
+
+  return pickPrimaryMembership(memberships);
+}
+
+export async function getCurrentUserWorkspaceContext(
+  userId: string,
+  options: WorkspaceContextOptions = {},
+) {
   const prisma = getPrismaClient();
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -65,7 +95,10 @@ export async function getCurrentUserWorkspaceContext(userId: string) {
     return null;
   }
 
-  const membership = pickPrimaryMembership(user.memberships);
+  const activeMembership = pickActiveMembership(
+    user.memberships,
+    options.preferredWorkspaceSlug,
+  );
 
   return {
     user: {
@@ -87,21 +120,114 @@ export async function getCurrentUserWorkspaceContext(userId: string) {
       portfolioCount: entry.workspace._count.portfolios,
       memberCount: entry.workspace._count.members,
       integrationCount: entry.workspace._count.integrations,
+      isActive: entry.workspaceId === activeMembership?.workspaceId,
     })),
-    primaryWorkspace: membership
+    primaryWorkspace: activeMembership
       ? {
-          id: membership.workspace.id,
-          slug: membership.workspace.slug,
-          name: membership.workspace.name,
-          role: normalizeWorkspaceRole(membership.role),
-          defaultCurrency: membership.workspace.defaultCurrency,
-          timezone: membership.workspace.timezone,
-          memberCount: membership.workspace._count.members,
-          portfolioCount: membership.workspace._count.portfolios,
-          integrationCount: membership.workspace._count.integrations,
+          id: activeMembership.workspace.id,
+          slug: activeMembership.workspace.slug,
+          name: activeMembership.workspace.name,
+          role: normalizeWorkspaceRole(activeMembership.role),
+          defaultCurrency: activeMembership.workspace.defaultCurrency,
+          timezone: activeMembership.workspace.timezone,
+          memberCount: activeMembership.workspace._count.members,
+          portfolioCount: activeMembership.workspace._count.portfolios,
+          integrationCount: activeMembership.workspace._count.integrations,
         }
       : null,
   };
+}
+
+export async function getWorkspaceMembershipForUser(userId: string, workspaceId: string) {
+  const prisma = getPrismaClient();
+
+  return prisma.workspaceMember.findFirst({
+    where: {
+      userId,
+      workspaceId,
+      status: "active",
+      workspace: {
+        isArchived: false,
+      },
+    },
+    include: {
+      workspace: {
+        include: {
+          _count: {
+            select: {
+              members: true,
+              portfolios: true,
+              integrations: true,
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+export async function getWorkspaceMembershipBySlugForUser(
+  userId: string,
+  workspaceSlug: string,
+) {
+  const prisma = getPrismaClient();
+
+  return prisma.workspaceMember.findFirst({
+    where: {
+      userId,
+      status: "active",
+      workspace: {
+        slug: workspaceSlug,
+        isArchived: false,
+      },
+    },
+    include: {
+      workspace: {
+        include: {
+          _count: {
+            select: {
+              members: true,
+              portfolios: true,
+              integrations: true,
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+export async function getPortfolioMembershipForUser(userId: string, portfolioId: string) {
+  const prisma = getPrismaClient();
+
+  return prisma.workspaceMember.findFirst({
+    where: {
+      userId,
+      status: "active",
+      workspace: {
+        isArchived: false,
+        portfolios: {
+          some: {
+            id: portfolioId,
+            isArchived: false,
+          },
+        },
+      },
+    },
+    include: {
+      workspace: {
+        include: {
+          _count: {
+            select: {
+              members: true,
+              portfolios: true,
+              integrations: true,
+            },
+          },
+        },
+      },
+    },
+  });
 }
 
 export async function getWorkspacePortfolios(workspaceId: string) {
@@ -119,6 +245,7 @@ export async function getWorkspacePortfolios(workspaceId: string) {
           positions: true,
           transactions: true,
           priceSnapshots: true,
+          integrations: true,
         },
       },
     },

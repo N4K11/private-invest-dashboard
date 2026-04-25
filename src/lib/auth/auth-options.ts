@@ -1,4 +1,4 @@
-import "server-only";
+﻿import "server-only";
 
 import type { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
@@ -38,7 +38,7 @@ function getAuthRequestIp(headers: Record<string, string | string[] | undefined>
 
 function buildCredentialsProvider() {
   return CredentialsProvider({
-    name: "Email Р С‘ Р С—Р В°РЎР‚Р С•Р В»РЎРЉ",
+    name: "Email и пароль",
     credentials: {
       email: {
         label: "Email",
@@ -46,7 +46,7 @@ function buildCredentialsProvider() {
         placeholder: "owner@example.com",
       },
       password: {
-        label: "Р СџР В°РЎР‚Р С•Р В»РЎРЉ",
+        label: "Пароль",
         type: "password",
       },
     },
@@ -94,10 +94,7 @@ function buildCredentialsProvider() {
         return null;
       }
 
-      const isValidPassword = await verifyPassword(
-        parsed.data.password,
-        user.passwordHash,
-      );
+      const isValidPassword = await verifyPassword(parsed.data.password, user.passwordHash);
 
       if (!isValidPassword) {
         return null;

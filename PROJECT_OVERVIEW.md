@@ -1,4 +1,4 @@
-# Project Overview
+﻿# Project Overview
 
 ## Purpose
 This project started as a private investment terminal for tracking CS2 items, Telegram Gifts and crypto positions from Google Sheets or a Drive-hosted workbook. It now also has a defined migration path toward a multi-tenant SaaS platform while preserving the existing private production flow.
@@ -31,7 +31,9 @@ This project started as a private investment terminal for tracking CS2 items, Te
 3. Private API routes validate the same token and apply rate limiting.
 4. Responses are returned with `no-store`, `X-Robots-Tag`, CSP and related hardening headers.
 5. SaaS routes `/app` are protected by Auth.js JWT sessions and middleware redirects to `/login` when the session is missing.
-6. Secrets stay server-side in env variables and are never returned to the client bundle.
+6. Active workspace selection is stored in an `httpOnly` cookie and scopes `/app` portfolio management pages.
+7. Workspace and portfolio CRUD now flows through protected `/api/app/*` routes with auth, permissions and validation.
+8. Secrets stay server-side in env variables and are never returned to the client bundle.
 
 ## Current Persistence Model
 - Read path: Google Sheets API or Google Drive API + workbook parsing.
@@ -46,6 +48,7 @@ The next architecture phase treats the current private dashboard as a legacy-com
 - Google Sheets will remain supported as an integration adapter.
 - The hidden-route private dashboard will stay alive during the migration.
 - New SaaS auth routes `/login`, `/register`, `/app` coexist with the legacy token-gated mode instead of replacing it.
+- Stage 16 adds workspace switching, portfolio management UI and DB-backed detail pages at `/app/portfolios/[portfolioId]`.
 - The Prisma schema already models users, workspaces, portfolios, assets, positions, transactions, integrations, subscriptions and audit logs for upcoming stages.
 
 ## Operational Notes
@@ -62,3 +65,4 @@ The next architecture phase treats the current private dashboard as a legacy-com
 - `docs/SAAS_ARCHITECTURE.md`: target SaaS domain model and architectural boundaries.
 - `docs/MIGRATION_PRIVATE_TO_SAAS.md`: staged migration path from legacy private mode to SaaS.
 - `docs/DATABASE.md`: Prisma/PostgreSQL models, commands and migration notes.
+

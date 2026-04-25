@@ -1,4 +1,4 @@
-import "server-only";
+﻿import "server-only";
 
 import { Prisma } from "@prisma/client";
 
@@ -8,10 +8,7 @@ import { getPrismaClient } from "@/lib/db/client";
 import { toSlugFragment } from "@/lib/utils";
 
 function deriveWorkspaceName(input: RegisterInput) {
-  return (
-    input.workspaceName ??
-    `Workspace ${input.displayName.split(/\s+/)[0] ?? "owner"}`
-  );
+  return input.workspaceName ?? `Workspace ${input.displayName.split(/\s+/)[0] ?? "owner"}`;
 }
 
 function buildWorkspaceSlug(base: string, attempt: number) {
@@ -76,7 +73,7 @@ export async function registerUser(input: RegisterInput) {
         const portfolio = await transaction.portfolio.create({
           data: {
             workspaceId: workspace.id,
-            name: "Р“Р»Р°РІРЅС‹Р№ РїРѕСЂС‚С„РµР»СЊ",
+            name: "Главный портфель",
             slug: defaultPortfolioSlug,
             visibility: "PRIVATE",
             baseCurrency: "USD",
@@ -128,7 +125,7 @@ export async function registerUser(input: RegisterInput) {
           : String(error.meta?.target ?? "");
 
         if (target.includes("email") || target.includes("providerAccountId")) {
-          throw new Error("РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ СЃ С‚Р°РєРёРј email СѓР¶Рµ СЃСѓС‰РµСЃС‚РІСѓРµС‚.");
+          throw new Error("Пользователь с таким email уже существует.");
         }
 
         if (target.includes("slug")) {
@@ -140,5 +137,5 @@ export async function registerUser(input: RegisterInput) {
     }
   }
 
-  throw new Error("РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕРґРѕР±СЂР°С‚СЊ СЃРІРѕР±РѕРґРЅС‹Р№ slug РґР»СЏ workspace.");
+  throw new Error("Не удалось подобрать свободный slug для workspace.");
 }

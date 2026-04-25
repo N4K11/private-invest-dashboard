@@ -1,4 +1,4 @@
-# Private Invest Dashboard
+﻿# Private Invest Dashboard
 
 Private Next.js dashboard for tracking CS2 / Steam items, Telegram Gifts and crypto positions from Google Sheets.
 
@@ -36,7 +36,7 @@ Implemented right now:
 - protected health actions for cache refresh, Google Sheet validation, snapshot creation and provider diagnostics
 - memory cache with optional Redis REST shared cache fallback plus rate limiting
 - Prisma/PostgreSQL SaaS database foundation with schema, seed script, auth bootstrap and migration docs
-- Auth.js credentials login/registration for `/login`, `/register` and protected SaaS routes `/app`, `/app/portfolios`, `/app/settings`
+- Auth.js credentials login/registration for `/login`, `/register` and protected SaaS routes `/app`, `/app/portfolios`, `/app/portfolios/[portfolioId]`, `/app/settings`
 - `robots.txt` and `noindex/nofollow` protection for the private surface
 
 ## Stack
@@ -283,7 +283,15 @@ The page never shows env secrets; it only shows operational health and user-faci
 Protected SaaS routes:
 - `/app`
 - `/app/portfolios`
+- `/app/portfolios/[portfolioId]`
 - `/app/settings`
+
+SaaS management API routes:
+- `POST /api/app/workspaces`
+- `POST /api/app/workspaces/active`
+- `POST /api/app/portfolios`
+- `PATCH /api/app/portfolios/[portfolioId]`
+- `DELETE /api/app/portfolios/[portfolioId]`
 
 Public auth routes:
 - `/login`
@@ -296,6 +304,9 @@ Manual flow:
 4. Open `/register` and create the first account.
 5. After registration, the app bootstraps owner-user, workspace, main portfolio and free subscription.
 6. Login redirects to `/app`.
+7. Use the workspace switcher in the SaaS header to change active workspace.
+8. Create/edit/archive portfolios from `/app` or `/app/portfolios`.
+9. Open `/app/portfolios/[portfolioId]` to inspect DB-backed summary cards, charts, positions and recent transactions.
 
 ## Local development
 ```bash
@@ -455,3 +466,6 @@ npm run typecheck
 npm run lint
 npm run build
 ```
+
+
+
