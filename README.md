@@ -11,6 +11,7 @@ Additional docs:
 - `docs/IMPORTS.md` for the SaaS Import Center workflow
 - `docs/MANUAL_ASSETS.md` for the SaaS Manual Asset Manager workflow
 - `docs/PRICE_ENGINE.md` for the unified SaaS price engine
+- `docs/TELEGRAM_GIFTS_PRICING.md` for the SaaS Telegram Gifts OTC pricing workflow
 
 ## Current status
 Implemented right now:
@@ -43,6 +44,7 @@ Implemented right now:
 - Manual Asset Manager on `/app/portfolios/[portfolioId]` with add/edit/delete, tags, liquidity, confidence and auto-generated buy/sell transactions
 - unified SaaS price engine for `/app`, `/app/portfolios` and `/app/portfolios/[portfolioId]` with provider-based valuation, snapshot storage and normalized price confidence states
 - SaaS CS2 coverage now reuses the real shared provider chain (`steam -> buff_proxy -> manual`) with canonical name matching, stale warnings and optional FX fallback conversion
+- SaaS Telegram Gifts now have a dedicated OTC price workflow with `PRICE_UPDATE` history, review reminders and outlier detection inside `/app/portfolios/[portfolioId]`
 - `robots.txt` and `noindex/nofollow` protection for the private surface
 
 ## Stack
@@ -321,9 +323,13 @@ Manual flow:
 9. Open `/app/import` and run preview + import for CSV/JSON/Steam/Google Sheets.
 10. Open `/app/portfolios/[portfolioId]` to inspect imported DB-backed positions and recent activity state.
 11. Use the Manual Asset Manager on the same page to add, edit or delete manual holdings and verify auto-generated buy/sell transactions.
+12. For Telegram Gifts, use the dedicated OTC pricing block to save reviewed quotes, keep `PRICE_UPDATE` history and monitor outlier warnings.
 
 ## Manual Asset Manager
 Current SaaS portfolio detail pages now support direct database-backed position CRUD without Google Sheets. The manager is designed for owner/admin roles and writes through protected `/api/app` routes with rate limiting, audit log entries and automatic buy/sell transaction generation. See [docs/MANUAL_ASSETS.md](docs/MANUAL_ASSETS.md) for the exact flow and test cases.
+
+## SaaS Telegram Gifts pricing
+Telegram Gifts in `/app/portfolios/[portfolioId]` now use a dedicated manual / OTC price workflow. Operators can update quotes with source, confidence, verification time and note; each save writes a `PRICE_UPDATE` transaction, preserves history and raises an outlier warning when the new quote differs from the previous one by 35% or more. See [docs/TELEGRAM_GIFTS_PRICING.md](docs/TELEGRAM_GIFTS_PRICING.md) for the workflow details.
 
 ## Local development
 ```bash
@@ -483,6 +489,7 @@ npm run typecheck
 npm run lint
 npm run build
 ```
+
 
 
 

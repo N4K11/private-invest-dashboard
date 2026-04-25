@@ -20,6 +20,10 @@ export function getManualTimestamp(
   fallbackUpdatedAt: string,
 ) {
   const manualProfile = extractManualAssetProfile(metadata);
+  if (manualProfile.lastVerifiedAt) {
+    return manualProfile.lastVerifiedAt;
+  }
+
   if (manualProfile.lastEditedAt) {
     return manualProfile.lastEditedAt;
   }
@@ -169,3 +173,4 @@ export function mapSourceIdToSnapshotSource(sourceId: string, fallback: PriceSou
 
   return fallback;
 }
+

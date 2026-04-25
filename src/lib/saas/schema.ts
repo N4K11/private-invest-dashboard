@@ -1,4 +1,4 @@
-import { z } from "zod";
+﻿import { z } from "zod";
 
 const currencySchema = z
   .string()
@@ -20,6 +20,12 @@ const manualAssetLiquiditySchema = z.enum(["high", "medium", "low", "unknown"]);
 const manualAssetConfidenceSchema = z.enum(["high", "medium", "low"]);
 const manualAssetCreateModeSchema = z.enum(["buy", "adjustment"]);
 const manualAssetUpdateModeSchema = z.enum(["buy", "sell", "adjustment"]);
+const telegramPriceSourceSchema = z.enum([
+  "fragment",
+  "otc_deal",
+  "marketplace_listing",
+  "manual_estimate",
+]);
 
 const decimalSchema = z.coerce.number().finite("Enter a valid number.").min(0, "Value cannot be negative.");
 
@@ -47,6 +53,16 @@ const tagsSchema = z
   .default([]);
 
 const optionalDecimalSchema = decimalSchema.nullable().optional();
+
+const optionalIsoDateTimeSchema = z
+  .string()
+  .trim()
+  .optional()
+  .or(z.literal(""))
+  .refine((value) => !value || Number.isFinite(Date.parse(value)), {
+    message: "Provide a valid verification date.",
+  })
+  .transform((value) => (value ? new Date(value).toISOString() : new Date().toISOString()));
 
 export const workspaceCreateSchema = z.object({
   name: z
@@ -132,9 +148,19 @@ export const manualAssetUpdateSchema = z.object({
   transactionMode: manualAssetUpdateModeSchema.default("adjustment"),
 });
 
+export const telegramGiftPriceUpdateSchema = z.object({
+  price: positiveQuantitySchema,
+  currency: currencySchema.default("USD"),
+  confidence: manualAssetConfidenceSchema.default("medium"),
+  priceSource: telegramPriceSourceSchema.default("manual_estimate"),
+  lastVerifiedAt: optionalIsoDateTimeSchema,
+  notes: textAreaSchema,
+});
+
 export type WorkspaceCreateInput = z.infer<typeof workspaceCreateSchema>;
 export type WorkspaceSelectionInput = z.infer<typeof workspaceSelectionSchema>;
 export type PortfolioCreateInput = z.infer<typeof portfolioCreateSchema>;
 export type PortfolioUpdateInput = z.infer<typeof portfolioUpdateSchema>;
 export type ManualAssetCreateInput = z.infer<typeof manualAssetCreateSchema>;
 export type ManualAssetUpdateInput = z.infer<typeof manualAssetUpdateSchema>;
+export type TelegramGiftPriceUpdateInput = z.infer<typeof telegramGiftPriceUpdateSchema>;

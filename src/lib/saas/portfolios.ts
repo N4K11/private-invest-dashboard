@@ -13,6 +13,7 @@ import {
 } from "@/lib/auth/workspace";
 import { CATEGORY_META } from "@/lib/constants";
 import { getPrismaClient } from "@/lib/db/client";
+import { getManualStaleAfterMs, isTimestampStale } from "@/lib/saas/price-engine/utils";
 import type {
   PortfolioCreateInput,
   PortfolioUpdateInput,
@@ -21,6 +22,10 @@ import {
   pricePortfolioPositions,
   type PortfolioPositionForPricing,
 } from "@/lib/saas/portfolio-pricing";
+import {
+  buildTelegramGiftPricingRow,
+  extractTelegramPriceUpdateHistoryRow,
+} from "@/lib/saas/telegram-gift-pricing";
 import {
   decimalToNumber,
   mapVisibilityToPrisma,
@@ -368,6 +373,64 @@ export async function getPortfolioDetailForUser(
   const totalPnl = pricedPortfolio.totalPnl;
   const roi = totalCost > 0 ? (totalPnl / totalCost) * 100 : null;
 
+  const telegramAssetIds = portfolio.positions
+    .filter((position) => position.asset.category === "TELEGRAM")
+    .map((position) => position.assetId);
+
+  const telegramPriceUpdates =
+    telegramAssetIds.length > 0
+      ? await prisma.transaction.findMany({
+          where: {
+            portfolioId: portfolio.id,
+            assetId: {
+              in: telegramAssetIds,
+            },
+            action: "PRICE_UPDATE",
+          },
+          orderBy: [{ occurredAt: "desc" }],
+          select: {
+            id: true,
+            assetId: true,
+            occurredAt: true,
+            unitPrice: true,
+            currency: true,
+            notes: true,
+            metadata: true,
+          },
+        })
+      : [];
+
+  const telegramHistoryByAssetId = new Map<string, ReturnType<typeof extractTelegramPriceUpdateHistoryRow>[]>();
+  for (const transaction of telegramPriceUpdates) {
+    const history = telegramHistoryByAssetId.get(transaction.assetId) ?? [];
+    if (history.length < 8) {
+      history.push(extractTelegramPriceUpdateHistoryRow(transaction));
+    }
+    telegramHistoryByAssetId.set(transaction.assetId, history);
+  }
+
+  const telegramPricingRows = positions
+    .filter((position) => position.category === "telegram")
+    .map((position) =>
+      buildTelegramGiftPricingRow({
+        position,
+        baseCurrency: portfolio.baseCurrency,
+        history: telegramHistoryByAssetId.get(position.assetId) ?? [],
+      }),
+    )
+    .sort((left, right) => right.totalValue - left.totalValue);
+
+  const telegramPricing = {
+    positionCount: telegramPricingRows.length,
+    totalValue: telegramPricingRows.reduce((sum, gift) => sum + gift.totalValue, 0),
+    staleCount: telegramPricingRows.filter((gift) =>
+      isTimestampStale(gift.lastVerifiedAt, getManualStaleAfterMs("telegram")),
+    ).length,
+    lowConfidenceCount: telegramPricingRows.filter((gift) => gift.confidence === "low").length,
+    outlierCount: telegramPricingRows.filter((gift) => gift.latestOutlierMessage !== null).length,
+    gifts: telegramPricingRows,
+  };
+
   const warnings = new Set<string>();
   if (positions.length === 0) {
     warnings.add("В портфеле пока нет позиций. Добавьте импорт или создайте активы вручную на следующих этапах.");
@@ -394,6 +457,24 @@ export async function getPortfolioDetailForUser(
   if (stalePriceCount > 0) {
     warnings.add(
       `У ${stalePriceCount} позиций устаревшая ручная цена. Обновите quotes или импорт.`,
+    );
+  }
+
+  if (telegramPricing.staleCount > 0) {
+    warnings.add(
+      `Telegram Gifts: ${telegramPricing.staleCount} quotes требуют нового OTC review.`,
+    );
+  }
+
+  if (telegramPricing.lowConfidenceCount > 0) {
+    warnings.add(
+      `Telegram Gifts: ${telegramPricing.lowConfidenceCount} quotes отмечены как low confidence.`,
+    );
+  }
+
+  if (telegramPricing.outlierCount > 0) {
+    warnings.add(
+      `Telegram Gifts: найдено ${telegramPricing.outlierCount} позиций с сильным отклонением новой цены от предыдущей.`,
     );
   }
 
@@ -531,6 +612,7 @@ export async function getPortfolioDetailForUser(
     positions,
     recentTransactions,
     warnings: [...warnings],
+    telegramPricing,
     integrationSummary: portfolio.integrations.map((integration) => ({
       id: integration.id,
       name: integration.name,
@@ -582,4 +664,3 @@ export async function listPortfoliosForWorkspace(
 
   return Promise.all(portfolios.map((portfolio) => computePortfolioListItem(portfolio)));
 }
-

@@ -7,7 +7,10 @@ import type {
   PriceConfidence,
   TransactionAction,
 } from "@/types/portfolio";
-import type { SaasPriceConfidenceStatus } from "@/types/saas";
+import type {
+  SaasPriceConfidenceStatus,
+  SaasTelegramPriceSource,
+} from "@/types/saas";
 
 const cs2TypeLabels: Record<Cs2AssetType, string> = {
   stickers: "Наклейки",
@@ -49,6 +52,13 @@ const priceSourceLabels: Record<string, string> = {
   telegram_missing: "Цена Telegram Gift отсутствует",
   custom_missing: "Цена custom-актива отсутствует",
   missing: "Цена отсутствует",
+};
+
+const telegramPriceSourceLabels: Record<SaasTelegramPriceSource, string> = {
+  fragment: "Fragment",
+  otc_deal: "OTC deal",
+  marketplace_listing: "Marketplace listing",
+  manual_estimate: "Manual estimate",
 };
 
 const transactionActionLabels: Record<TransactionAction, string> = {
@@ -94,6 +104,10 @@ export function formatPriceSourceLabel(source: string) {
   return priceSourceLabels[source] ?? source.replace(/_/g, " ");
 }
 
+export function formatTelegramPriceSourceLabel(source: SaasTelegramPriceSource) {
+  return telegramPriceSourceLabels[source] ?? source.replace(/_/g, " ");
+}
+
 export function formatAssetCategoryLabel(category: AssetCategory | null) {
   if (!category) {
     return "Неизвестная категория";
@@ -117,5 +131,3 @@ export function formatRecommendationLabel(recommendation: PositionRecommendation
 export function formatSaasPriceConfidenceLabel(status: SaasPriceConfidenceStatus) {
   return saasPriceConfidenceLabels[status] ?? status.replace(/_/g, " ");
 }
-
-

@@ -1,4 +1,4 @@
-import type {
+﻿import type {
   AllocationDatum,
   CategoryPerformanceDatum,
   SummaryCardDatum,
@@ -11,6 +11,11 @@ export type SaasManualAssetCategory = "cs2" | "telegram" | "crypto" | "custom";
 export type SaasManualAssetLiquidity = "high" | "medium" | "low" | "unknown";
 export type SaasManualAssetConfidence = "high" | "medium" | "low";
 export type SaasManualTransactionMode = "buy" | "sell" | "adjustment";
+export type SaasTelegramPriceSource =
+  | "fragment"
+  | "otc_deal"
+  | "marketplace_listing"
+  | "manual_estimate";
 export type SaasPriceConfidenceStatus =
   | "live_high"
   | "live_medium"
@@ -84,6 +89,9 @@ export type SaasPortfolioPositionRow = {
   tags: string[];
   liquidity: SaasManualAssetLiquidity | null;
   confidence: SaasManualAssetConfidence | null;
+  manualPriceSource: SaasTelegramPriceSource | null;
+  lastVerifiedAt: string | null;
+  priceNotes: string | null;
   priceConfidenceStatus: SaasPriceConfidenceStatus;
   priceUpdatedAt: string | null;
   priceWarning: string | null;
@@ -108,6 +116,39 @@ export type SaasPortfolioTransactionRow = {
   fees: number | null;
   currency: string | null;
   notes: string | null;
+};
+
+export type SaasTelegramGiftPriceHistoryRow = {
+  id: string;
+  occurredAt: string;
+  price: number | null;
+  currency: string | null;
+  confidence: SaasManualAssetConfidence | null;
+  priceSource: SaasTelegramPriceSource | null;
+  lastVerifiedAt: string | null;
+  notes: string | null;
+  previousPrice: number | null;
+  changePercent: number | null;
+  isOutlier: boolean;
+  outlierMessage: string | null;
+};
+
+export type SaasTelegramGiftPricingRow = {
+  positionId: string;
+  assetId: string;
+  assetName: string;
+  quantity: number;
+  currentPrice: number | null;
+  currency: string;
+  totalValue: number;
+  confidence: SaasManualAssetConfidence | null;
+  priceSource: SaasTelegramPriceSource | null;
+  lastVerifiedAt: string | null;
+  notes: string | null;
+  needsReview: boolean;
+  reviewReason: string | null;
+  latestOutlierMessage: string | null;
+  history: SaasTelegramGiftPriceHistoryRow[];
 };
 
 export type SaasPortfolioDetail = {
@@ -138,6 +179,14 @@ export type SaasPortfolioDetail = {
   positions: SaasPortfolioPositionRow[];
   recentTransactions: SaasPortfolioTransactionRow[];
   warnings: string[];
+  telegramPricing: {
+    positionCount: number;
+    totalValue: number;
+    staleCount: number;
+    lowConfidenceCount: number;
+    outlierCount: number;
+    gifts: SaasTelegramGiftPricingRow[];
+  };
   integrationSummary: {
     id: string;
     name: string;

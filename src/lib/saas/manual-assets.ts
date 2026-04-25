@@ -1,4 +1,4 @@
-import "server-only";
+﻿import "server-only";
 
 import type { AssetCategory, Prisma } from "@prisma/client";
 
@@ -16,6 +16,7 @@ import { decimalToNumber } from "@/lib/saas/utils";
 import type {
   SaasManualAssetConfidence,
   SaasManualAssetLiquidity,
+  SaasTelegramPriceSource,
 } from "@/types/saas";
 
 type ManualAssetBaseInput = {
@@ -43,6 +44,9 @@ export type ManualAssetProfile = {
   tags: string[];
   liquidity: SaasManualAssetLiquidity | null;
   confidence: SaasManualAssetConfidence | null;
+  priceSource: SaasTelegramPriceSource | null;
+  lastVerifiedAt: string | null;
+  priceNotes: string | null;
   lastEditedAt: string | null;
 };
 
@@ -168,7 +172,7 @@ function buildTransactionNote(action: "BUY" | "SELL", notes?: string) {
   return trimmedNotes ? `${prefix} ${trimmedNotes}` : prefix;
 }
 
-async function requireManualAssetAccess(userId: string, portfolioId: string) {
+export async function requireManualAssetAccess(userId: string, portfolioId: string) {
   const membership = await getPortfolioMembershipForUser(userId, portfolioId);
 
   if (!membership) {
@@ -205,6 +209,16 @@ export function extractManualAssetProfile(
     manualAsset.confidence === "low"
       ? manualAsset.confidence
       : null;
+  const priceSource =
+    manualAsset.priceSource === "fragment" ||
+    manualAsset.priceSource === "otc_deal" ||
+    manualAsset.priceSource === "marketplace_listing" ||
+    manualAsset.priceSource === "manual_estimate"
+      ? manualAsset.priceSource
+      : null;
+  const lastVerifiedAt =
+    typeof manualAsset.lastVerifiedAt === "string" ? manualAsset.lastVerifiedAt : null;
+  const priceNotes = typeof manualAsset.priceNotes === "string" ? manualAsset.priceNotes : null;
   const lastEditedAt = typeof manualAsset.lastEditedAt === "string" ? manualAsset.lastEditedAt : null;
 
   return {
@@ -212,6 +226,9 @@ export function extractManualAssetProfile(
     tags,
     liquidity,
     confidence,
+    priceSource,
+    lastVerifiedAt,
+    priceNotes,
     lastEditedAt,
   };
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { ManualAssetManager } from "@/components/app/manual-asset-manager";
+import { TelegramGiftPricingPanel } from "@/components/app/telegram-gift-pricing-panel";
 import { AllocationChart } from "@/components/dashboard/allocation-chart";
 import { CategoryPerformanceChart } from "@/components/dashboard/category-performance-chart";
 import { DashboardStatePanel } from "@/components/dashboard/dashboard-state-panel";
@@ -81,7 +82,7 @@ export default async function PortfolioDetailPage({
               {portfolio.name}
             </h2>
             <p className="mt-4 max-w-3xl text-sm leading-8 text-slate-300/80 sm:text-base">
-              Database-backed detail page для SaaS-портфеля. Здесь уже работают summary cards, allocation charts, таблица позиций, последние транзакции и настройки visibility / risk profile.
+              Database-backed detail page для SaaS-портфеля. Здесь уже работают summary cards, allocation charts, таблица позиций, последние транзакции и отдельный OTC pricing workflow для Telegram Gifts.
             </p>
             <div className="mt-5 flex flex-wrap gap-2 text-xs uppercase tracking-[0.2em] text-slate-300/80">
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
@@ -177,6 +178,19 @@ export default async function PortfolioDetailPage({
         </SectionCard>
 
         <div className="space-y-6">
+          <SectionCard
+            eyebrow="Telegram Gifts"
+            title="OTC pricing workflow"
+            description="Ручное обновление цен, confidence, outlier detection и история price updates для Telegram Gifts."
+          >
+            <TelegramGiftPricingPanel
+              portfolioId={portfolio.id}
+              baseCurrency={portfolio.baseCurrency}
+              canManage={portfolio.canManage}
+              telegramPricing={portfolio.telegramPricing}
+            />
+          </SectionCard>
+
           <SectionCard
             eyebrow="Integrations"
             title="Подключения и sync-layer"
