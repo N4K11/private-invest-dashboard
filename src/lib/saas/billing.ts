@@ -12,13 +12,13 @@ import {
 } from "@/lib/env";
 import {
   getBillingPlanCardCatalog,
-  getBillingPlanDefinition,
   getStripePriceIdForPlan,
   normalizeSubscriptionPlan,
   normalizeSubscriptionStatus,
   toPrismaSubscriptionPlan,
   toPrismaSubscriptionStatus,
 } from "@/lib/saas/billing/plans";
+import { getWorkspaceLimitSnapshot } from "@/lib/saas/limits";
 import {
   createStripeCheckoutSession,
   createStripeCustomer,
@@ -171,6 +171,8 @@ function buildDefaultSubscriptionSummary() {
     currentPeriodEnd: null,
     trialEndsAt: null,
     cancelAtPeriodEnd: false,
+    overrideLimitsEnabled: false,
+    overrideNotes: null,
   };
 }
 
@@ -192,17 +194,8 @@ function mapSubscriptionRecord(
     currentPeriodEnd: toIsoString(record.currentPeriodEnd),
     trialEndsAt: toIsoString(record.trialEndsAt),
     cancelAtPeriodEnd: record.cancelAtPeriodEnd,
-  };
-}
-
-function createUsageMetric(label: string, key: string, used: number, limit: number | null, unit: string) {
-  return {
-    key,
-    label,
-    used,
-    limit,
-    remaining: limit === null ? null : Math.max(limit - used, 0),
-    unit,
+    overrideLimitsEnabled: record.overrideLimitsEnabled,
+    overrideNotes: record.overrideNotes,
   };
 }
 
@@ -215,30 +208,16 @@ export async function getWorkspaceBillingSummaryForUser(
     return null;
   }
 
-  const prisma = getPrismaClient();
-  const [workspace, positionCount, alertCount] = await Promise.all([
+  const [workspace, limitSnapshot] = await Promise.all([
     loadWorkspaceBillingRecord(workspaceId),
-    prisma.position.count({
-      where: {
-        portfolio: {
-          workspaceId,
-          isArchived: false,
-        },
-      },
-    }),
-    prisma.alertRule.count({
-      where: {
-        workspaceId,
-      },
-    }),
+    getWorkspaceLimitSnapshot(workspaceId),
   ]);
 
-  if (!workspace) {
+  if (!workspace || !limitSnapshot) {
     return null;
   }
 
   const currentSubscription = mapSubscriptionRecord(workspace.subscription);
-  const currentPlanDefinition = getBillingPlanDefinition(currentSubscription.plan);
   const providerConfigured = isStripeBillingConfigured();
   const webhookConfigured = isStripeWebhookConfigured();
   const customerPortalReady = Boolean(providerConfigured && currentSubscription.billingCustomerId);
@@ -248,18 +227,18 @@ export async function getWorkspaceBillingSummaryForUser(
     currentSubscription.billingSubscriptionId,
   );
 
-  const warnings = new Set<string>();
+  const warnings = new Set(limitSnapshot.warnings);
   if (!providerConfigured) {
-    warnings.add("Stripe env РµС‰Рµ РЅРµ РЅР°СЃС‚СЂРѕРµРЅ. Checkout Рё Customer Portal РїРѕРєР° РЅРµРґРѕСЃС‚СѓРїРЅС‹.");
+    warnings.add("Stripe env еще не настроен. Checkout и Customer Portal пока недоступны.");
   }
   if (providerConfigured && !webhookConfigured) {
-    warnings.add("STRIPE_WEBHOOK_SECRET РЅРµ РЅР°СЃС‚СЂРѕРµРЅ. Checkout СЃРјРѕР¶РµС‚ РѕС‚РєСЂС‹РІР°С‚СЊСЃСЏ, РЅРѕ sync СЃС‚Р°С‚СѓСЃР° РёР· Stripe Р±СѓРґРµС‚ РЅРµРїРѕР»РЅС‹Рј.");
+    warnings.add("STRIPE_WEBHOOK_SECRET не настроен. Checkout может работать, но sync статуса из Stripe будет неполным.");
   }
   if (providerConfigured && currentSubscription.plan !== "free" && !currentSubscription.billingSubscriptionId) {
-    warnings.add("Р”Р»СЏ РїР»Р°С‚РЅРѕРіРѕ РїР»Р°РЅР° РµС‰Рµ РЅРµС‚ Stripe subscription id. РџСЂРѕРІРµСЂСЊ webhook flow РёР»Рё checkout completion.");
+    warnings.add("Для платного плана еще не найден Stripe subscription id. Проверьте webhook flow или completion checkout.");
   }
   if (managedByPortal) {
-    warnings.add("Р”Р»СЏ Р°РєС‚РёРІРЅРѕР№ РїР»Р°С‚РЅРѕР№ РїРѕРґРїРёСЃРєРё СЃРјРµРЅР° РїР»Р°РЅР° РґРѕР»Р¶РЅР° РёРґС‚Рё С‡РµСЂРµР· Stripe Customer Portal, Р° РЅРµ С‡РµСЂРµР· РЅРѕРІС‹Р№ Checkout.");
+    warnings.add("Для активной платной подписки смена плана должна идти через Stripe Customer Portal, а не через новый Checkout.");
   }
 
   return {
@@ -272,36 +251,8 @@ export async function getWorkspaceBillingSummaryForUser(
     webhookConfigured,
     customerPortalReady,
     currentSubscription,
-    usage: [
-      createUsageMetric(
-        "РџРѕСЂС‚С„РµР»Рё",
-        "portfolios",
-        workspace._count.portfolios,
-        currentPlanDefinition.limits.portfolios,
-        "С€С‚.",
-      ),
-      createUsageMetric(
-        "РџРѕР·РёС†РёРё",
-        "positions",
-        positionCount,
-        currentPlanDefinition.limits.positions,
-        "С€С‚.",
-      ),
-      createUsageMetric(
-        "РРЅС‚РµРіСЂР°С†РёРё",
-        "integrations",
-        workspace._count.integrations,
-        currentPlanDefinition.limits.integrations,
-        "С€С‚.",
-      ),
-      createUsageMetric(
-        "Alerts",
-        "alerts",
-        alertCount,
-        currentPlanDefinition.limits.alerts,
-        "С€С‚.",
-      ),
-    ],
+    usage: limitSnapshot.usage,
+    limits: limitSnapshot,
     plans: getBillingPlanCardCatalog(currentSubscription.plan, context.canManage && providerConfigured && !managedByPortal),
     warnings: [...warnings],
   };
@@ -311,11 +262,11 @@ async function ensureBillingMutationAccess(userId: string, workspaceId: string) 
   const context = await resolveWorkspaceBillingContext(userId, workspaceId);
 
   if (!context) {
-    throw new Error("Workspace РЅРµ РЅР°Р№РґРµРЅ РёР»Рё РґРѕСЃС‚СѓРї Рє РЅРµРјСѓ РѕС‚СЃСѓС‚СЃС‚РІСѓРµС‚.");
+    throw new Error("Workspace Р Р…Р Вµ Р Р…Р В°Р в„–Р Т‘Р ВµР Р… Р С‘Р В»Р С‘ Р Т‘Р С•РЎРѓРЎвЂљРЎС“Р С— Р С” Р Р…Р ВµР СРЎС“ Р С•РЎвЂљРЎРѓРЎС“РЎвЂљРЎРѓРЎвЂљР Р†РЎС“Р ВµРЎвЂљ.");
   }
 
   if (!context.canManage) {
-    throw new Error("РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РїСЂР°РІ РґР»СЏ СѓРїСЂР°РІР»РµРЅРёСЏ Р±РёР»Р»РёРЅРіРѕРј СЌС‚РѕРіРѕ workspace.");
+    throw new Error("Р СњР ВµР Т‘Р С•РЎРѓРЎвЂљР В°РЎвЂљР С•РЎвЂЎР Р…Р С• Р С—РЎР‚Р В°Р Р† Р Т‘Р В»РЎРЏ РЎС“Р С—РЎР‚Р В°Р Р†Р В»Р ВµР Р…Р С‘РЎРЏ Р В±Р С‘Р В»Р В»Р С‘Р Р…Р С–Р С•Р С РЎРЊРЎвЂљР С•Р С–Р С• workspace.");
   }
 
   return context;
@@ -326,7 +277,7 @@ async function ensureStripeCustomerForWorkspace(workspaceId: string) {
   const workspace = await loadWorkspaceBillingRecord(workspaceId);
 
   if (!workspace) {
-    throw new Error("Workspace РґР»СЏ billing РЅРµ РЅР°Р№РґРµРЅ.");
+    throw new Error("Workspace Р Т‘Р В»РЎРЏ billing Р Р…Р Вµ Р Р…Р В°Р в„–Р Т‘Р ВµР Р….");
   }
 
   if (workspace.subscription?.billingCustomerId) {
@@ -375,18 +326,18 @@ export async function createCheckoutSessionForWorkspace(params: {
   origin: string;
 }) {
   if (!isStripeBillingConfigured()) {
-    throw new Error("Stripe billing РµС‰Рµ РЅРµ РЅР°СЃС‚СЂРѕРµРЅ РґР»СЏ СЌС‚РѕРіРѕ РѕРєСЂСѓР¶РµРЅРёСЏ.");
+    throw new Error("Stripe billing Р ВµРЎвЂ°Р Вµ Р Р…Р Вµ Р Р…Р В°РЎРѓРЎвЂљРЎР‚Р С•Р ВµР Р… Р Т‘Р В»РЎРЏ РЎРЊРЎвЂљР С•Р С–Р С• Р С•Р С”РЎР‚РЎС“Р В¶Р ВµР Р…Р С‘РЎРЏ.");
   }
 
   if (params.selectedPlan === "free") {
-    throw new Error("Р”Р»СЏ Р±РµСЃРїР»Р°С‚РЅРѕРіРѕ РїР»Р°РЅР° checkout РЅРµ РЅСѓР¶РµРЅ.");
+    throw new Error("Р вЂќР В»РЎРЏ Р В±Р ВµРЎРѓР С—Р В»Р В°РЎвЂљР Р…Р С•Р С–Р С• Р С—Р В»Р В°Р Р…Р В° checkout Р Р…Р Вµ Р Р…РЎС“Р В¶Р ВµР Р….");
   }
 
   await ensureBillingMutationAccess(params.userId, params.workspaceId);
 
   const { workspace, customerId } = await ensureStripeCustomerForWorkspace(params.workspaceId);
   if (!workspace) {
-    throw new Error("Workspace РґР»СЏ billing РЅРµ РЅР°Р№РґРµРЅ.");
+    throw new Error("Workspace Р Т‘Р В»РЎРЏ billing Р Р…Р Вµ Р Р…Р В°Р в„–Р Т‘Р ВµР Р….");
   }
 
   const currentSubscription = mapSubscriptionRecord(workspace.subscription);
@@ -394,7 +345,7 @@ export async function createCheckoutSessionForWorkspace(params: {
     currentSubscription.plan === params.selectedPlan &&
     (currentSubscription.status === "active" || currentSubscription.status === "trialing")
   ) {
-    throw new Error("Р­С‚РѕС‚ С‚Р°СЂРёС„ СѓР¶Рµ Р°РєС‚РёРІРµРЅ РґР»СЏ С‚РµРєСѓС‰РµРіРѕ workspace.");
+    throw new Error("Р В­РЎвЂљР С•РЎвЂљ РЎвЂљР В°РЎР‚Р С‘РЎвЂћ РЎС“Р В¶Р Вµ Р В°Р С”РЎвЂљР С‘Р Р†Р ВµР Р… Р Т‘Р В»РЎРЏ РЎвЂљР ВµР С”РЎС“РЎвЂ°Р ВµР С–Р С• workspace.");
   }
 
   if (
@@ -404,12 +355,12 @@ export async function createCheckoutSessionForWorkspace(params: {
       currentSubscription.billingSubscriptionId,
     )
   ) {
-    throw new Error("Р”Р»СЏ СЃРјРµРЅС‹ Р°РєС‚РёРІРЅРѕРіРѕ РїР»Р°С‚РЅРѕРіРѕ С‚Р°СЂРёС„Р° РёСЃРїРѕР»СЊР·СѓР№С‚Рµ Stripe Customer Portal.");
+    throw new Error("Р вЂќР В»РЎРЏ РЎРѓР СР ВµР Р…РЎвЂ№ Р В°Р С”РЎвЂљР С‘Р Р†Р Р…Р С•Р С–Р С• Р С—Р В»Р В°РЎвЂљР Р…Р С•Р С–Р С• РЎвЂљР В°РЎР‚Р С‘РЎвЂћР В° Р С‘РЎРѓР С—Р С•Р В»РЎРЉР В·РЎС“Р в„–РЎвЂљР Вµ Stripe Customer Portal.");
   }
 
   const priceId = getStripePriceIdForPlan(params.selectedPlan);
   if (!priceId) {
-    throw new Error("Р”Р»СЏ РІС‹Р±СЂР°РЅРЅРѕРіРѕ С‚Р°СЂРёС„Р° РµС‰Рµ РЅРµ Р·Р°РґР°РЅ Stripe price id.");
+    throw new Error("Р вЂќР В»РЎРЏ Р Р†РЎвЂ№Р В±РЎР‚Р В°Р Р…Р Р…Р С•Р С–Р С• РЎвЂљР В°РЎР‚Р С‘РЎвЂћР В° Р ВµРЎвЂ°Р Вµ Р Р…Р Вµ Р В·Р В°Р Т‘Р В°Р Р… Stripe price id.");
   }
 
   const checkout = await createStripeCheckoutSession({
@@ -424,7 +375,7 @@ export async function createCheckoutSessionForWorkspace(params: {
   });
 
   if (!checkout.url) {
-    throw new Error("Stripe checkout session РЅРµ РІРµСЂРЅСѓР»Р° redirect URL.");
+    throw new Error("Stripe checkout session Р Р…Р Вµ Р Р†Р ВµРЎР‚Р Р…РЎС“Р В»Р В° redirect URL.");
   }
 
   const prisma = getPrismaClient();
@@ -475,19 +426,19 @@ export async function createCustomerPortalSessionForWorkspace(params: {
   origin: string;
 }) {
   if (!isStripeBillingConfigured()) {
-    throw new Error("Stripe billing РµС‰Рµ РЅРµ РЅР°СЃС‚СЂРѕРµРЅ РґР»СЏ СЌС‚РѕРіРѕ РѕРєСЂСѓР¶РµРЅРёСЏ.");
+    throw new Error("Stripe billing Р ВµРЎвЂ°Р Вµ Р Р…Р Вµ Р Р…Р В°РЎРѓРЎвЂљРЎР‚Р С•Р ВµР Р… Р Т‘Р В»РЎРЏ РЎРЊРЎвЂљР С•Р С–Р С• Р С•Р С”РЎР‚РЎС“Р В¶Р ВµР Р…Р С‘РЎРЏ.");
   }
 
   await ensureBillingMutationAccess(params.userId, params.workspaceId);
 
   const workspace = await loadWorkspaceBillingRecord(params.workspaceId);
   if (!workspace) {
-    throw new Error("Workspace РґР»СЏ Customer Portal РЅРµ РЅР°Р№РґРµРЅ.");
+    throw new Error("Workspace Р Т‘Р В»РЎРЏ Customer Portal Р Р…Р Вµ Р Р…Р В°Р в„–Р Т‘Р ВµР Р….");
   }
 
   const customerId = workspace.subscription?.billingCustomerId;
   if (!customerId) {
-    throw new Error("Customer Portal СЃС‚Р°РЅРµС‚ РґРѕСЃС‚СѓРїРµРЅ РїРѕСЃР»Рµ РїРµСЂРІРѕР№ СѓСЃРїРµС€РЅРѕР№ Stripe checkout СЃРµСЃСЃРёРё.");
+    throw new Error("Customer Portal РЎРѓРЎвЂљР В°Р Р…Р ВµРЎвЂљ Р Т‘Р С•РЎРѓРЎвЂљРЎС“Р С—Р ВµР Р… Р С—Р С•РЎРѓР В»Р Вµ Р С—Р ВµРЎР‚Р Р†Р С•Р в„– РЎС“РЎРѓР С—Р ВµРЎв‚¬Р Р…Р С•Р в„– Stripe checkout РЎРѓР ВµРЎРѓРЎРѓР С‘Р С‘.");
   }
 
   const portalSession = await createStripeCustomerPortalSession({
@@ -496,7 +447,7 @@ export async function createCustomerPortalSessionForWorkspace(params: {
   });
 
   if (!portalSession.url) {
-    throw new Error("Stripe Customer Portal РЅРµ РІРµСЂРЅСѓР» redirect URL.");
+    throw new Error("Stripe Customer Portal Р Р…Р Вµ Р Р†Р ВµРЎР‚Р Р…РЎС“Р В» redirect URL.");
   }
 
   const prisma = getPrismaClient();
@@ -806,7 +757,7 @@ async function handleInvoiceEvent(eventId: string, eventType: string, object: Re
 
 export async function handleStripeWebhookRequest(payload: string, signatureHeader: string | null) {
   if (!isStripeWebhookConfigured()) {
-    throw new Error("Stripe webhook РЅРµ РЅР°СЃС‚СЂРѕРµРЅ РґР»СЏ СЌС‚РѕРіРѕ РѕРєСЂСѓР¶РµРЅРёСЏ.");
+    throw new Error("Stripe webhook Р Р…Р Вµ Р Р…Р В°РЎРѓРЎвЂљРЎР‚Р С•Р ВµР Р… Р Т‘Р В»РЎРЏ РЎРЊРЎвЂљР С•Р С–Р С• Р С•Р С”РЎР‚РЎС“Р В¶Р ВµР Р…Р С‘РЎРЏ.");
   }
 
   const event = verifyStripeWebhookEvent(payload, signatureHeader);

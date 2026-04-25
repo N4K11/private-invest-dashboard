@@ -1,6 +1,7 @@
-﻿import { NextRequest } from "next/server";
+import { NextRequest } from "next/server";
 
 import { guardSaasApiRequest } from "@/lib/auth/saas-api";
+import { isWorkspaceLimitError } from "@/lib/saas/limits";
 import { createPortfolioForWorkspace } from "@/lib/saas/portfolios";
 import { portfolioCreateSchema } from "@/lib/saas/schema";
 import {
@@ -58,10 +59,10 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     const message = sanitizeErrorMessage(error, "Не удалось создать портфель.");
-    const status = message.includes("Недостаточно прав") ? 403 : message.includes("не найден") ? 404 : 500;
+    const status = isWorkspaceLimitError(error) ? 409 : message.includes("Недостаточно прав") ? 403 : message.includes("не найден") ? 404 : 500;
 
     return privateApiError(status, message, {
-      code: status === 403 ? "portfolio_forbidden" : "portfolio_create_failed",
+      code: status === 409 ? "portfolio_limit_reached" : status === 403 ? "portfolio_forbidden" : "portfolio_create_failed",
     });
   }
 }

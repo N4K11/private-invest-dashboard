@@ -1,4 +1,4 @@
-﻿import "server-only";
+import "server-only";
 
 import type { AssetCategory, Prisma } from "@prisma/client";
 
@@ -8,6 +8,7 @@ import {
   normalizeWorkspaceRole,
 } from "@/lib/auth/workspace";
 import { getPrismaClient } from "@/lib/db/client";
+import { assertWorkspaceCountLimit } from "@/lib/saas/limits";
 import type {
   ManualAssetCreateInput,
   ManualAssetUpdateInput,
@@ -257,6 +258,8 @@ export async function createManualAssetPosition(
     if (!portfolio) {
       throw new Error("Portfolio was not found or is archived.");
     }
+
+    await assertWorkspaceCountLimit(membership.workspaceId, "positions", 1, transaction);
 
     const editedAt = new Date().toISOString();
     const normalizedKey = buildAssetNormalizedKey(input.category, input.name);

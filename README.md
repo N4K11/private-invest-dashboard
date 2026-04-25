@@ -52,6 +52,7 @@ Implemented right now:
 - SaaS Alerts Center at /app/alerts with AlertRule / AlertEvent, manual evaluation, email provider abstraction and cron-ready /api/cron/alerts
 - SaaS portfolio detail pages now include a deterministic AI Insights layer with summary, risk, liquidity, concentration, snapshot-change and valuation-quality commentary plus a clear non-advice disclaimer
 - SaaS billing now includes `/app/billing`, Stripe Checkout, Stripe Customer Portal, webhook signature verification and subscription sync back into PostgreSQL
+- Stage 26 adds a centralized workspace limit service with hard gates for portfolio creation, manual positions, import-created positions and alert rules, plus plan-based price refresh and history retention
 - `robots.txt` and `noindex/nofollow` protection for the private surface
 
 ## Stack
@@ -376,7 +377,7 @@ Telegram Gifts in `/app/portfolios/[portfolioId]` now use a dedicated manual / O
 SaaS workspaces now include an Alerts Center at `/app/alerts`. It manages `AlertRule` and `AlertEvent`, supports `price_above`, `price_below`, `portfolio_value_change`, `stale_price` and `concentration_risk`, and can deliver notifications through a provider abstraction (`noop` or `resend`). Manual checks run from the UI, while scheduled checks should hit `/api/cron/alerts` from Vercel Cron or VPS cron. See [docs/ALERTS.md](docs/ALERTS.md) for setup and examples.
 
 ## SaaS billing
-Hosted SaaS billing now lives at `/app/billing`. It exposes the Free / Pro / Whale / Team plan catalog, workspace usage vs plan envelopes, Stripe Checkout, Stripe Customer Portal and a signed webhook route at `/api/webhooks/stripe` that syncs subscription state back into PostgreSQL. See [docs/BILLING.md](docs/BILLING.md) for env setup, Stripe CLI usage and webhook behavior.
+Hosted SaaS billing now lives at `/app/billing`. It exposes the Free / Pro / Whale / Team plan catalog, workspace usage vs plan envelopes, Stripe Checkout, Stripe Customer Portal and a signed webhook route at `/api/webhooks/stripe` that syncs subscription state back into PostgreSQL. Stage 26 also hard-enforces limits for portfolio creation, manual positions, import-created positions and alert rules, while price refresh and history retention are now applied centrally by plan. See [docs/BILLING.md](docs/BILLING.md) for env setup, Stripe CLI usage, webhook behavior and the exact enforcement map.
 
 ## Local development
 ```bash

@@ -1,14 +1,16 @@
 # Billing
 
 ## Scope
-Stage 25 adds the first hosted SaaS billing surface:
+Stages 25-26 establish the hosted SaaS billing surface and the first real feature gates:
 - Stripe Checkout
 - Stripe Customer Portal
 - webhook sync back into PostgreSQL
 - plan catalog with feature envelopes
-- billing page at `/app/billing`
+- centralized workspace limit service
+- hard plan enforcement on selected write paths
+- price refresh and history-retention gates tied to the active plan
 
-The current implementation keeps the legacy private dashboard untouched.
+The legacy private dashboard remains untouched.
 
 ## Plans
 Current catalog:
@@ -17,17 +19,70 @@ Current catalog:
 - `Whale`
 - `Team`
 
-Current feature envelopes shown in the UI:
+Current feature envelopes:
 - portfolio count
 - positions count
 - integrations count
-- price refresh lane
 - alerts count
+- price refresh window
 - history retention window
 
-Important:
-- Stage 25 defines the plan catalog and exposes usage vs limits.
-- Stage 26 is where these limits become hard write-time gates.
+## Hard-enforced limits
+Stage 26 moves limits from passive display into runtime enforcement.
+
+### Count limits
+Current write-time gates:
+- `portfolios`
+  - enforced in `POST /api/app/portfolios`
+- `positions`
+  - enforced in `POST /api/app/portfolios/[portfolioId]/positions`
+  - enforced in `POST /api/app/import/commit` only for newly created positions, not for updates to already-existing ones
+- `alerts`
+  - enforced in `POST /api/app/alerts/rules`
+- `integrations`
+  - modeled in the centralized limit service already
+  - hard create UI/API is not wired yet, so this limit is visible in billing and health data but not yet exercised by a public create route
+
+When a hard cap is reached, the backend rejects the mutation with a limit error. Workspace-facing write routes return `409` for these cases.
+
+### Price refresh gate
+The unified SaaS price engine now respects the plan refresh window.
+
+Behavior:
+- if a fresh enough `PriceSnapshot` already exists for a position, the engine reuses it
+- provider calls are skipped for quotes that are still inside the allowed refresh lane
+- a warning is attached so the UI can explain that the price was reused from a recent snapshot
+
+This gate is applied centrally in `src/lib/saas/price-engine/engine.ts` and affects SaaS valuation pages rather than only one route.
+
+### History retention gate
+The active plan also controls how much historical data is considered by SaaS read models.
+
+Current places where history retention is applied:
+- portfolio detail transaction history
+- portfolio analytics queries over transactions and price snapshots
+- Telegram Gifts price-update history on portfolio detail pages
+- alerts history returned by `/app/alerts`
+- portfolio evaluation context used during alert checks
+
+Retention is computed via `getHistoryRetentionCutoffDate()` in `src/lib/saas/limits.ts`.
+
+## Admin overrides
+Subscription rows now support admin overrides for effective limits:
+- `overrideLimitsEnabled`
+- `overridePortfolioLimit`
+- `overridePositionLimit`
+- `overrideIntegrationLimit`
+- `overrideAlertLimit`
+- `overridePriceRefreshHours`
+- `overrideHistoryRetentionDays`
+- `overrideNotes`
+
+Behavior:
+- if overrides are disabled, the public plan envelope is used as-is
+- if overrides are enabled, non-null override fields replace the plan defaults
+- billing UI surfaces when an override is active
+- limit warnings mention that effective limits may differ from the public plan
 
 ## Required env
 Add these variables to `.env.local` / production secrets:
@@ -117,8 +172,9 @@ In practice this means:
 - Checkout and portal routes are protected by SaaS auth + rate limit + workspace permissions.
 - Webhook route verifies `stripe-signature` using `STRIPE_WEBHOOK_SECRET`.
 - User-facing errors are sanitized and do not leak credentials.
+- Hard limit decisions are made server-side; client-side banners are informational only.
 
 ## Current limitations
 - Seat management is still basic; `seatCount` is stored, but no UI for seat provisioning exists yet.
 - Paid plan changes for already-active paid subscriptions should go through Customer Portal.
-- Hard plan enforcement on write operations is intentionally deferred to Stage 26.
+- Integrations limit is already part of the central limit service, but an end-user integration-create flow is still a future stage.

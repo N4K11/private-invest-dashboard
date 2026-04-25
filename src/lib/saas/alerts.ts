@@ -1,4 +1,4 @@
-﻿import "server-only";
+import "server-only";
 
 import type {
   AlertDeliveryChannel,
@@ -16,6 +16,7 @@ import {
   normalizeWorkspaceRole,
 } from "@/lib/auth/workspace";
 import { getPrismaClient } from "@/lib/db/client";
+import { assertWorkspaceCountLimit, getHistoryRetentionCutoffDate, getWorkspaceLimitSnapshot } from "@/lib/saas/limits";
 import { getEmailProvider } from "@/lib/notifications/email/provider";
 import { buildSaasPortfolioAnalytics } from "@/lib/saas/portfolio-analytics";
 import { pricePortfolioPositions } from "@/lib/saas/portfolio-pricing";
@@ -195,12 +196,12 @@ async function assertWorkspaceManagePermission(userId: string, workspaceId: stri
   const membership = await getWorkspaceMembershipForUser(userId, workspaceId);
 
   if (!membership) {
-    throw new Error("Workspace не найден или доступ к нему потерян.");
+    throw new Error("Workspace Р Р…Р Вµ Р Р…Р В°Р в„–Р Т‘Р ВµР Р… Р С‘Р В»Р С‘ Р Т‘Р С•РЎРѓРЎвЂљРЎС“Р С— Р С” Р Р…Р ВµР СРЎС“ Р С—Р С•РЎвЂљР ВµРЎР‚РЎРЏР Р….");
   }
 
   const role = normalizeWorkspaceRole(membership.role);
   if (!canManageWorkspace(role)) {
-    throw new Error("Недостаточно прав для управления alert rules.");
+    throw new Error("Р СњР ВµР Т‘Р С•РЎРѓРЎвЂљР В°РЎвЂљР С•РЎвЂЎР Р…Р С• Р С—РЎР‚Р В°Р Р† Р Т‘Р В»РЎРЏ РЎС“Р С—РЎР‚Р В°Р Р†Р В»Р ВµР Р…Р С‘РЎРЏ alert rules.");
   }
 
   return {
@@ -225,7 +226,7 @@ async function validateAlertTargets(workspaceId: string, input: AlertRuleCreateI
     });
 
     if (!portfolio) {
-      throw new Error("Выбранный портфель не найден в этом workspace.");
+      throw new Error("Р вЂ™РЎвЂ№Р В±РЎР‚Р В°Р Р…Р Р…РЎвЂ№Р в„– Р С—Р С•РЎР‚РЎвЂљРЎвЂћР ВµР В»РЎРЉ Р Р…Р Вµ Р Р…Р В°Р в„–Р Т‘Р ВµР Р… Р Р† РЎРЊРЎвЂљР С•Р С workspace.");
     }
   }
 
@@ -241,7 +242,7 @@ async function validateAlertTargets(workspaceId: string, input: AlertRuleCreateI
     });
 
     if (!asset) {
-      throw new Error("Выбранный актив не найден в этом workspace.");
+      throw new Error("Р вЂ™РЎвЂ№Р В±РЎР‚Р В°Р Р…Р Р…РЎвЂ№Р в„– Р В°Р С”РЎвЂљР С‘Р Р† Р Р…Р Вµ Р Р…Р В°Р в„–Р Т‘Р ВµР Р… Р Р† РЎРЊРЎвЂљР С•Р С workspace.");
     }
   }
 
@@ -263,7 +264,7 @@ async function validateAlertTargets(workspaceId: string, input: AlertRuleCreateI
     });
 
     if (!position) {
-      throw new Error("Выбранный актив отсутствует в указанном портфеле.");
+      throw new Error("Р вЂ™РЎвЂ№Р В±РЎР‚Р В°Р Р…Р Р…РЎвЂ№Р в„– Р В°Р С”РЎвЂљР С‘Р Р† Р С•РЎвЂљРЎРѓРЎС“РЎвЂљРЎРѓРЎвЂљР Р†РЎС“Р ВµРЎвЂљ Р Р† РЎС“Р С”Р В°Р В·Р В°Р Р…Р Р…Р С•Р С Р С—Р С•РЎР‚РЎвЂљРЎвЂћР ВµР В»Р Вµ.");
     }
   }
 }
@@ -296,11 +297,22 @@ async function fetchAlertRulesForWorkspace(workspaceId: string) {
   return rules.map((rule) => buildAlertRuleRow(rule));
 }
 
-async function fetchAlertEventsForWorkspace(workspaceId: string, take = 50) {
+async function fetchAlertEventsForWorkspace(
+  workspaceId: string,
+  take = 50,
+  retentionCutoff?: Date | null,
+) {
   const prisma = getPrismaClient();
   const events = await prisma.alertEvent.findMany({
     where: {
       workspaceId,
+      ...(retentionCutoff
+        ? {
+            triggeredAt: {
+              gte: retentionCutoff,
+            },
+          }
+        : {}),
     },
     take,
     orderBy: [{ triggeredAt: "desc" }, { createdAt: "desc" }],
@@ -332,6 +344,8 @@ async function fetchAlertEventsForWorkspace(workspaceId: string, take = 50) {
 
 async function buildPortfolioEvaluationMap(workspaceId: string) {
   const prisma = getPrismaClient();
+  const limitSnapshot = await getWorkspaceLimitSnapshot(workspaceId);
+  const historyCutoff = limitSnapshot ? getHistoryRetentionCutoffDate(limitSnapshot) : null;
   const portfolios = await prisma.portfolio.findMany({
     where: {
       workspaceId,
@@ -349,6 +363,15 @@ async function buildPortfolioEvaluationMap(workspaceId: string) {
         },
       },
       transactions: {
+        ...(historyCutoff
+          ? {
+              where: {
+                occurredAt: {
+                  gte: historyCutoff,
+                },
+              },
+            }
+          : {}),
         orderBy: [{ occurredAt: "asc" }],
         select: {
           assetId: true,
@@ -360,6 +383,15 @@ async function buildPortfolioEvaluationMap(workspaceId: string) {
         },
       },
       priceSnapshots: {
+        ...(historyCutoff
+          ? {
+              where: {
+                capturedAt: {
+                  gte: historyCutoff,
+                },
+              },
+            }
+          : {}),
         orderBy: [{ capturedAt: "asc" }],
         select: {
           assetId: true,
@@ -379,8 +411,10 @@ async function buildPortfolioEvaluationMap(workspaceId: string) {
     portfolios.map(async (portfolio) => {
       const priced = await pricePortfolioPositions({
         portfolioId: portfolio.id,
+        workspaceId,
         baseCurrency: portfolio.baseCurrency,
         positions: portfolio.positions,
+        limitSnapshot: limitSnapshot ?? undefined,
       });
 
       const analytics = buildSaasPortfolioAnalytics({
@@ -428,11 +462,11 @@ function evaluatePriceRule(rule: AlertRuleWithRelations, portfolio: EvaluatedPor
     return { triggered: false, metricValue: price, thresholdValue: threshold };
   }
 
-  const comparisonLabel = isAbove ? "выше" : "ниже";
+  const comparisonLabel = isAbove ? "Р Р†РЎвЂ№РЎв‚¬Р Вµ" : "Р Р…Р С‘Р В¶Р Вµ";
   return {
     triggered: true,
-    title: `${position.assetName}: цена ${comparisonLabel} порога`,
-    message: `Актив ${position.assetName} в портфеле ${portfolio.name} сейчас стоит ${formatCurrency(price, position.currency ?? portfolio.baseCurrency, 2)}, что ${comparisonLabel} заданного порога ${formatCurrency(threshold, position.currency ?? portfolio.baseCurrency, 2)}.`,
+    title: `${position.assetName}: РЎвЂ Р ВµР Р…Р В° ${comparisonLabel} Р С—Р С•РЎР‚Р С•Р С–Р В°`,
+    message: `Р С’Р С”РЎвЂљР С‘Р Р† ${position.assetName} Р Р† Р С—Р С•РЎР‚РЎвЂљРЎвЂћР ВµР В»Р Вµ ${portfolio.name} РЎРѓР ВµР в„–РЎвЂЎР В°РЎРѓ РЎРѓРЎвЂљР С•Р С‘РЎвЂљ ${formatCurrency(price, position.currency ?? portfolio.baseCurrency, 2)}, РЎвЂЎРЎвЂљР С• ${comparisonLabel} Р В·Р В°Р Т‘Р В°Р Р…Р Р…Р С•Р С–Р С• Р С—Р С•РЎР‚Р С•Р С–Р В° ${formatCurrency(threshold, position.currency ?? portfolio.baseCurrency, 2)}.`,
     metricValue: price,
     thresholdValue: threshold,
     payload: {
@@ -483,8 +517,8 @@ function evaluatePortfolioValueChangeRule(rule: AlertRuleWithRelations, portfoli
 
   return {
     triggered: true,
-    title: `${portfolio.name}: изменение стоимости ${formatPercent(changePercent, 1)}`,
-    message: `Стоимость портфеля ${portfolio.name} изменилась на ${formatPercent(changePercent, 1)} относительно предыдущей точки истории: ${formatCurrency(previous.totalValue, portfolio.baseCurrency, 2)} -> ${formatCurrency(current.totalValue, portfolio.baseCurrency, 2)}.`,
+    title: `${portfolio.name}: Р С‘Р В·Р СР ВµР Р…Р ВµР Р…Р С‘Р Вµ РЎРѓРЎвЂљР С•Р С‘Р СР С•РЎРѓРЎвЂљР С‘ ${formatPercent(changePercent, 1)}`,
+    message: `Р РЋРЎвЂљР С•Р С‘Р СР С•РЎРѓРЎвЂљРЎРЉ Р С—Р С•РЎР‚РЎвЂљРЎвЂћР ВµР В»РЎРЏ ${portfolio.name} Р С‘Р В·Р СР ВµР Р…Р С‘Р В»Р В°РЎРѓРЎРЉ Р Р…Р В° ${formatPercent(changePercent, 1)} Р С•РЎвЂљР Р…Р С•РЎРѓР С‘РЎвЂљР ВµР В»РЎРЉР Р…Р С• Р С—РЎР‚Р ВµР Т‘РЎвЂ№Р Т‘РЎС“РЎвЂ°Р ВµР в„– РЎвЂљР С•РЎвЂЎР С”Р С‘ Р С‘РЎРѓРЎвЂљР С•РЎР‚Р С‘Р С‘: ${formatCurrency(previous.totalValue, portfolio.baseCurrency, 2)} -> ${formatCurrency(current.totalValue, portfolio.baseCurrency, 2)}.`,
     metricValue: changePercent,
     thresholdValue: thresholdPercent,
     payload: {
@@ -517,11 +551,11 @@ function evaluateStalePriceRule(rule: AlertRuleWithRelations, portfoliosById: Ma
     };
   }
 
-  const scopeLabel = rule.portfolioId && relevantPortfolios[0] ? `в портфеле ${relevantPortfolios[0].name}` : "в workspace";
+  const scopeLabel = rule.portfolioId && relevantPortfolios[0] ? `Р Р† Р С—Р С•РЎР‚РЎвЂљРЎвЂћР ВµР В»Р Вµ ${relevantPortfolios[0].name}` : "Р Р† workspace";
   return {
     triggered: true,
-    title: `Обнаружены устаревшие цены ${scopeLabel}`,
-    message: `Найдено ${formatNumber(stalePositions.length, 0)} позиций с устаревшими ценами ${scopeLabel}. Это уже влияет на точность valuation и alert analytics.`,
+    title: `Р С›Р В±Р Р…Р В°РЎР‚РЎС“Р В¶Р ВµР Р…РЎвЂ№ РЎС“РЎРѓРЎвЂљР В°РЎР‚Р ВµР Р†РЎв‚¬Р С‘Р Вµ РЎвЂ Р ВµР Р…РЎвЂ№ ${scopeLabel}`,
+    message: `Р СњР В°Р в„–Р Т‘Р ВµР Р…Р С• ${formatNumber(stalePositions.length, 0)} Р С—Р С•Р В·Р С‘РЎвЂ Р С‘Р в„– РЎРѓ РЎС“РЎРѓРЎвЂљР В°РЎР‚Р ВµР Р†РЎв‚¬Р С‘Р СР С‘ РЎвЂ Р ВµР Р…Р В°Р СР С‘ ${scopeLabel}. Р В­РЎвЂљР С• РЎС“Р В¶Р Вµ Р Р†Р В»Р С‘РЎРЏР ВµРЎвЂљ Р Р…Р В° РЎвЂљР С•РЎвЂЎР Р…Р С•РЎРѓРЎвЂљРЎРЉ valuation Р С‘ alert analytics.`,
     metricValue: stalePositions.length,
     thresholdValue: threshold,
     payload: {
@@ -550,8 +584,8 @@ function evaluateConcentrationRule(rule: AlertRuleWithRelations, portfolio: Eval
 
   return {
     triggered: true,
-    title: `${portfolio.name}: риск концентрации превышен`,
-    message: `Крупнейшая позиция в портфеле ${portfolio.name} занимает ${formatPercent(weight, 1)}. Это выше заданного лимита ${formatPercent(threshold, 1)}.`,
+    title: `${portfolio.name}: РЎР‚Р С‘РЎРѓР С” Р С”Р С•Р Р…РЎвЂ Р ВµР Р…РЎвЂљРЎР‚Р В°РЎвЂ Р С‘Р С‘ Р С—РЎР‚Р ВµР Р†РЎвЂ№РЎв‚¬Р ВµР Р…`,
+    message: `Р С™РЎР‚РЎС“Р С—Р Р…Р ВµР в„–РЎв‚¬Р В°РЎРЏ Р С—Р С•Р В·Р С‘РЎвЂ Р С‘РЎРЏ Р Р† Р С—Р С•РЎР‚РЎвЂљРЎвЂћР ВµР В»Р Вµ ${portfolio.name} Р В·Р В°Р Р…Р С‘Р СР В°Р ВµРЎвЂљ ${formatPercent(weight, 1)}. Р В­РЎвЂљР С• Р Р†РЎвЂ№РЎв‚¬Р Вµ Р В·Р В°Р Т‘Р В°Р Р…Р Р…Р С•Р С–Р С• Р В»Р С‘Р СР С‘РЎвЂљР В° ${formatPercent(threshold, 1)}.`,
     metricValue: weight,
     thresholdValue: threshold,
     payload: {
@@ -733,7 +767,12 @@ export async function getAlertsWorkspaceViewForUser(
   const role = normalizeWorkspaceRole(membership.role);
   const canManage = canManageWorkspace(role);
   const prisma = getPrismaClient();
+  const limitSnapshot = await getWorkspaceLimitSnapshot(workspaceId);
+  if (!limitSnapshot) {
+    return null;
+  }
 
+  const historyCutoff = getHistoryRetentionCutoffDate(limitSnapshot);
   const [user, portfolios, rules, events] = await Promise.all([
     prisma.user.findUnique({
       where: {
@@ -766,7 +805,7 @@ export async function getAlertsWorkspaceViewForUser(
       },
     }),
     fetchAlertRulesForWorkspace(workspaceId),
-    fetchAlertEventsForWorkspace(workspaceId),
+    fetchAlertEventsForWorkspace(workspaceId, 50, historyCutoff),
   ]);
 
   const portfolioOptions: SaasAlertPortfolioOption[] = portfolios.map((portfolio) => ({
@@ -798,6 +837,7 @@ export async function getAlertsWorkspaceViewForUser(
     assets: assetOptions,
     rules,
     events,
+    limits: limitSnapshot,
   };
 }
 
@@ -810,56 +850,62 @@ export async function createAlertRuleForWorkspace(
   await validateAlertTargets(workspaceId, input);
 
   const prisma = getPrismaClient();
-  const rule = await prisma.alertRule.create({
-    data: {
-      workspaceId,
-      portfolioId: input.portfolioId ?? null,
-      assetId: input.assetId ?? null,
-      createdByUserId: userId,
-      name: input.name,
-      type: mapAlertRuleTypeToPrisma(input.type),
-      status: mapAlertRuleStatusToPrisma(input.status),
-      channel: "EMAIL",
-      thresholdValue: input.thresholdValue ?? null,
-      thresholdPercent: input.thresholdPercent ?? null,
-      cooldownMinutes: input.cooldownMinutes,
-      recipientEmail: input.recipientEmail ?? null,
-      config: buildRuleConfig(input) as Prisma.InputJsonValue,
-    },
-    include: {
-      portfolio: {
-        select: {
-          id: true,
-          name: true,
-          baseCurrency: true,
-        },
-      },
-      asset: {
-        select: {
-          id: true,
-          name: true,
-          symbol: true,
-        },
-      },
-    },
-  });
+  const rule = await prisma.$transaction(async (transaction) => {
+    await assertWorkspaceCountLimit(workspaceId, "alerts", 1, transaction);
 
-  await prisma.auditLog.create({
-    data: {
-      workspaceId,
-      portfolioId: rule.portfolioId,
-      userId,
-      actorType: "USER",
-      action: "alert.rule.create",
-      entityType: "alert_rule",
-      entityId: rule.id,
-      severity: "INFO",
-      message: `Created alert rule ${rule.name}.`,
-      payload: {
-        type: input.type,
-        status: input.status,
+    const createdRule = await transaction.alertRule.create({
+      data: {
+        workspaceId,
+        portfolioId: input.portfolioId ?? null,
+        assetId: input.assetId ?? null,
+        createdByUserId: userId,
+        name: input.name,
+        type: mapAlertRuleTypeToPrisma(input.type),
+        status: mapAlertRuleStatusToPrisma(input.status),
+        channel: "EMAIL",
+        thresholdValue: input.thresholdValue ?? null,
+        thresholdPercent: input.thresholdPercent ?? null,
+        cooldownMinutes: input.cooldownMinutes,
+        recipientEmail: input.recipientEmail ?? null,
+        config: buildRuleConfig(input) as Prisma.InputJsonValue,
       },
-    },
+      include: {
+        portfolio: {
+          select: {
+            id: true,
+            name: true,
+            baseCurrency: true,
+          },
+        },
+        asset: {
+          select: {
+            id: true,
+            name: true,
+            symbol: true,
+          },
+        },
+      },
+    });
+
+    await transaction.auditLog.create({
+      data: {
+        workspaceId,
+        portfolioId: createdRule.portfolioId,
+        userId,
+        actorType: "USER",
+        action: "alert.rule.create",
+        entityType: "alert_rule",
+        entityId: createdRule.id,
+        severity: "INFO",
+        message: `Created alert rule ${createdRule.name}.`,
+        payload: {
+          type: input.type,
+          status: input.status,
+        },
+      },
+    });
+
+    return createdRule;
   });
 
   return buildAlertRuleRow(rule);
@@ -887,7 +933,7 @@ export async function updateAlertRuleById(
   });
 
   if (!existingRule) {
-    throw new Error("Alert rule не найден.");
+    throw new Error("Alert rule Р Р…Р Вµ Р Р…Р В°Р в„–Р Т‘Р ВµР Р….");
   }
 
   const rule = await prisma.alertRule.update({
@@ -962,7 +1008,7 @@ export async function deleteAlertRuleById(userId: string, workspaceId: string, r
   });
 
   if (!existingRule) {
-    throw new Error("Alert rule не найден.");
+    throw new Error("Alert rule Р Р…Р Вµ Р Р…Р В°Р в„–Р Т‘Р ВµР Р….");
   }
 
   await prisma.alertRule.delete({

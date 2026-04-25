@@ -1,4 +1,4 @@
-﻿import "server-only";
+import "server-only";
 
 import { Prisma } from "@prisma/client";
 
@@ -8,12 +8,13 @@ import type {
   PortfolioCreateInput,
   WorkspaceCreateInput,
 } from "@/lib/saas/schema";
+import { getWorkspaceLimitSnapshot } from "@/lib/saas/limits";
 import { pricePortfolioPositions } from "@/lib/saas/portfolio-pricing";
 import {
   mapVisibilityToPrisma,
   normalizePortfolioVisibility,
 } from "@/lib/saas/utils";
-import type { SaasPortfolioListItem, SaasWorkspaceOverview } from "@/types/saas";
+import type { SaasPortfolioListItem, SaasWorkspaceLimitSnapshot, SaasWorkspaceOverview } from "@/types/saas";
 import { toSlugFragment } from "@/lib/utils";
 
 type WorkspacePortfolioWithMetrics = {
@@ -40,11 +41,14 @@ function buildWorkspaceSlug(base: string, attempt: number) {
 
 async function computePortfolioMetrics(
   portfolio: WorkspacePortfolioWithMetrics,
+  limitSnapshot?: SaasWorkspaceLimitSnapshot,
 ): Promise<SaasPortfolioListItem> {
   const pricedPortfolio = await pricePortfolioPositions({
     portfolioId: portfolio.id,
+    workspaceId: portfolio.workspaceId,
     baseCurrency: portfolio.baseCurrency,
     positions: portfolio.positions,
+    limitSnapshot,
   });
   const categories = Array.from(
     new Set(pricedPortfolio.positions.map((position) => position.category)),
@@ -77,7 +81,7 @@ export async function createWorkspaceForUser(
   const prisma = getPrismaClient();
   const workspaceSlugBase = toSlugFragment(input.name) || "workspace";
   const defaultPortfolio = {
-    name: "Главный портфель",
+    name: "Р“Р»Р°РІРЅС‹Р№ РїРѕСЂС‚С„РµР»СЊ",
     slug: "main-portfolio",
   } satisfies Pick<PortfolioCreateInput, "name"> & { slug: string };
 
@@ -164,7 +168,7 @@ export async function createWorkspaceForUser(
     }
   }
 
-  throw new Error("Не удалось подобрать свободный slug для нового workspace.");
+  throw new Error("РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕРґРѕР±СЂР°С‚СЊ СЃРІРѕР±РѕРґРЅС‹Р№ slug РґР»СЏ РЅРѕРІРѕРіРѕ workspace.");
 }
 
 export async function getWorkspaceOverview(
@@ -228,8 +232,9 @@ export async function getWorkspaceOverview(
     return null;
   }
 
+  const limitSnapshot = await getWorkspaceLimitSnapshot(workspaceId);
   const portfolioItems = await Promise.all(
-    workspace.portfolios.map((portfolio) => computePortfolioMetrics(portfolio)),
+    workspace.portfolios.map((portfolio) => computePortfolioMetrics(portfolio, limitSnapshot ?? undefined)),
   );
   const totalValue = portfolioItems.reduce((sum, item) => sum + item.totalValue, 0);
   const totalCost = portfolioItems.reduce((sum, item) => sum + item.totalCost, 0);
@@ -299,6 +304,9 @@ export async function listWorkspacePortfoliosForUser(
     },
   });
 
-  return Promise.all(portfolios.map((portfolio) => computePortfolioMetrics(portfolio)));
+  const limitSnapshot = await getWorkspaceLimitSnapshot(workspaceId);
+  return Promise.all(
+    portfolios.map((portfolio) => computePortfolioMetrics(portfolio, limitSnapshot ?? undefined)),
+  );
 }
 

@@ -87,14 +87,53 @@ export type SaasSubscriptionStatus =
   | "past_due"
   | "canceled"
   | "incomplete";
+export type SaasUsageLimitKey =
+  | "portfolios"
+  | "positions"
+  | "integrations"
+  | "alerts";
 
 export type SaasBillingUsageMetric = {
-  key: string;
+  key: SaasUsageLimitKey;
   label: string;
   used: number;
   limit: number | null;
   remaining: number | null;
   unit: string;
+  utilizationPercent: number | null;
+  isNearLimit: boolean;
+  isExceeded: boolean;
+};
+
+export type SaasWorkspaceLimitEnvelope = {
+  portfolios: number | null;
+  positions: number | null;
+  integrations: number | null;
+  priceRefreshHours: number | null;
+  alerts: number | null;
+  historyRetentionDays: number | null;
+};
+
+export type SaasWorkspaceLimitOverrides = {
+  enabled: boolean;
+  portfolios: number | null;
+  positions: number | null;
+  integrations: number | null;
+  priceRefreshHours: number | null;
+  alerts: number | null;
+  historyRetentionDays: number | null;
+  notes: string | null;
+  isAnyApplied: boolean;
+};
+
+export type SaasWorkspaceLimitSnapshot = {
+  workspaceId: string;
+  plan: SaasSubscriptionPlan;
+  status: SaasSubscriptionStatus;
+  effectiveLimits: SaasWorkspaceLimitEnvelope;
+  usage: SaasBillingUsageMetric[];
+  overrides: SaasWorkspaceLimitOverrides;
+  warnings: string[];
 };
 
 export type SaasBillingPlanCard = {
@@ -104,14 +143,7 @@ export type SaasBillingPlanCard = {
   monthlyPriceUsd: number;
   seatsIncluded: number;
   highlights: string[];
-  limits: {
-    portfolios: number | null;
-    positions: number | null;
-    integrations: number | null;
-    priceRefreshHours: number | null;
-    alerts: number | null;
-    historyRetentionDays: number | null;
-  };
+  limits: SaasWorkspaceLimitEnvelope;
   stripePriceConfigured: boolean;
   isCurrent: boolean;
   canCheckout: boolean;
@@ -137,8 +169,11 @@ export type SaasWorkspaceBillingSummary = {
     currentPeriodEnd: string | null;
     trialEndsAt: string | null;
     cancelAtPeriodEnd: boolean;
+    overrideLimitsEnabled: boolean;
+    overrideNotes: string | null;
   };
   usage: SaasBillingUsageMetric[];
+  limits: SaasWorkspaceLimitSnapshot;
   plans: SaasBillingPlanCard[];
   warnings: string[];
 };
@@ -307,6 +342,7 @@ export type SaasPortfolioDetail = {
   warnings: string[];
   analytics: SaasPortfolioAnalytics;
   insights: SaasPortfolioInsights;
+  limits: SaasWorkspaceLimitSnapshot;
   telegramPricing: {
     positionCount: number;
     totalValue: number;
@@ -446,4 +482,5 @@ export type SaasAlertsWorkspaceView = {
   assets: SaasAlertAssetOption[];
   rules: SaasAlertRuleRow[];
   events: SaasAlertEventRow[];
+  limits: SaasWorkspaceLimitSnapshot;
 };

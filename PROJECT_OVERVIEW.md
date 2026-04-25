@@ -66,6 +66,7 @@ The next architecture phase treats the current private dashboard as a legacy-com
 - Stage 23 adds `/app/alerts` with `AlertRule`, `AlertEvent`, email provider abstraction and cron-ready alert evaluation routes.
 - Stage 24 adds a prompt-safe AI Insights layer on `/app/portfolios/[portfolioId]` with deterministic summary, risk, liquidity, concentration, snapshot-change and valuation-quality commentary.
 - Stage 25 adds `/app/billing`, Stripe Checkout, Stripe Customer Portal, signed webhook sync and plan envelopes for Free / Pro / Whale / Team.
+- Stage 26 adds the centralized workspace limit service: portfolios, positions and alerts now have hard write-time gates, while price refresh and history retention are enforced through shared runtime helpers.
 - The Prisma schema already models users, workspaces, portfolios, assets, positions, transactions, integrations, subscriptions, audit logs and alerts for upcoming stages.
 
 ## Operational Notes

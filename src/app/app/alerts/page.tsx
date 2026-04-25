@@ -1,4 +1,4 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 
 import { CreateWorkspaceForm } from "@/components/app/create-workspace-form";
 import { AlertsCenter } from "@/components/app/alerts-center";
@@ -27,17 +27,10 @@ export default async function AlertsPage() {
   if (!workspace) {
     return (
       <main className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <DashboardStatePanel
-          eyebrow="Alerts недоступны"
-          title="Нет активного workspace"
-          description="Создайте новый workspace и затем вернитесь сюда, чтобы настроить сигналы и уведомления."
-          className="min-h-[380px]"
-        />
+        <DashboardStatePanel eyebrow="Alerts недоступны" title="Нет активного workspace" description="Создайте новый workspace и затем вернитесь сюда, чтобы настроить сигналы и уведомления." className="min-h-[380px]" />
         <section className="panel rounded-[32px] border border-white/10 px-6 py-6 sm:px-8">
           <h2 className="text-2xl font-semibold text-white">Создать workspace</h2>
-          <div className="mt-6">
-            <CreateWorkspaceForm />
-          </div>
+          <div className="mt-6"><CreateWorkspaceForm /></div>
         </section>
       </main>
     );
@@ -48,12 +41,7 @@ export default async function AlertsPage() {
   if (!view) {
     return (
       <main>
-        <DashboardStatePanel
-          eyebrow="Alerts"
-          title="Workspace не найден"
-          description="Не удалось загрузить alerts context для текущего пользователя."
-          className="min-h-[380px]"
-        />
+        <DashboardStatePanel eyebrow="Alerts" title="Workspace не найден" description="Не удалось загрузить alerts context для текущего пользователя." className="min-h-[380px]" />
       </main>
     );
   }
@@ -78,6 +66,7 @@ export default async function AlertsPage() {
         assets={view.assets}
         rules={view.rules}
         events={view.events}
+        limitSnapshot={view.limits}
       />
     </main>
   );

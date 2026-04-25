@@ -1,8 +1,9 @@
-﻿"use client";
+"use client";
 
 import { useState, useTransition } from "react";
 import type { FormEvent } from "react";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { DashboardStatePanel } from "@/components/dashboard/dashboard-state-panel";
@@ -24,58 +25,59 @@ import type {
   SaasManualTransactionMode,
   SaasPortfolioPositionRow,
   SaasPriceConfidenceStatus,
+  SaasWorkspaceLimitSnapshot,
 } from "@/types/saas";
 
 const TEXT = {
-  addAsset: "Добавить актив",
-  createFirst: "Создать первую позицию",
+  addAsset: "Р вЂќР С•Р В±Р В°Р Р†Р С‘РЎвЂљРЎРЉ Р В°Р С”РЎвЂљР С‘Р Р†",
+  createFirst: "Р РЋР С•Р В·Р Т‘Р В°РЎвЂљРЎРЉ Р С—Р ВµРЎР‚Р Р†РЎС“РЎР‹ Р С—Р С•Р В·Р С‘РЎвЂ Р С‘РЎР‹",
   noPositionsEyebrow: "Manual Asset Manager",
-  noPositionsTitle: "В портфеле пока нет позиций",
+  noPositionsTitle: "Р вЂ™ Р С—Р С•РЎР‚РЎвЂљРЎвЂћР ВµР В»Р Вµ Р С—Р С•Р С”Р В° Р Р…Р ВµРЎвЂљ Р С—Р С•Р В·Р С‘РЎвЂ Р С‘Р в„–",
   noPositionsDescription:
-    "Добавьте актив вручную или импортируйте holdings, чтобы терминал начал считать PnL и историю.",
-  viewOnly: "У вас только просмотр",
-  newPosition: "Новая позиция",
-  editPosition: "Редактирование позиции",
-  close: "Закрыть",
-  save: "Сохранить",
-  saving: "Сохраняю...",
-  cancel: "Отмена",
-  edit: "Редактировать",
-  delete: "Удалить",
-  created: "Позиция создана.",
-  updated: "Позиция обновлена.",
-  deleted: "Позиция удалена.",
-  deleteConfirm: "Удалить позицию?",
-  assetType: "Тип актива",
-  name: "Название",
-  quantity: "Количество",
-  entryPrice: "Цена входа",
-  manualPrice: "Текущая цена",
-  currency: "Валюта",
-  tags: "Теги",
-  liquidity: "Ликвидность",
-  confidence: "Уверенность",
-  notes: "Заметки",
-  mode: "Режим сохранения",
-  value: "Стоимость",
+    "Р вЂќР С•Р В±Р В°Р Р†РЎРЉРЎвЂљР Вµ Р В°Р С”РЎвЂљР С‘Р Р† Р Р†РЎР‚РЎС“РЎвЂЎР Р…РЎС“РЎР‹ Р С‘Р В»Р С‘ Р С‘Р СР С—Р С•РЎР‚РЎвЂљР С‘РЎР‚РЎС“Р в„–РЎвЂљР Вµ holdings, РЎвЂЎРЎвЂљР С•Р В±РЎвЂ№ РЎвЂљР ВµРЎР‚Р СР С‘Р Р…Р В°Р В» Р Р…Р В°РЎвЂЎР В°Р В» РЎРѓРЎвЂЎР С‘РЎвЂљР В°РЎвЂљРЎРЉ PnL Р С‘ Р С‘РЎРѓРЎвЂљР С•РЎР‚Р С‘РЎР‹.",
+  viewOnly: "Р Р€ Р Р†Р В°РЎРѓ РЎвЂљР С•Р В»РЎРЉР С”Р С• Р С—РЎР‚Р С•РЎРѓР СР С•РЎвЂљРЎР‚",
+  newPosition: "Р СњР С•Р Р†Р В°РЎРЏ Р С—Р С•Р В·Р С‘РЎвЂ Р С‘РЎРЏ",
+  editPosition: "Р В Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚Р С•Р Р†Р В°Р Р…Р С‘Р Вµ Р С—Р С•Р В·Р С‘РЎвЂ Р С‘Р С‘",
+  close: "Р вЂ”Р В°Р С”РЎР‚РЎвЂ№РЎвЂљРЎРЉ",
+  save: "Р РЋР С•РЎвЂ¦РЎР‚Р В°Р Р…Р С‘РЎвЂљРЎРЉ",
+  saving: "Р РЋР С•РЎвЂ¦РЎР‚Р В°Р Р…РЎРЏРЎР‹...",
+  cancel: "Р С›РЎвЂљР СР ВµР Р…Р В°",
+  edit: "Р В Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚Р С•Р Р†Р В°РЎвЂљРЎРЉ",
+  delete: "Р Р€Р Т‘Р В°Р В»Р С‘РЎвЂљРЎРЉ",
+  created: "Р СџР С•Р В·Р С‘РЎвЂ Р С‘РЎРЏ РЎРѓР С•Р В·Р Т‘Р В°Р Р…Р В°.",
+  updated: "Р СџР С•Р В·Р С‘РЎвЂ Р С‘РЎРЏ Р С•Р В±Р Р…Р С•Р Р†Р В»Р ВµР Р…Р В°.",
+  deleted: "Р СџР С•Р В·Р С‘РЎвЂ Р С‘РЎРЏ РЎС“Р Т‘Р В°Р В»Р ВµР Р…Р В°.",
+  deleteConfirm: "Р Р€Р Т‘Р В°Р В»Р С‘РЎвЂљРЎРЉ Р С—Р С•Р В·Р С‘РЎвЂ Р С‘РЎР‹?",
+  assetType: "Р СћР С‘Р С— Р В°Р С”РЎвЂљР С‘Р Р†Р В°",
+  name: "Р СњР В°Р В·Р Р†Р В°Р Р…Р С‘Р Вµ",
+  quantity: "Р С™Р С•Р В»Р С‘РЎвЂЎР ВµРЎРѓРЎвЂљР Р†Р С•",
+  entryPrice: "Р В¦Р ВµР Р…Р В° Р Р†РЎвЂ¦Р С•Р Т‘Р В°",
+  manualPrice: "Р СћР ВµР С”РЎС“РЎвЂ°Р В°РЎРЏ РЎвЂ Р ВµР Р…Р В°",
+  currency: "Р вЂ™Р В°Р В»РЎР‹РЎвЂљР В°",
+  tags: "Р СћР ВµР С–Р С‘",
+  liquidity: "Р вЂєР С‘Р С”Р Р†Р С‘Р Т‘Р Р…Р С•РЎРѓРЎвЂљРЎРЉ",
+  confidence: "Р Р€Р Р†Р ВµРЎР‚Р ВµР Р…Р Р…Р С•РЎРѓРЎвЂљРЎРЉ",
+  notes: "Р вЂ”Р В°Р СР ВµРЎвЂљР С”Р С‘",
+  mode: "Р В Р ВµР В¶Р С‘Р С РЎРѓР С•РЎвЂ¦РЎР‚Р В°Р Р…Р ВµР Р…Р С‘РЎРЏ",
+  value: "Р РЋРЎвЂљР С•Р С‘Р СР С•РЎРѓРЎвЂљРЎРЉ",
   pnl: "PnL",
-  source: "Источник",
+  source: "Р ВРЎРѓРЎвЂљР С•РЎвЂЎР Р…Р С‘Р С”",
   roi: "ROI",
-  updatedAt: "Обновлено",
-  priceQuality: "Качество цены",
-  priceUpdated: "Цена обновлена",
-  priceWarning: "Риск по цене",
-  info: "Данные",
+  updatedAt: "Р С›Р В±Р Р…Р С•Р Р†Р В»Р ВµР Р…Р С•",
+  priceQuality: "Р С™Р В°РЎвЂЎР ВµРЎРѓРЎвЂљР Р†Р С• РЎвЂ Р ВµР Р…РЎвЂ№",
+  priceUpdated: "Р В¦Р ВµР Р…Р В° Р С•Р В±Р Р…Р С•Р Р†Р В»Р ВµР Р…Р В°",
+  priceWarning: "Р В Р С‘РЎРѓР С” Р С—Р С• РЎвЂ Р ВµР Р…Р Вµ",
+  info: "Р вЂќР В°Р Р…Р Р…РЎвЂ№Р Вµ",
   tagsPlaceholder: "skin, longterm, otc",
-  notesPlaceholder: "Короткий контекст по позиции",
-  quantityHintBuy: "Для buy итоговое количество должно быть выше текущего.",
-  quantityHintSell: "Для sell итоговое количество должно быть ниже текущего.",
+  notesPlaceholder: "Р С™Р С•РЎР‚Р С•РЎвЂљР С”Р С‘Р в„– Р С”Р С•Р Р…РЎвЂљР ВµР С”РЎРѓРЎвЂљ Р С—Р С• Р С—Р С•Р В·Р С‘РЎвЂ Р С‘Р С‘",
+  quantityHintBuy: "Р вЂќР В»РЎРЏ buy Р С‘РЎвЂљР С•Р С–Р С•Р Р†Р С•Р Вµ Р С”Р С•Р В»Р С‘РЎвЂЎР ВµРЎРѓРЎвЂљР Р†Р С• Р Т‘Р С•Р В»Р В¶Р Р…Р С• Р В±РЎвЂ№РЎвЂљРЎРЉ Р Р†РЎвЂ№РЎв‚¬Р Вµ РЎвЂљР ВµР С”РЎС“РЎвЂ°Р ВµР С–Р С•.",
+  quantityHintSell: "Р вЂќР В»РЎРЏ sell Р С‘РЎвЂљР С•Р С–Р С•Р Р†Р С•Р Вµ Р С”Р С•Р В»Р С‘РЎвЂЎР ВµРЎРѓРЎвЂљР Р†Р С• Р Т‘Р С•Р В»Р В¶Р Р…Р С• Р В±РЎвЂ№РЎвЂљРЎРЉ Р Р…Р С‘Р В¶Р Вµ РЎвЂљР ВµР С”РЎС“РЎвЂ°Р ВµР С–Р С•.",
 };
 
 const CATEGORY_OPTIONS: { value: SaasManualAssetCategory; label: string }[] = [
   { value: "cs2", label: "CS2" },
   { value: "telegram", label: "Telegram Gift" },
-  { value: "crypto", label: "Крипто" },
+  { value: "crypto", label: "Р С™РЎР‚Р С‘Р С—РЎвЂљР С•" },
   { value: "custom", label: "Custom collectible" },
 ];
 
@@ -93,14 +95,14 @@ const CONFIDENCE_OPTIONS: { value: SaasManualAssetConfidence; label: string }[] 
 ];
 
 const CREATE_MODE_OPTIONS: { value: Extract<SaasManualTransactionMode, "buy" | "adjustment">; label: string }[] = [
-  { value: "buy", label: "Покупка + trade log" },
-  { value: "adjustment", label: "Просто сохранить позицию" },
+  { value: "buy", label: "Р СџР С•Р С”РЎС“Р С—Р С”Р В° + trade log" },
+  { value: "adjustment", label: "Р СџРЎР‚Р С•РЎРѓРЎвЂљР С• РЎРѓР С•РЎвЂ¦РЎР‚Р В°Р Р…Р С‘РЎвЂљРЎРЉ Р С—Р С•Р В·Р С‘РЎвЂ Р С‘РЎР‹" },
 ];
 
 const EDIT_MODE_OPTIONS: { value: SaasManualTransactionMode; label: string }[] = [
-  { value: "adjustment", label: "Просто обновить позицию" },
-  { value: "buy", label: "Покупка + trade log" },
-  { value: "sell", label: "Продажа + trade log" },
+  { value: "adjustment", label: "Р СџРЎР‚Р С•РЎРѓРЎвЂљР С• Р С•Р В±Р Р…Р С•Р Р†Р С‘РЎвЂљРЎРЉ Р С—Р С•Р В·Р С‘РЎвЂ Р С‘РЎР‹" },
+  { value: "buy", label: "Р СџР С•Р С”РЎС“Р С—Р С”Р В° + trade log" },
+  { value: "sell", label: "Р СџРЎР‚Р С•Р Т‘Р В°Р В¶Р В° + trade log" },
 ];
 
 type ManualAssetManagerProps = {
@@ -108,6 +110,7 @@ type ManualAssetManagerProps = {
   baseCurrency: string;
   canManage: boolean;
   positions: SaasPortfolioPositionRow[];
+  limitSnapshot: SaasWorkspaceLimitSnapshot;
 };
 
 type FormState = {
@@ -212,17 +215,17 @@ function getPriceConfidenceTone(status: SaasPriceConfidenceStatus) {
 function getPriceConfidenceHint(status: SaasPriceConfidenceStatus) {
   switch (status) {
     case "live_high":
-      return "Live quote из основного провайдера.";
+      return "Live quote Р С‘Р В· Р С•РЎРѓР Р…Р С•Р Р†Р Р…Р С•Р С–Р С• Р С—РЎР‚Р С•Р Р†Р В°Р в„–Р Т‘Р ВµРЎР‚Р В°.";
     case "live_medium":
-      return "Live quote из fallback-провайдера.";
+      return "Live quote Р С‘Р В· fallback-Р С—РЎР‚Р С•Р Р†Р В°Р в„–Р Т‘Р ВµРЎР‚Р В°.";
     case "manual_high":
-      return "Ручная цена выглядит свежей и достаточно надежной.";
+      return "Р В РЎС“РЎвЂЎР Р…Р В°РЎРЏ РЎвЂ Р ВµР Р…Р В° Р Р†РЎвЂ№Р С–Р В»РЎРЏР Т‘Р С‘РЎвЂљ РЎРѓР Р†Р ВµР В¶Р ВµР в„– Р С‘ Р Т‘Р С•РЎРѓРЎвЂљР В°РЎвЂљР С•РЎвЂЎР Р…Р С• Р Р…Р В°Р Т‘Р ВµР В¶Р Р…Р С•Р в„–.";
     case "manual_low":
-      return "Цена ручная, нужна дополнительная проверка.";
+      return "Р В¦Р ВµР Р…Р В° РЎР‚РЎС“РЎвЂЎР Р…Р В°РЎРЏ, Р Р…РЎС“Р В¶Р Р…Р В° Р Т‘Р С•Р С—Р С•Р В»Р Р…Р С‘РЎвЂљР ВµР В»РЎРЉР Р…Р В°РЎРЏ Р С—РЎР‚Р С•Р Р†Р ВµРЎР‚Р С”Р В°.";
     case "stale":
-      return "Цена устарела и влияет на точность оценки.";
+      return "Р В¦Р ВµР Р…Р В° РЎС“РЎРѓРЎвЂљР В°РЎР‚Р ВµР В»Р В° Р С‘ Р Р†Р В»Р С‘РЎРЏР ВµРЎвЂљ Р Р…Р В° РЎвЂљР С•РЎвЂЎР Р…Р С•РЎРѓРЎвЂљРЎРЉ Р С•РЎвЂ Р ВµР Р…Р С”Р С‘.";
     default:
-      return "Для позиции еще нет пригодной цены.";
+      return "Р вЂќР В»РЎРЏ Р С—Р С•Р В·Р С‘РЎвЂ Р С‘Р С‘ Р ВµРЎвЂ°Р Вµ Р Р…Р ВµРЎвЂљ Р С—РЎР‚Р С‘Р С–Р С•Р Т‘Р Р…Р С•Р в„– РЎвЂ Р ВµР Р…РЎвЂ№.";
   }
 }
 
@@ -231,6 +234,7 @@ export function ManualAssetManager({
   baseCurrency,
   canManage,
   positions,
+  limitSnapshot,
 }: ManualAssetManagerProps) {
   const router = useRouter();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -238,6 +242,11 @@ export function ManualAssetManager({
   const [form, setForm] = useState<FormState>(() => createEmptyForm(baseCurrency));
   const [feedback, setFeedback] = useState<{ tone: "error" | "success"; message: string } | null>(null);
   const [isPending, startTransition] = useTransition();
+  const positionUsage = limitSnapshot.usage.find((metric) => metric.key === "positions") ?? null;
+  const positionLimit = positionUsage?.limit ?? null;
+  const positionRemaining = positionUsage?.remaining ?? null;
+  const positionCreateBlocked =
+    canManage && Boolean(positionLimit !== null && positionRemaining === 0);
 
   function resetDrawer() {
     setDrawerOpen(false);
@@ -271,6 +280,11 @@ export function ManualAssetManager({
 
     if (!editingPosition && quantity <= 0) {
       setFeedback({ tone: "error", message: "Quantity must be greater than zero for a new position." });
+      return;
+    }
+
+    if (!editingPosition && positionCreateBlocked) {
+      setFeedback({ tone: "error", message: "Р вЂєР С‘Р СР С‘РЎвЂљ РЎвЂљР В°РЎР‚Р С‘РЎвЂћР В° Р С—Р С• Р С—Р С•Р В·Р С‘РЎвЂ Р С‘РЎРЏР С Р С‘РЎРѓРЎвЂЎР ВµРЎР‚Р С—Р В°Р Р…. Р СџР ВµРЎР‚Р ВµР в„–Р Т‘Р С‘РЎвЂљР Вµ Р Р† Billing Р С‘ Р С•Р В±Р Р…Р С•Р Р†Р С‘РЎвЂљР Вµ Р С—Р В»Р В°Р Р…." });
       return;
     }
 
@@ -376,10 +390,33 @@ export function ManualAssetManager({
           <button
             type="button"
             onClick={openCreateDrawer}
-            className="rounded-2xl bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200"
+            disabled={positionCreateBlocked}
+            className="rounded-2xl bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {TEXT.addAsset}
+            {positionCreateBlocked ? "Р вЂєР С‘Р СР С‘РЎвЂљ Р Т‘Р С•РЎРѓРЎвЂљР С‘Р С–Р Р…РЎС“РЎвЂљ" : TEXT.addAsset}
           </button>
+        ) : null}
+      </div>
+
+      <div className={`rounded-2xl px-4 py-4 text-sm leading-7 ${
+        positionCreateBlocked
+          ? "border border-rose-400/30 bg-rose-400/10 text-rose-100"
+          : positionUsage?.isNearLimit
+            ? "border border-amber-300/25 bg-amber-300/10 text-amber-100"
+            : "border border-white/10 bg-white/[0.03] text-slate-300/82"
+      }`}>
+        <p>
+          Positions used: {positionUsage?.used ?? positions.length}
+          {positionLimit !== null ? ` из ${positionLimit}` : ""}.
+          {positionRemaining !== null ? ` Осталось ${positionRemaining}.` : ""}
+        </p>
+        <p className="mt-2">
+          Price refresh gate: {limitSnapshot.effectiveLimits.priceRefreshHours ?? "Р В±Р ВµР В· Р В»Р С‘Р СР С‘РЎвЂљР В°"}РЎвЂЎ Р’В· history retention: {limitSnapshot.effectiveLimits.historyRetentionDays ?? "Р В±Р ВµР В· Р В»Р С‘Р СР С‘РЎвЂљР В°"} Р Т‘Р Р…Р ВµР в„–.
+        </p>
+        {canManage ? (
+          <Link href="/app/billing" className="mt-3 inline-flex rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs uppercase tracking-[0.18em] text-slate-100 transition hover:border-white/20 hover:text-white">
+            Billing
+          </Link>
         ) : null}
       </div>
 
@@ -394,7 +431,8 @@ export function ManualAssetManager({
               <button
                 type="button"
                 onClick={openCreateDrawer}
-                className="rounded-2xl bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200"
+                disabled={positionCreateBlocked}
+            className="rounded-2xl bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {TEXT.createFirst}
               </button>

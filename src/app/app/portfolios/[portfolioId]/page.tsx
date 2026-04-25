@@ -191,6 +191,7 @@ export default async function PortfolioDetailPage({
             baseCurrency={portfolio.baseCurrency}
             canManage={portfolio.canManage}
             positions={portfolio.positions}
+            limitSnapshot={portfolio.limits}
           />
         </SectionCard>
 

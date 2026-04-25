@@ -1,7 +1,8 @@
-﻿"use client";
+"use client";
 
 import { useState, useTransition } from "react";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { DashboardStatePanel } from "@/components/dashboard/dashboard-state-panel";
@@ -15,6 +16,7 @@ import type {
   SaasAlertRuleStatus,
   SaasAlertRuleType,
   SaasAlertsEvaluationResult,
+  SaasWorkspaceLimitSnapshot,
 } from "@/types/saas";
 
 const ALERT_TYPE_OPTIONS: { value: SaasAlertRuleType; label: string }[] = [
@@ -46,6 +48,7 @@ type AlertsCenterProps = {
   assets: SaasAlertAssetOption[];
   rules: SaasAlertRuleRow[];
   events: SaasAlertEventRow[];
+  limitSnapshot: SaasWorkspaceLimitSnapshot;
 };
 
 type RuleFormState = {
@@ -102,6 +105,14 @@ function formatRuleTarget(rule: SaasAlertRuleRow) {
   }
 
   return rule.portfolioName ? `Портфель: ${rule.portfolioName}` : "Весь workspace";
+}
+
+function getLimitMetric(limitSnapshot: SaasWorkspaceLimitSnapshot, key: "portfolios" | "positions" | "integrations" | "alerts") {
+  return limitSnapshot.usage.find((metric) => metric.key === key) ?? null;
+}
+
+function formatHistoryRetention(days: number | null) {
+  return days === null ? "без лимита" : `${days} дн.`;
 }
 
 function formatThreshold(rule: Pick<RuleFormState, "type" | "thresholdValue" | "thresholdPercent"> | SaasAlertRuleRow, currency: string) {
@@ -190,7 +201,7 @@ function buildPayload(form: RuleFormState) {
   };
 }
 
-export function AlertsCenter({ workspaceId, workspaceName, defaultCurrency, defaultRecipientEmail, canManage, portfolios, assets, rules, events }: AlertsCenterProps) {
+export function AlertsCenter({ workspaceId, workspaceName, defaultCurrency, defaultRecipientEmail, canManage, portfolios, assets, rules, events, limitSnapshot }: AlertsCenterProps) {
   const router = useRouter();
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const [form, setForm] = useState<RuleFormState>(() => createEmptyForm(portfolios, assets, defaultRecipientEmail));
@@ -198,6 +209,10 @@ export function AlertsCenter({ workspaceId, workspaceName, defaultCurrency, defa
   const [evaluationSummary, setEvaluationSummary] = useState<SaasAlertsEvaluationResult | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  const alertUsage = getLimitMetric(limitSnapshot, "alerts");
+  const alertLimit = alertUsage?.limit ?? null;
+  const alertRemaining = alertUsage?.remaining ?? null;
+  const alertCreateBlocked = canManage && Boolean(alertLimit !== null && alertRemaining === 0);
   const selectedAssetOptions = assets.filter((asset) => asset.portfolioId === form.portfolioId);
 
   function resetForm() {
@@ -234,6 +249,11 @@ export function AlertsCenter({ workspaceId, workspaceName, defaultCurrency, defa
     event.preventDefault();
     setFeedback(null);
     setEvaluationSummary(null);
+
+    if (!editingRuleId && alertCreateBlocked) {
+      setFeedback({ tone: "error", message: "Лимит по alerts исчерпан. Откройте Billing и повысьте тариф или включите override." });
+      return;
+    }
 
     startTransition(async () => {
       const response = await fetch(editingRuleId ? `/api/app/alerts/rules/${editingRuleId}` : "/api/app/alerts/rules", {
@@ -301,7 +321,6 @@ export function AlertsCenter({ workspaceId, workspaceName, defaultCurrency, defa
       router.refresh();
     });
   }
-
   function runEvaluation() {
     setFeedback(null);
 
@@ -343,6 +362,16 @@ export function AlertsCenter({ workspaceId, workspaceName, defaultCurrency, defa
           >
             {isPending ? "Проверяю..." : "Проверить alerts сейчас"}
           </button>
+        </div>
+
+        <div className={`mt-5 rounded-2xl px-4 py-4 text-sm leading-7 ${alertCreateBlocked ? "border border-rose-400/30 bg-rose-400/10 text-rose-100" : alertUsage?.isNearLimit ? "border border-amber-300/25 bg-amber-300/10 text-amber-100" : "border border-white/10 bg-white/[0.03] text-slate-300/82"}`}>
+          <p>Plan <span className="font-semibold text-white">{limitSnapshot.plan}</span>: использовано {alertUsage?.used ?? rules.length}{alertLimit !== null ? ` из ${alertLimit}` : ""} alert rules.{alertRemaining !== null ? ` Осталось ${alertRemaining}.` : ""}</p>
+          <p className="mt-2">History retention: {formatHistoryRetention(limitSnapshot.effectiveLimits.historyRetentionDays)}.</p>
+          {canManage ? (
+            <Link href="/app/billing" className="mt-3 inline-flex rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs uppercase tracking-[0.18em] text-slate-100 transition hover:border-white/20 hover:text-white">
+              Открыть Billing
+            </Link>
+          ) : null}
         </div>
 
         {feedback ? (
@@ -389,7 +418,7 @@ export function AlertsCenter({ workspaceId, workspaceName, defaultCurrency, defa
                 {form.type === "portfolio_value_change" ? <label className="grid gap-2 sm:col-span-2"><span className="text-sm text-slate-300/78">Направление</span><select value={form.direction} onChange={(event) => setForm((current) => ({ ...current, direction: event.target.value as SaasAlertDirection }))} disabled={isPending} className="rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none transition focus:border-cyan-300/60">{DIRECTION_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label> : null}
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 text-sm leading-7 text-slate-300/80">Текущий порог: <span className="text-white">{formatThreshold(form, defaultCurrency)}</span><span className="mx-2 text-white/20">•</span>Email channel: <span className="text-white">email</span></div>
-              <div className="flex flex-wrap gap-3"><button type="submit" disabled={isPending} className="rounded-2xl bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-60">{isPending ? "Сохраняю..." : editingRuleId ? "Сохранить rule" : "Создать rule"}</button>{editingRuleId ? <button type="button" onClick={resetForm} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200 transition hover:border-white/20 hover:text-white">Сбросить редактор</button> : null}</div>
+              <div className="flex flex-wrap gap-3"><button type="submit" disabled={isPending || (!editingRuleId && alertCreateBlocked)} className="rounded-2xl bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-60">{isPending ? "Сохраняю..." : editingRuleId ? "Сохранить rule" : alertCreateBlocked ? "Лимит достигнут" : "Создать rule"}</button>{editingRuleId ? <button type="button" onClick={resetForm} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200 transition hover:border-white/20 hover:text-white">Сбросить редактор</button> : null}</div>
             </form>
           )}
         </section>

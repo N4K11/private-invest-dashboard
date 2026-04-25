@@ -1,4 +1,4 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 
 import { CreateWorkspaceForm } from "@/components/app/create-workspace-form";
 import { PortfolioManagementPanel } from "@/components/app/portfolio-management-panel";
@@ -8,6 +8,7 @@ import { getActiveWorkspaceSlug } from "@/lib/auth/active-workspace";
 import { requireAppSession } from "@/lib/auth/session";
 import { getCurrentUserWorkspaceContext } from "@/lib/auth/workspace";
 import { listPortfoliosForWorkspace } from "@/lib/saas/portfolios";
+import { getWorkspaceLimitSnapshotForUser } from "@/lib/saas/limits";
 import { getWorkspaceOverview } from "@/lib/saas/workspaces";
 import { formatRelativeTime } from "@/lib/utils";
 
@@ -50,9 +51,10 @@ export default async function SaasHomePage() {
     );
   }
 
-  const [overview, portfolios] = await Promise.all([
+  const [overview, portfolios, limitSnapshot] = await Promise.all([
     getWorkspaceOverview(activeWorkspace.id),
     listPortfoliosForWorkspace(session.user.id, activeWorkspace.id),
+    getWorkspaceLimitSnapshotForUser(session.user.id, activeWorkspace.id),
   ]);
 
   const cards = overview
@@ -87,12 +89,7 @@ export default async function SaasHomePage() {
           value: overview.totalPnl,
           hint: "Разница между рыночной оценкой и общей себестоимостью.",
           format: "currency" as const,
-          tone:
-            overview.totalPnl > 0
-              ? ("positive" as const)
-              : overview.totalPnl < 0
-                ? ("negative" as const)
-                : ("neutral" as const),
+          tone: overview.totalPnl > 0 ? ("positive" as const) : overview.totalPnl < 0 ? ("negative" as const) : ("neutral" as const),
         },
       ]
     : [];
@@ -106,7 +103,7 @@ export default async function SaasHomePage() {
             Управление workspace и портфелями из одной панели.
           </h2>
           <p className="mt-5 max-w-2xl text-sm leading-8 text-slate-300/80 sm:text-base">
-            Активный workspace определяет контекст `/app`: какие портфели вы видите, какие настройки редактируете и куда дальше будет подключаться import center.
+            Активный workspace определяет контекст `/app`: какие портфели вы видите, какие настройки редактируете и какие feature gates действуют для текущего тарифа.
           </p>
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
             <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
@@ -116,9 +113,7 @@ export default async function SaasHomePage() {
             </div>
             <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
               <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Последняя активность</p>
-              <p className="mt-3 text-lg font-medium text-white">
-                {overview?.lastActivityAt ? formatRelativeTime(overview.lastActivityAt) : "Нет событий"}
-              </p>
+              <p className="mt-3 text-lg font-medium text-white">{overview?.lastActivityAt ? formatRelativeTime(overview.lastActivityAt) : "Нет событий"}</p>
               <p className="mt-2 text-sm text-slate-400">Роль: {activeWorkspace.role}</p>
             </div>
           </div>
@@ -150,6 +145,7 @@ export default async function SaasHomePage() {
         defaultCurrency={activeWorkspace.defaultCurrency}
         canManage={activeWorkspace.role === "owner" || activeWorkspace.role === "admin"}
         portfolios={portfolios}
+        limitSnapshot={limitSnapshot}
       />
     </main>
   );

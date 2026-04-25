@@ -1,4 +1,4 @@
-﻿import "server-only";
+import "server-only";
 
 import type { AssetCategory } from "@prisma/client";
 
@@ -8,6 +8,7 @@ import {
   normalizeWorkspaceRole,
 } from "@/lib/auth/workspace";
 import { getPrismaClient } from "@/lib/db/client";
+import { assertWorkspaceCountLimit } from "@/lib/saas/limits";
 import type { ImportCommitRequest } from "@/lib/imports/schema";
 import type { ImportAssetCategory, ImportCommitResult } from "@/types/imports";
 
@@ -38,12 +39,12 @@ export async function commitImportToPortfolio(
   const membership = await getPortfolioMembershipForUser(userId, input.portfolioId);
 
   if (!membership) {
-    throw new Error("Портфель не найден или доступ к нему отсутствует.");
+    throw new Error("РџРѕСЂС‚С„РµР»СЊ РЅРµ РЅР°Р№РґРµРЅ РёР»Рё РґРѕСЃС‚СѓРї Рє РЅРµРјСѓ РѕС‚СЃСѓС‚СЃС‚РІСѓРµС‚.");
   }
 
   const role = normalizeWorkspaceRole(membership.role);
   if (!canManagePortfolio(role)) {
-    throw new Error("Недостаточно прав для импорта в этот портфель.");
+    throw new Error("РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РїСЂР°РІ РґР»СЏ РёРјРїРѕСЂС‚Р° РІ СЌС‚РѕС‚ РїРѕСЂС‚С„РµР»СЊ.");
   }
 
   const prisma = getPrismaClient();
@@ -54,6 +55,47 @@ export async function commitImportToPortfolio(
     let createdPositionCount = 0;
     let updatedPositionCount = 0;
     let importedRecordCount = 0;
+
+    const dedupeKeys = [...new Set(input.records.filter((record) => record.quantity > 0).map((record) => record.dedupeKey))];
+    if (dedupeKeys.length > 0) {
+      const existingAssets = await transaction.asset.findMany({
+        where: {
+          workspaceId: membership.workspaceId,
+          normalizedKey: {
+            in: dedupeKeys,
+          },
+        },
+        select: {
+          id: true,
+          normalizedKey: true,
+        },
+      });
+      const assetByKey = new Map(existingAssets.map((asset) => [asset.normalizedKey, asset.id]));
+      const existingPositionAssetIds = existingAssets.length > 0
+        ? new Set(
+            (
+              await transaction.position.findMany({
+                where: {
+                  portfolioId: input.portfolioId,
+                  assetId: {
+                    in: existingAssets.map((asset) => asset.id),
+                  },
+                },
+                select: {
+                  assetId: true,
+                },
+              })
+            ).map((position) => position.assetId),
+          )
+        : new Set<string>();
+
+      const requestedNewPositions = dedupeKeys.reduce((sum, key) => {
+        const assetId = assetByKey.get(key);
+        return !assetId || !existingPositionAssetIds.has(assetId) ? sum + 1 : sum;
+      }, 0);
+
+      await assertWorkspaceCountLimit(membership.workspaceId, "positions", requestedNewPositions, transaction);
+    }
 
     for (const record of input.records) {
       if (record.quantity <= 0) {

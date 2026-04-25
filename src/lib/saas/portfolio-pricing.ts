@@ -1,4 +1,4 @@
-﻿import "server-only";
+import "server-only";
 
 import type { Prisma } from "@prisma/client";
 
@@ -12,6 +12,7 @@ import {
 import type {
   SaasPortfolioPositionRow,
   SaasPriceConfidenceStatus,
+  SaasWorkspaceLimitSnapshot,
 } from "@/types/saas";
 
 export type PortfolioPositionForPricing = {
@@ -135,13 +136,17 @@ function buildPositionRow(
 
 export async function pricePortfolioPositions(options: {
   portfolioId: string;
+  workspaceId: string;
   baseCurrency: string;
   positions: PortfolioPositionForPricing[];
+  limitSnapshot?: SaasWorkspaceLimitSnapshot;
 }): Promise<PricedPortfolioPositions> {
   const priceEngineResult =
     options.positions.length > 0
       ? await resolveSaasPortfolioPrices({
           portfolioId: options.portfolioId,
+          workspaceId: options.workspaceId,
+          limitSnapshot: options.limitSnapshot,
           positions: options.positions.map((position) => {
             const manualProfile = extractManualAssetProfile(position.metadata);
 

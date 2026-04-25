@@ -1,8 +1,9 @@
-﻿import { NextRequest } from "next/server";
+import { NextRequest } from "next/server";
 import { z } from "zod";
 
 import { guardSaasApiRequest } from "@/lib/auth/saas-api";
 import { createAlertRuleForWorkspace } from "@/lib/saas/alerts";
+import { isWorkspaceLimitError } from "@/lib/saas/limits";
 import { alertRuleCreateSchema } from "@/lib/saas/schema";
 import { privateApiError, privateApiJson, sanitizeErrorMessage } from "@/lib/security/http";
 
@@ -46,9 +47,9 @@ export async function POST(request: NextRequest) {
     return privateApiJson({ ok: true, rule }, { status: 201 });
   } catch (error) {
     const message = sanitizeErrorMessage(error, "Не удалось создать alert rule.");
-    const status = message.includes("Недостаточно прав") ? 403 : message.includes("не найден") ? 404 : 400;
+    const status = isWorkspaceLimitError(error) ? 409 : message.includes("Недостаточно прав") ? 403 : message.includes("не найден") ? 404 : 400;
     return privateApiError(status, message, {
-      code: status === 403 ? "alert_rule_forbidden" : "alert_rule_create_failed",
+      code: status === 409 ? "alert_limit_reached" : status === 403 ? "alert_rule_forbidden" : "alert_rule_create_failed",
     });
   }
 }

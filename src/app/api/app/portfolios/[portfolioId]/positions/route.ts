@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 
 import { guardSaasApiRequest } from "@/lib/auth/saas-api";
+import { isWorkspaceLimitError } from "@/lib/saas/limits";
 import { createManualAssetPosition } from "@/lib/saas/manual-assets";
 import { manualAssetCreateSchema } from "@/lib/saas/schema";
 import {
@@ -75,10 +76,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
     );
   } catch (error) {
     const message = sanitizeErrorMessage(error, "Failed to create manual asset.");
-    const status = inferStatus(message);
+    const status = isWorkspaceLimitError(error) ? 409 : inferStatus(message);
 
     return privateApiError(status, message, {
-      code: status === 403 ? "manual_asset_forbidden" : "manual_asset_create_failed",
+      code: status === 409 ? "position_limit_reached" : status === 403 ? "manual_asset_forbidden" : "manual_asset_create_failed",
     });
   }
 }
