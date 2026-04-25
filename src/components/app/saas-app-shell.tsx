@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { href: "/app", label: "Обзор", match: "exact" },
   { href: "/app/portfolios", label: "Портфели", match: "prefix" },
   { href: "/app/import", label: "Импорт", match: "exact" },
+  { href: "/app/alerts", label: "Алерты", match: "exact" },
   { href: "/app/settings", label: "Настройки", match: "exact" },
 ] as const;
 
@@ -37,13 +38,9 @@ export function SaasAppShell({
       <header className="panel rounded-[32px] border border-white/10 px-5 py-5 sm:px-6">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
           <div className="space-y-3">
-            <p className="text-xs uppercase tracking-[0.34em] text-cyan-200/70">
-              Hosted SaaS mode
-            </p>
+            <p className="text-xs uppercase tracking-[0.34em] text-cyan-200/70">Hosted SaaS mode</p>
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
-                {workspaceName}
-              </h1>
+              <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">{workspaceName}</h1>
               <p className="mt-2 text-sm text-slate-300/80">
                 Роль: <span className="text-white">{workspaceRole}</span>
                 <span className="mx-2 text-white/20">•</span>

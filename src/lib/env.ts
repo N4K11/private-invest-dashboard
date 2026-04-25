@@ -7,14 +7,8 @@ import { isDatabaseConfigured } from "@/lib/db/config";
 
 const envSchema = z
   .object({
-    NODE_ENV: z
-      .enum(["development", "test", "production"])
-      .default("development"),
-    PRIVATE_DASHBOARD_SLUG: z
-      .string()
-      .trim()
-      .min(1)
-      .default(DASHBOARD_SLUG_PLACEHOLDER),
+    NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+    PRIVATE_DASHBOARD_SLUG: z.string().trim().min(1).default(DASHBOARD_SLUG_PLACEHOLDER),
     DASHBOARD_SECRET_TOKEN: z.string().trim().default(""),
     AUTH_SECRET: z.string().trim().optional(),
     NEXTAUTH_SECRET: z.string().trim().optional(),
@@ -48,6 +42,11 @@ const envSchema = z
     CACHE_REDIS_REST_URL: z.string().trim().url().optional(),
     CACHE_REDIS_REST_TOKEN: z.string().trim().optional(),
     CACHE_KEY_PREFIX: z.string().trim().min(1).default("private-invest-dashboard"),
+    ALERT_EMAIL_PROVIDER: z.enum(["noop", "resend"]).default("noop"),
+    ALERT_EMAIL_FROM: z.string().trim().optional(),
+    ALERT_EMAIL_REPLY_TO: z.string().trim().optional(),
+    RESEND_API_KEY: z.string().trim().optional(),
+    ALERTS_CRON_SECRET: z.string().trim().optional(),
     NEXT_PUBLIC_SITE_URL: z.string().trim().optional(),
   })
   .superRefine((env, context) => {
@@ -63,7 +62,7 @@ const envSchema = z
         code: z.ZodIssueCode.custom,
         path: ["GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY"],
         message:
-          "GOOGLE_SERVICE_ACCOUNT_EMAIL Рё GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY РґРѕР»Р¶РЅС‹ Р·Р°РґР°РІР°С‚СЊСЃСЏ РІРјРµСЃС‚Рµ, РµСЃР»Рё РЅРµ РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ GOOGLE_SERVICE_ACCOUNT_JSON.",
+          "GOOGLE_SERVICE_ACCOUNT_EMAIL и GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY должны задаваться вместе, если не используется GOOGLE_SERVICE_ACCOUNT_JSON.",
       });
     }
 
@@ -74,8 +73,7 @@ const envSchema = z
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["CACHE_DRIVER"],
-        message:
-          "Р”Р»СЏ CACHE_DRIVER=redis_rest РЅСѓР¶РЅС‹ CACHE_REDIS_REST_URL Рё CACHE_REDIS_REST_TOKEN.",
+        message: "Для CACHE_DRIVER=redis_rest нужны CACHE_REDIS_REST_URL и CACHE_REDIS_REST_TOKEN.",
       });
     }
 
@@ -88,8 +86,26 @@ const envSchema = z
         code: z.ZodIssueCode.custom,
         path: ["GOOGLE_SHEETS_SPREADSHEET_ID"],
         message:
-          "Р”Р»СЏ live Google Sheets source РЅСѓР¶РµРЅ GOOGLE_SERVICE_ACCOUNT_JSON РёР»Рё РїР°СЂР° GOOGLE_SERVICE_ACCOUNT_EMAIL / GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY.",
+          "Для live Google Sheets source нужен GOOGLE_SERVICE_ACCOUNT_JSON или пара GOOGLE_SERVICE_ACCOUNT_EMAIL / GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY.",
       });
+    }
+
+    if (env.ALERT_EMAIL_PROVIDER === "resend") {
+      if (!env.RESEND_API_KEY) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["RESEND_API_KEY"],
+          message: "Для ALERT_EMAIL_PROVIDER=resend нужен RESEND_API_KEY.",
+        });
+      }
+
+      if (!env.ALERT_EMAIL_FROM) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["ALERT_EMAIL_FROM"],
+          message: "Для ALERT_EMAIL_PROVIDER=resend нужен ALERT_EMAIL_FROM.",
+        });
+      }
     }
   });
 
@@ -116,12 +132,9 @@ function parseEnvironment() {
     AUTH_SECRET: process.env.AUTH_SECRET,
     NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
     NEXTAUTH_URL: process.env.NEXTAUTH_URL,
-    GOOGLE_SHEETS_SPREADSHEET_ID: normalizeSpreadsheetId(
-      process.env.GOOGLE_SHEETS_SPREADSHEET_ID,
-    ),
+    GOOGLE_SHEETS_SPREADSHEET_ID: normalizeSpreadsheetId(process.env.GOOGLE_SHEETS_SPREADSHEET_ID),
     GOOGLE_SERVICE_ACCOUNT_EMAIL: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-    GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY:
-      process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY,
+    GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY,
     GOOGLE_SERVICE_ACCOUNT_JSON: process.env.GOOGLE_SERVICE_ACCOUNT_JSON,
     COINGECKO_API_KEY: process.env.COINGECKO_API_KEY,
     CS2_PROVIDER_ORDER: process.env.CS2_PROVIDER_ORDER,
@@ -148,6 +161,11 @@ function parseEnvironment() {
     CACHE_REDIS_REST_URL: process.env.CACHE_REDIS_REST_URL,
     CACHE_REDIS_REST_TOKEN: process.env.CACHE_REDIS_REST_TOKEN,
     CACHE_KEY_PREFIX: process.env.CACHE_KEY_PREFIX,
+    ALERT_EMAIL_PROVIDER: process.env.ALERT_EMAIL_PROVIDER,
+    ALERT_EMAIL_FROM: process.env.ALERT_EMAIL_FROM,
+    ALERT_EMAIL_REPLY_TO: process.env.ALERT_EMAIL_REPLY_TO,
+    RESEND_API_KEY: process.env.RESEND_API_KEY,
+    ALERTS_CRON_SECRET: process.env.ALERTS_CRON_SECRET,
     NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
   });
 }
@@ -194,9 +212,7 @@ export function isGoogleSheetsConfigured() {
     env.GOOGLE_SERVICE_ACCOUNT_EMAIL && env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY,
   );
 
-  return Boolean(
-    env.GOOGLE_SHEETS_SPREADSHEET_ID && (hasJson || hasSplitCredentials),
-  );
+  return Boolean(env.GOOGLE_SHEETS_SPREADSHEET_ID && (hasJson || hasSplitCredentials));
 }
 
 export function isExternalCacheConfigured() {
@@ -208,4 +224,11 @@ export function isSaasAuthConfigured() {
   return Boolean(isDatabaseConfigured() && getAuthSecret());
 }
 
+export function isAlertEmailConfigured() {
+  const env = getEnv();
+  return env.ALERT_EMAIL_PROVIDER === "resend" && Boolean(env.RESEND_API_KEY && env.ALERT_EMAIL_FROM);
+}
 
+export function isAlertsCronConfigured() {
+  return Boolean(getEnv().ALERTS_CRON_SECRET);
+}

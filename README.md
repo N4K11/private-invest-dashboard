@@ -12,6 +12,7 @@ Additional docs:
 - `docs/MANUAL_ASSETS.md` for the SaaS Manual Asset Manager workflow
 - `docs/PRICE_ENGINE.md` for the unified SaaS price engine
 - `docs/TELEGRAM_GIFTS_PRICING.md` for the SaaS Telegram Gifts OTC pricing workflow
+- `docs/ALERTS.md` for the SaaS alerts, email and cron workflow
 
 ## Current status
 Implemented right now:
@@ -46,6 +47,7 @@ Implemented right now:
 - SaaS CS2 coverage now reuses the real shared provider chain (`steam -> buff_proxy -> manual`) with canonical name matching, stale warnings and optional FX fallback conversion
 - SaaS Telegram Gifts now have a dedicated OTC price workflow with `PRICE_UPDATE` history, review reminders and outlier detection inside `/app/portfolios/[portfolioId]`
 - SaaS portfolio detail pages now include analytics v1: historical value/PnL charts, asset-class drift, top positions, concentration risk and explainability based on positions + transactions + price snapshots
+- SaaS Alerts Center at `/app/alerts` with `AlertRule` / `AlertEvent`, manual evaluation, email provider abstraction and cron-ready `/api/cron/alerts`
 - `robots.txt` and `noindex/nofollow` protection for the private surface
 
 ## Stack
@@ -186,6 +188,11 @@ Copy `.env.example` to `.env.local` and fill in:
 - `CACHE_REDIS_REST_URL`: optional Redis REST endpoint (Upstash/compatible)
 - `CACHE_REDIS_REST_TOKEN`: auth token for Redis REST
 - `CACHE_KEY_PREFIX`: namespace prefix for shared cache keys
+- `ALERT_EMAIL_PROVIDER`: `noop` or `resend`
+- `ALERT_EMAIL_FROM`: sender for alert emails when `resend` is enabled
+- `ALERT_EMAIL_REPLY_TO`: optional reply-to for alert emails
+- `RESEND_API_KEY`: API key for Resend delivery
+- `ALERTS_CRON_SECRET`: bearer secret for `/api/cron/alerts`
 
 ## Database foundation
 The repository now includes a Prisma/PostgreSQL schema for the future SaaS mode. The current private dashboard still works without database env vars and continues to use the Google Sheets integration path in production.
@@ -296,11 +303,16 @@ Protected SaaS routes:
 - `/app`
 - `/app/portfolios`
 - `/app/portfolios/[portfolioId]`
-- `/app/import`
+- `/app/import` 
+- `/app/alerts`
 - `/app/settings`
 
 SaaS management API routes:
-- `POST /api/app/workspaces`
+- `POST /api/app/workspaces` 
+- `POST /api/app/alerts/rules` 
+- `PATCH /api/app/alerts/rules/[ruleId]` 
+- `DELETE /api/app/alerts/rules/[ruleId]` 
+- `POST /api/app/alerts/evaluate`
 - `POST /api/app/import/preview`
 - `POST /api/app/import/commit`
 - `POST /api/app/workspaces/active`
@@ -326,12 +338,16 @@ Manual flow:
 11. Use the Manual Asset Manager on the same page to add, edit or delete manual holdings and verify auto-generated buy/sell transactions.
 12. For Telegram Gifts, use the dedicated OTC pricing block to save reviewed quotes, keep `PRICE_UPDATE` history and monitor outlier warnings.
 13. Use the analytics section on `/app/portfolios/[portfolioId]` to inspect value history, allocation drift, concentration risk, realized/unrealized PnL and valuation quality.
+14. Open `/app/alerts` to create alert rules, run manual evaluations and inspect delivery history.
 
 ## Manual Asset Manager
 Current SaaS portfolio detail pages now support direct database-backed position CRUD without Google Sheets. The manager is designed for owner/admin roles and writes through protected `/api/app` routes with rate limiting, audit log entries and automatic buy/sell transaction generation. See [docs/MANUAL_ASSETS.md](docs/MANUAL_ASSETS.md) for the exact flow and test cases.
 
 ## SaaS Telegram Gifts pricing
 Telegram Gifts in `/app/portfolios/[portfolioId]` now use a dedicated manual / OTC price workflow. Operators can update quotes with source, confidence, verification time and note; each save writes a `PRICE_UPDATE` transaction, preserves history and raises an outlier warning when the new quote differs from the previous one by 35% or more. See [docs/TELEGRAM_GIFTS_PRICING.md](docs/TELEGRAM_GIFTS_PRICING.md) for the workflow details.
+
+## SaaS alerts & notifications
+SaaS workspaces now include an Alerts Center at `/app/alerts`. It manages `AlertRule` and `AlertEvent`, supports `price_above`, `price_below`, `portfolio_value_change`, `stale_price` and `concentration_risk`, and can deliver notifications through a provider abstraction (`noop` or `resend`). Manual checks run from the UI, while scheduled checks should hit `/api/cron/alerts` from Vercel Cron or VPS cron. See [docs/ALERTS.md](docs/ALERTS.md) for setup and examples.
 
 ## Local development
 ```bash
@@ -491,6 +507,11 @@ npm run typecheck
 npm run lint
 npm run build
 ```
+
+
+
+
+
 
 
 

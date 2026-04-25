@@ -33,6 +33,21 @@ export type SaasAnalyticsRiskFlag =
   | "missing_price"
   | "negative_pnl"
   | "low_liquidity";
+export type SaasAlertRuleType =
+  | "price_above"
+  | "price_below"
+  | "portfolio_value_change"
+  | "stale_price"
+  | "concentration_risk";
+export type SaasAlertRuleStatus = "active" | "paused";
+export type SaasAlertChannel = "email";
+export type SaasAlertEventStatus =
+  | "triggered"
+  | "delivered"
+  | "failed"
+  | "skipped"
+  | "dismissed";
+export type SaasAlertDirection = "up" | "down" | "either";
 
 export type SaasWorkspaceMembership = {
   workspaceId: string;
@@ -245,4 +260,87 @@ export type SaasPortfolioDetail = {
     status: string;
     lastSyncedAt: string | null;
   }[];
+};
+
+export type SaasAlertPortfolioOption = {
+  id: string;
+  name: string;
+  baseCurrency: string;
+  assetCount: number;
+};
+
+export type SaasAlertAssetOption = {
+  assetId: string;
+  portfolioId: string;
+  assetName: string;
+  symbol: string | null;
+  category: SaasAssetCategory;
+};
+
+export type SaasAlertRuleRow = {
+  id: string;
+  workspaceId: string;
+  portfolioId: string | null;
+  portfolioName: string | null;
+  assetId: string | null;
+  assetName: string | null;
+  assetSymbol: string | null;
+  type: SaasAlertRuleType;
+  name: string;
+  status: SaasAlertRuleStatus;
+  channel: SaasAlertChannel;
+  thresholdValue: number | null;
+  thresholdPercent: number | null;
+  cooldownMinutes: number;
+  recipientEmail: string | null;
+  direction: SaasAlertDirection;
+  createdAt: string;
+  updatedAt: string;
+  lastEvaluatedAt: string | null;
+  lastTriggeredAt: string | null;
+};
+
+export type SaasAlertEventRow = {
+  id: string;
+  ruleId: string | null;
+  ruleName: string | null;
+  type: SaasAlertRuleType;
+  status: SaasAlertEventStatus;
+  channel: SaasAlertChannel;
+  title: string;
+  message: string;
+  recipientEmail: string | null;
+  metricValue: number | null;
+  thresholdValue: number | null;
+  triggeredAt: string;
+  deliveredAt: string | null;
+  portfolioId: string | null;
+  portfolioName: string | null;
+  assetId: string | null;
+  assetName: string | null;
+  assetSymbol: string | null;
+};
+
+export type SaasAlertsEvaluationResult = {
+  checkedRules: number;
+  triggeredRules: number;
+  deliveredEvents: number;
+  failedEvents: number;
+  skippedEvents: number;
+  suppressedByCooldown: number;
+  events: SaasAlertEventRow[];
+};
+
+export type SaasAlertsWorkspaceView = {
+  workspaceId: string;
+  workspaceName: string;
+  workspaceSlug: string;
+  defaultCurrency: string;
+  role: SaasWorkspaceRole;
+  canManage: boolean;
+  defaultRecipientEmail: string | null;
+  portfolios: SaasAlertPortfolioOption[];
+  assets: SaasAlertAssetOption[];
+  rules: SaasAlertRuleRow[];
+  events: SaasAlertEventRow[];
 };

@@ -62,3 +62,4 @@ if (findings.length > 0) {
 }
 
 console.log(`Client bundle safety check passed across ${files.length} static files.`);
+

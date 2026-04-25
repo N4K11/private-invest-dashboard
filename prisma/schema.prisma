@@ -99,6 +99,31 @@ enum SubscriptionStatus {
   INCOMPLETE
 }
 
+enum AlertRuleType {
+  PRICE_ABOVE
+  PRICE_BELOW
+  PORTFOLIO_VALUE_CHANGE
+  STALE_PRICE
+  CONCENTRATION_RISK
+}
+
+enum AlertRuleStatus {
+  ACTIVE
+  PAUSED
+}
+
+enum AlertDeliveryChannel {
+  EMAIL
+}
+
+enum AlertEventStatus {
+  TRIGGERED
+  DELIVERED
+  FAILED
+  SKIPPED
+  DISMISSED
+}
+
 enum AuditActorType {
   USER
   SYSTEM
@@ -113,21 +138,22 @@ enum AuditSeverity {
 }
 
 model User {
-  id              String            @id @default(cuid())
-  email           String            @unique
-  passwordHash    String?
-  displayName     String?
-  timezone        String            @default("UTC")
-  locale          String?
-  emailVerifiedAt DateTime?
-  lastLoginAt     DateTime?
-  isActive        Boolean           @default(true)
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  accounts        Account[]
-  ownedWorkspaces Workspace[]       @relation("WorkspaceOwner")
-  memberships     WorkspaceMember[] @relation("WorkspaceMemberships")
-  auditLogs       AuditLog[]        @relation("AuditLogActor")
+  id                String            @id @default(cuid())
+  email             String            @unique
+  passwordHash      String?
+  displayName       String?
+  timezone          String            @default("UTC")
+  locale            String?
+  emailVerifiedAt   DateTime?
+  lastLoginAt       DateTime?
+  isActive          Boolean           @default(true)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  accounts          Account[]
+  ownedWorkspaces   Workspace[]       @relation("WorkspaceOwner")
+  memberships       WorkspaceMember[] @relation("WorkspaceMemberships")
+  auditLogs         AuditLog[]        @relation("AuditLogActor")
+  createdAlertRules AlertRule[]       @relation("AlertRuleCreator")
 
   @@map("users")
 }
@@ -165,6 +191,8 @@ model Workspace {
   integrations    Integration[]
   subscription    Subscription?
   auditLogs       AuditLog[]
+  alertRules      AlertRule[]
+  alertEvents     AlertEvent[]
 
   @@index([ownerId])
   @@map("workspaces")
@@ -206,6 +234,8 @@ model Portfolio {
   priceSnapshots      PriceSnapshot[]
   integrations        Integration[]
   auditLogs           AuditLog[]
+  alertRules          AlertRule[]
+  alertEvents         AlertEvent[]
 
   @@unique([workspaceId, slug])
   @@index([workspaceId, visibility])
@@ -228,6 +258,8 @@ model Asset {
   positions      Position[]
   transactions   Transaction[]
   priceSnapshots PriceSnapshot[]
+  alertRules     AlertRule[]
+  alertEvents    AlertEvent[]
 
   @@unique([workspaceId, normalizedKey])
   @@index([workspaceId, category])
@@ -354,6 +386,68 @@ model Subscription {
 
   @@index([plan, status])
   @@map("subscriptions")
+}
+
+model AlertRule {
+  id               String               @id @default(cuid())
+  workspaceId      String
+  portfolioId      String?
+  assetId          String?
+  createdByUserId  String?
+  name             String
+  type             AlertRuleType
+  status           AlertRuleStatus      @default(ACTIVE)
+  channel          AlertDeliveryChannel @default(EMAIL)
+  thresholdValue   Decimal?             @db.Decimal(20, 8)
+  thresholdPercent Decimal?             @db.Decimal(10, 4)
+  cooldownMinutes  Int                  @default(1440)
+  recipientEmail   String?
+  config           Json?
+  lastEvaluatedAt  DateTime?
+  lastTriggeredAt  DateTime?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  workspace        Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  portfolio        Portfolio?           @relation(fields: [portfolioId], references: [id], onDelete: SetNull)
+  asset            Asset?               @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  createdByUser    User?                @relation("AlertRuleCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  events           AlertEvent[]
+
+  @@index([workspaceId, status, type])
+  @@index([portfolioId, status])
+  @@index([assetId, status])
+  @@index([createdByUserId])
+  @@map("alert_rules")
+}
+
+model AlertEvent {
+  id             String               @id @default(cuid())
+  ruleId         String?
+  workspaceId    String
+  portfolioId    String?
+  assetId        String?
+  type           AlertRuleType
+  channel        AlertDeliveryChannel @default(EMAIL)
+  status         AlertEventStatus     @default(TRIGGERED)
+  title          String
+  message        String
+  recipientEmail String?
+  metricValue    Decimal?             @db.Decimal(20, 8)
+  thresholdValue Decimal?             @db.Decimal(20, 8)
+  payload        Json?
+  triggeredAt    DateTime             @default(now())
+  deliveredAt    DateTime?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  rule           AlertRule?           @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  workspace      Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  portfolio      Portfolio?           @relation(fields: [portfolioId], references: [id], onDelete: SetNull)
+  asset          Asset?               @relation(fields: [assetId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, triggeredAt])
+  @@index([ruleId, triggeredAt])
+  @@index([portfolioId, triggeredAt])
+  @@map("alert_events")
 }
 
 model AuditLog {

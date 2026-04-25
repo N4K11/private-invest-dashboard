@@ -26,8 +26,18 @@ const telegramPriceSourceSchema = z.enum([
   "marketplace_listing",
   "manual_estimate",
 ]);
+const alertRuleTypeSchema = z.enum([
+  "price_above",
+  "price_below",
+  "portfolio_value_change",
+  "stale_price",
+  "concentration_risk",
+]);
+const alertRuleStatusSchema = z.enum(["active", "paused"]);
+const alertDirectionSchema = z.enum(["up", "down", "either"]);
 
 const decimalSchema = z.coerce.number().finite("Enter a valid number.").min(0, "Value cannot be negative.");
+const integerSchema = z.coerce.number().int("Enter a whole number.").min(0, "Value cannot be negative.");
 
 const positiveQuantitySchema = decimalSchema.refine((value) => value > 0, {
   message: "Quantity must be greater than zero.",
@@ -53,6 +63,21 @@ const tagsSchema = z
   .default([]);
 
 const optionalDecimalSchema = decimalSchema.nullable().optional();
+
+const optionalIdSchema = z
+  .string()
+  .trim()
+  .optional()
+  .or(z.literal(""))
+  .transform((value) => (value ? value : undefined));
+
+const optionalEmailSchema = z
+  .string()
+  .trim()
+  .optional()
+  .or(z.literal(""))
+  .transform((value) => value || undefined)
+  .pipe(z.string().email("Provide a valid email.").optional());
 
 const optionalIsoDateTimeSchema = z
   .string()
@@ -157,6 +182,95 @@ export const telegramGiftPriceUpdateSchema = z.object({
   notes: textAreaSchema,
 });
 
+export const alertRuleCreateSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(2, "Alert name is too short.")
+      .max(120, "Alert name is too long."),
+    type: alertRuleTypeSchema,
+    status: alertRuleStatusSchema.default("active"),
+    portfolioId: optionalIdSchema,
+    assetId: optionalIdSchema,
+    thresholdValue: optionalDecimalSchema,
+    thresholdPercent: optionalDecimalSchema,
+    cooldownMinutes: integerSchema.min(5, "Cooldown must be at least 5 minutes.").default(1440),
+    recipientEmail: optionalEmailSchema,
+    direction: alertDirectionSchema.default("either"),
+  })
+  .superRefine((value, context) => {
+    if ((value.type === "price_above" || value.type === "price_below") && !value.portfolioId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["portfolioId"],
+        message: "Choose a portfolio for price alerts.",
+      });
+    }
+
+    if ((value.type === "price_above" || value.type === "price_below") && !value.assetId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["assetId"],
+        message: "Choose an asset for price alerts.",
+      });
+    }
+
+    if ((value.type === "price_above" || value.type === "price_below") && value.thresholdValue === null) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["thresholdValue"],
+        message: "Set a price threshold.",
+      });
+    }
+
+    if (value.type === "portfolio_value_change" && !value.portfolioId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["portfolioId"],
+        message: "Choose a portfolio for portfolio value alerts.",
+      });
+    }
+
+    if (value.type === "portfolio_value_change" && value.thresholdPercent === null) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["thresholdPercent"],
+        message: "Set a percent threshold for portfolio value change alerts.",
+      });
+    }
+
+    if (value.type === "concentration_risk" && !value.portfolioId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["portfolioId"],
+        message: "Choose a portfolio for concentration alerts.",
+      });
+    }
+
+    if (value.type === "concentration_risk" && value.thresholdPercent === null) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["thresholdPercent"],
+        message: "Set a percent threshold for concentration alerts.",
+      });
+    }
+
+    if (value.type !== "price_above" && value.type !== "price_below" && value.assetId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["assetId"],
+        message: "Asset selection is only used for price-above/price-below alerts.",
+      });
+    }
+  });
+
+export const alertRuleUpdateSchema = alertRuleCreateSchema;
+
+export const alertEvaluationSchema = z.object({
+  workspaceId: z.string().trim().min(1, "Workspace id is required."),
+});
+
 export type WorkspaceCreateInput = z.infer<typeof workspaceCreateSchema>;
 export type WorkspaceSelectionInput = z.infer<typeof workspaceSelectionSchema>;
 export type PortfolioCreateInput = z.infer<typeof portfolioCreateSchema>;
@@ -164,3 +278,6 @@ export type PortfolioUpdateInput = z.infer<typeof portfolioUpdateSchema>;
 export type ManualAssetCreateInput = z.infer<typeof manualAssetCreateSchema>;
 export type ManualAssetUpdateInput = z.infer<typeof manualAssetUpdateSchema>;
 export type TelegramGiftPriceUpdateInput = z.infer<typeof telegramGiftPriceUpdateSchema>;
+export type AlertRuleCreateInput = z.infer<typeof alertRuleCreateSchema>;
+export type AlertRuleUpdateInput = z.infer<typeof alertRuleUpdateSchema>;
+export type AlertEvaluationInput = z.infer<typeof alertEvaluationSchema>;
