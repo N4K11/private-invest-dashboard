@@ -1,9 +1,10 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { ManualAssetManager } from "@/components/app/manual-asset-manager";
+import { PortfolioInsightsPanel } from "@/components/app/portfolio-insights-panel";
 import { PortfolioAnalyticsPanel } from "@/components/app/portfolio-analytics-panel";
 import { TelegramGiftPricingPanel } from "@/components/app/telegram-gift-pricing-panel";
 import { AllocationChart } from "@/components/dashboard/allocation-chart";
@@ -142,6 +143,13 @@ export default async function PortfolioDetailPage({
           </div>
         </SectionCard>
       ) : null}
+      <SectionCard
+        eyebrow="Insights"
+        title="Структурированные инсайты"
+        description="Deterministic insights layer поверх analytics, snapshots и quality flags. Здесь нет финансовых советов, только структурное объяснение текущей картины портфеля."
+      >
+        <PortfolioInsightsPanel insights={portfolio.insights} />
+      </SectionCard>
 
       <section className="grid gap-6 xl:grid-cols-2">
         <SectionCard

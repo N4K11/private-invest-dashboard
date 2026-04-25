@@ -1,4 +1,4 @@
-﻿import "server-only";
+import "server-only";
 
 import { Prisma } from "@prisma/client";
 
@@ -14,6 +14,7 @@ import {
 import { CATEGORY_META } from "@/lib/constants";
 import { getPrismaClient } from "@/lib/db/client";
 import { buildSaasPortfolioAnalytics } from "@/lib/saas/portfolio-analytics";
+import { buildPortfolioInsights } from "@/lib/saas/portfolio-insights";
 import { getManualStaleAfterMs, isTimestampStale } from "@/lib/saas/price-engine/utils";
 import type {
   PortfolioCreateInput,
@@ -33,6 +34,7 @@ import {
   normalizePortfolioVisibility,
 } from "@/lib/saas/utils";
 import type {
+  SaasAssetCategory,
   SaasPortfolioDetail,
   SaasPortfolioListItem,
   SaasPortfolioTransactionRow,
@@ -120,12 +122,12 @@ export async function createPortfolioForWorkspace(
   const membership = await getWorkspaceMembershipForUser(userId, workspaceId);
 
   if (!membership) {
-    throw new Error("Workspace не найден или доступ к нему потерян.");
+    throw new Error("Workspace Р В Р вЂ¦Р В Р’Вµ Р В Р вЂ¦Р В Р’В°Р В РІвЂћвЂ“Р В РўвЂР В Р’ВµР В Р вЂ¦ Р В РЎвЂР В Р’В»Р В РЎвЂ Р В РўвЂР В РЎвЂўР РЋР С“Р РЋРІР‚С™Р РЋРЎвЂњР В РЎвЂ” Р В РЎвЂќ Р В Р вЂ¦Р В Р’ВµР В РЎВР РЋРЎвЂњ Р В РЎвЂ”Р В РЎвЂўР РЋРІР‚С™Р В Р’ВµР РЋР вЂљР РЋР РЏР В Р вЂ¦.");
   }
 
   const role = normalizeWorkspaceRole(membership.role);
   if (!canManagePortfolio(role)) {
-    throw new Error("Недостаточно прав для создания портфеля в этом workspace.");
+    throw new Error("Р В РЎСљР В Р’ВµР В РўвЂР В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р РЋРІР‚С™Р В РЎвЂўР РЋРІР‚РЋР В Р вЂ¦Р В РЎвЂў Р В РЎвЂ”Р РЋР вЂљР В Р’В°Р В Р вЂ  Р В РўвЂР В Р’В»Р РЋР РЏ Р РЋР С“Р В РЎвЂўР В Р’В·Р В РўвЂР В Р’В°Р В Р вЂ¦Р В РЎвЂР РЋР РЏ Р В РЎвЂ”Р В РЎвЂўР РЋР вЂљР РЋРІР‚С™Р РЋРІР‚С›Р В Р’ВµР В Р’В»Р РЋР РЏ Р В Р вЂ  Р РЋР РЉР РЋРІР‚С™Р В РЎвЂўР В РЎВ workspace.");
   }
 
   const prisma = getPrismaClient();
@@ -187,7 +189,7 @@ export async function createPortfolioForWorkspace(
     }
   }
 
-  throw new Error("Не удалось подобрать свободный slug для нового портфеля.");
+  throw new Error("Р В РЎСљР В Р’Вµ Р РЋРЎвЂњР В РўвЂР В Р’В°Р В Р’В»Р В РЎвЂўР РЋР С“Р РЋР Р‰ Р В РЎвЂ”Р В РЎвЂўР В РўвЂР В РЎвЂўР В Р’В±Р РЋР вЂљР В Р’В°Р РЋРІР‚С™Р РЋР Р‰ Р РЋР С“Р В Р вЂ Р В РЎвЂўР В Р’В±Р В РЎвЂўР В РўвЂР В Р вЂ¦Р РЋРІР‚в„–Р В РІвЂћвЂ“ slug Р В РўвЂР В Р’В»Р РЋР РЏ Р В Р вЂ¦Р В РЎвЂўР В Р вЂ Р В РЎвЂўР В РЎвЂ“Р В РЎвЂў Р В РЎвЂ”Р В РЎвЂўР РЋР вЂљР РЋРІР‚С™Р РЋРІР‚С›Р В Р’ВµР В Р’В»Р РЋР РЏ.");
 }
 
 export async function updatePortfolioById(
@@ -198,12 +200,12 @@ export async function updatePortfolioById(
   const membership = await getPortfolioMembershipForUser(userId, portfolioId);
 
   if (!membership) {
-    throw new Error("Портфель не найден или доступ к нему отсутствует.");
+    throw new Error("Р В РЎСџР В РЎвЂўР РЋР вЂљР РЋРІР‚С™Р РЋРІР‚С›Р В Р’ВµР В Р’В»Р РЋР Р‰ Р В Р вЂ¦Р В Р’Вµ Р В Р вЂ¦Р В Р’В°Р В РІвЂћвЂ“Р В РўвЂР В Р’ВµР В Р вЂ¦ Р В РЎвЂР В Р’В»Р В РЎвЂ Р В РўвЂР В РЎвЂўР РЋР С“Р РЋРІР‚С™Р РЋРЎвЂњР В РЎвЂ” Р В РЎвЂќ Р В Р вЂ¦Р В Р’ВµР В РЎВР РЋРЎвЂњ Р В РЎвЂўР РЋРІР‚С™Р РЋР С“Р РЋРЎвЂњР РЋРІР‚С™Р РЋР С“Р РЋРІР‚С™Р В Р вЂ Р РЋРЎвЂњР В Р’ВµР РЋРІР‚С™.");
   }
 
   const role = normalizeWorkspaceRole(membership.role);
   if (!canManagePortfolio(role)) {
-    throw new Error("Недостаточно прав для редактирования портфеля.");
+    throw new Error("Р В РЎСљР В Р’ВµР В РўвЂР В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р РЋРІР‚С™Р В РЎвЂўР РЋРІР‚РЋР В Р вЂ¦Р В РЎвЂў Р В РЎвЂ”Р РЋР вЂљР В Р’В°Р В Р вЂ  Р В РўвЂР В Р’В»Р РЋР РЏ Р РЋР вЂљР В Р’ВµР В РўвЂР В Р’В°Р В РЎвЂќР РЋРІР‚С™Р В РЎвЂР РЋР вЂљР В РЎвЂўР В Р вЂ Р В Р’В°Р В Р вЂ¦Р В РЎвЂР РЋР РЏ Р В РЎвЂ”Р В РЎвЂўР РЋР вЂљР РЋРІР‚С™Р РЋРІР‚С›Р В Р’ВµР В Р’В»Р РЋР РЏ.");
   }
 
   const prisma = getPrismaClient();
@@ -241,12 +243,12 @@ export async function archivePortfolioById(userId: string, portfolioId: string) 
   const membership = await getPortfolioMembershipForUser(userId, portfolioId);
 
   if (!membership) {
-    throw new Error("Портфель не найден или доступ к нему отсутствует.");
+    throw new Error("Р В РЎСџР В РЎвЂўР РЋР вЂљР РЋРІР‚С™Р РЋРІР‚С›Р В Р’ВµР В Р’В»Р РЋР Р‰ Р В Р вЂ¦Р В Р’Вµ Р В Р вЂ¦Р В Р’В°Р В РІвЂћвЂ“Р В РўвЂР В Р’ВµР В Р вЂ¦ Р В РЎвЂР В Р’В»Р В РЎвЂ Р В РўвЂР В РЎвЂўР РЋР С“Р РЋРІР‚С™Р РЋРЎвЂњР В РЎвЂ” Р В РЎвЂќ Р В Р вЂ¦Р В Р’ВµР В РЎВР РЋРЎвЂњ Р В РЎвЂўР РЋРІР‚С™Р РЋР С“Р РЋРЎвЂњР РЋРІР‚С™Р РЋР С“Р РЋРІР‚С™Р В Р вЂ Р РЋРЎвЂњР В Р’ВµР РЋРІР‚С™.");
   }
 
   const role = normalizeWorkspaceRole(membership.role);
   if (!canArchivePortfolio(role)) {
-    throw new Error("Недостаточно прав для удаления портфеля.");
+    throw new Error("Р В РЎСљР В Р’ВµР В РўвЂР В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р РЋРІР‚С™Р В РЎвЂўР РЋРІР‚РЋР В Р вЂ¦Р В РЎвЂў Р В РЎвЂ”Р РЋР вЂљР В Р’В°Р В Р вЂ  Р В РўвЂР В Р’В»Р РЋР РЏ Р РЋРЎвЂњР В РўвЂР В Р’В°Р В Р’В»Р В Р’ВµР В Р вЂ¦Р В РЎвЂР РЋР РЏ Р В РЎвЂ”Р В РЎвЂўР РЋР вЂљР РЋРІР‚С™Р РЋРІР‚С›Р В Р’ВµР В Р’В»Р РЋР РЏ.");
   }
 
   const prisma = getPrismaClient();
@@ -259,7 +261,7 @@ export async function archivePortfolioById(userId: string, portfolioId: string) 
   });
 
   if (remainingPortfolios <= 1) {
-    throw new Error("Нельзя архивировать последний портфель workspace.");
+    throw new Error("Р В РЎСљР В Р’ВµР В Р’В»Р РЋР Р‰Р В Р’В·Р РЋР РЏ Р В Р’В°Р РЋР вЂљР РЋРІР‚В¦Р В РЎвЂР В Р вЂ Р В РЎвЂР РЋР вЂљР В РЎвЂўР В Р вЂ Р В Р’В°Р РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂ”Р В РЎвЂўР РЋР С“Р В Р’В»Р В Р’ВµР В РўвЂР В Р вЂ¦Р В РЎвЂР В РІвЂћвЂ“ Р В РЎвЂ”Р В РЎвЂўР РЋР вЂљР РЋРІР‚С™Р РЋРІР‚С›Р В Р’ВµР В Р’В»Р РЋР Р‰ workspace.");
   }
 
   const portfolio = await prisma.portfolio.update({
@@ -474,13 +476,13 @@ export async function getPortfolioDetailForUser(
 
   const warnings = new Set<string>();
   if (positions.length === 0) {
-    warnings.add("В портфеле пока нет позиций. Добавьте импорт или создайте активы вручную на следующих этапах.");
+    warnings.add("Р В РІР‚в„ў Р В РЎвЂ”Р В РЎвЂўР РЋР вЂљР РЋРІР‚С™Р РЋРІР‚С›Р В Р’ВµР В Р’В»Р В Р’Вµ Р В РЎвЂ”Р В РЎвЂўР В РЎвЂќР В Р’В° Р В Р вЂ¦Р В Р’ВµР РЋРІР‚С™ Р В РЎвЂ”Р В РЎвЂўР В Р’В·Р В РЎвЂР РЋРІР‚В Р В РЎвЂР В РІвЂћвЂ“. Р В РІР‚СњР В РЎвЂўР В Р’В±Р В Р’В°Р В Р вЂ Р РЋР Р‰Р РЋРІР‚С™Р В Р’Вµ Р В РЎвЂР В РЎВР В РЎвЂ”Р В РЎвЂўР РЋР вЂљР РЋРІР‚С™ Р В РЎвЂР В Р’В»Р В РЎвЂ Р РЋР С“Р В РЎвЂўР В Р’В·Р В РўвЂР В Р’В°Р В РІвЂћвЂ“Р РЋРІР‚С™Р В Р’Вµ Р В Р’В°Р В РЎвЂќР РЋРІР‚С™Р В РЎвЂР В Р вЂ Р РЋРІР‚в„– Р В Р вЂ Р РЋР вЂљР РЋРЎвЂњР РЋРІР‚РЋР В Р вЂ¦Р РЋРЎвЂњР РЋР вЂ№ Р В Р вЂ¦Р В Р’В° Р РЋР С“Р В Р’В»Р В Р’ВµР В РўвЂР РЋРЎвЂњР РЋР вЂ№Р РЋРІР‚В°Р В РЎвЂР РЋРІР‚В¦ Р РЋР РЉР РЋРІР‚С™Р В Р’В°Р В РЎвЂ”Р В Р’В°Р РЋРІР‚В¦.");
   }
   if (portfolio._count.transactions === 0) {
-    warnings.add("История транзакций пуста. PnL пока считается по состоянию позиций.");
+    warnings.add("Р В Р’ВР РЋР С“Р РЋРІР‚С™Р В РЎвЂўР РЋР вЂљР В РЎвЂР РЋР РЏ Р РЋРІР‚С™Р РЋР вЂљР В Р’В°Р В Р вЂ¦Р В Р’В·Р В Р’В°Р В РЎвЂќР РЋРІР‚В Р В РЎвЂР В РІвЂћвЂ“ Р В РЎвЂ”Р РЋРЎвЂњР РЋР С“Р РЋРІР‚С™Р В Р’В°. PnL Р В РЎвЂ”Р В РЎвЂўР В РЎвЂќР В Р’В° Р РЋР С“Р РЋРІР‚РЋР В РЎвЂР РЋРІР‚С™Р В Р’В°Р В Р’ВµР РЋРІР‚С™Р РЋР С“Р РЋР РЏ Р В РЎвЂ”Р В РЎвЂў Р РЋР С“Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В РЎвЂўР РЋР РЏР В Р вЂ¦Р В РЎвЂР РЋР вЂ№ Р В РЎвЂ”Р В РЎвЂўР В Р’В·Р В РЎвЂР РЋРІР‚В Р В РЎвЂР В РІвЂћвЂ“.");
   }
   if (portfolio._count.integrations === 0) {
-    warnings.add("Интеграции еще не подключены. Import Center и live sync будут расширяться на следующих этапах.");
+    warnings.add("Р В Р’ВР В Р вЂ¦Р РЋРІР‚С™Р В Р’ВµР В РЎвЂ“Р РЋР вЂљР В Р’В°Р РЋРІР‚В Р В РЎвЂР В РЎвЂ Р В Р’ВµР РЋРІР‚В°Р В Р’Вµ Р В Р вЂ¦Р В Р’Вµ Р В РЎвЂ”Р В РЎвЂўР В РўвЂР В РЎвЂќР В Р’В»Р РЋР вЂ№Р РЋРІР‚РЋР В Р’ВµР В Р вЂ¦Р РЋРІР‚в„–. Import Center Р В РЎвЂ live sync Р В Р’В±Р РЋРЎвЂњР В РўвЂР РЋРЎвЂњР РЋРІР‚С™ Р РЋР вЂљР В Р’В°Р РЋР С“Р РЋРІвЂљВ¬Р В РЎвЂР РЋР вЂљР РЋР РЏР РЋРІР‚С™Р РЋР Р‰Р РЋР С“Р РЋР РЏ Р В Р вЂ¦Р В Р’В° Р РЋР С“Р В Р’В»Р В Р’ВµР В РўвЂР РЋРЎвЂњР РЋР вЂ№Р РЋРІР‚В°Р В РЎвЂР РЋРІР‚В¦ Р РЋР РЉР РЋРІР‚С™Р В Р’В°Р В РЎвЂ”Р В Р’В°Р РЋРІР‚В¦.");
   }
 
   const unknownPriceCount = positions.filter(
@@ -488,7 +490,7 @@ export async function getPortfolioDetailForUser(
   ).length;
   if (unknownPriceCount > 0) {
     warnings.add(
-      `Unified price engine не смог оценить ${unknownPriceCount} поз. Общая стоимость пока неполная.`,
+      `Unified price engine Р В Р вЂ¦Р В Р’Вµ Р РЋР С“Р В РЎВР В РЎвЂўР В РЎвЂ“ Р В РЎвЂўР РЋРІР‚В Р В Р’ВµР В Р вЂ¦Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰ ${unknownPriceCount} Р В РЎвЂ”Р В РЎвЂўР В Р’В·. Р В РЎвЂєР В Р’В±Р РЋРІР‚В°Р В Р’В°Р РЋР РЏ Р РЋР С“Р РЋРІР‚С™Р В РЎвЂўР В РЎвЂР В РЎВР В РЎвЂўР РЋР С“Р РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂ”Р В РЎвЂўР В РЎвЂќР В Р’В° Р В Р вЂ¦Р В Р’ВµР В РЎвЂ”Р В РЎвЂўР В Р’В»Р В Р вЂ¦Р В Р’В°Р РЋР РЏ.`,
     );
   }
 
@@ -497,25 +499,25 @@ export async function getPortfolioDetailForUser(
   ).length;
   if (stalePriceCount > 0) {
     warnings.add(
-      `У ${stalePriceCount} позиций устаревшая ручная цена. Обновите quotes или импорт.`,
+      `Р В Р в‚¬ ${stalePriceCount} Р В РЎвЂ”Р В РЎвЂўР В Р’В·Р В РЎвЂР РЋРІР‚В Р В РЎвЂР В РІвЂћвЂ“ Р РЋРЎвЂњР РЋР С“Р РЋРІР‚С™Р В Р’В°Р РЋР вЂљР В Р’ВµР В Р вЂ Р РЋРІвЂљВ¬Р В Р’В°Р РЋР РЏ Р РЋР вЂљР РЋРЎвЂњР РЋРІР‚РЋР В Р вЂ¦Р В Р’В°Р РЋР РЏ Р РЋРІР‚В Р В Р’ВµР В Р вЂ¦Р В Р’В°. Р В РЎвЂєР В Р’В±Р В Р вЂ¦Р В РЎвЂўР В Р вЂ Р В РЎвЂР РЋРІР‚С™Р В Р’Вµ quotes Р В РЎвЂР В Р’В»Р В РЎвЂ Р В РЎвЂР В РЎВР В РЎвЂ”Р В РЎвЂўР РЋР вЂљР РЋРІР‚С™.`,
     );
   }
 
   if (telegramPricing.staleCount > 0) {
     warnings.add(
-      `Telegram Gifts: ${telegramPricing.staleCount} quotes требуют нового OTC review.`,
+      `Telegram Gifts: ${telegramPricing.staleCount} quotes Р РЋРІР‚С™Р РЋР вЂљР В Р’ВµР В Р’В±Р РЋРЎвЂњР РЋР вЂ№Р РЋРІР‚С™ Р В Р вЂ¦Р В РЎвЂўР В Р вЂ Р В РЎвЂўР В РЎвЂ“Р В РЎвЂў OTC review.`,
     );
   }
 
   if (telegramPricing.lowConfidenceCount > 0) {
     warnings.add(
-      `Telegram Gifts: ${telegramPricing.lowConfidenceCount} quotes отмечены как low confidence.`,
+      `Telegram Gifts: ${telegramPricing.lowConfidenceCount} quotes Р В РЎвЂўР РЋРІР‚С™Р В РЎВР В Р’ВµР РЋРІР‚РЋР В Р’ВµР В Р вЂ¦Р РЋРІР‚в„– Р В РЎвЂќР В Р’В°Р В РЎвЂќ low confidence.`,
     );
   }
 
   if (telegramPricing.outlierCount > 0) {
     warnings.add(
-      `Telegram Gifts: найдено ${telegramPricing.outlierCount} позиций с сильным отклонением новой цены от предыдущей.`,
+      `Telegram Gifts: Р В Р вЂ¦Р В Р’В°Р В РІвЂћвЂ“Р В РўвЂР В Р’ВµР В Р вЂ¦Р В РЎвЂў ${telegramPricing.outlierCount} Р В РЎвЂ”Р В РЎвЂўР В Р’В·Р В РЎвЂР РЋРІР‚В Р В РЎвЂР В РІвЂћвЂ“ Р РЋР С“ Р РЋР С“Р В РЎвЂР В Р’В»Р РЋР Р‰Р В Р вЂ¦Р РЋРІР‚в„–Р В РЎВ Р В РЎвЂўР РЋРІР‚С™Р В РЎвЂќР В Р’В»Р В РЎвЂўР В Р вЂ¦Р В Р’ВµР В Р вЂ¦Р В РЎвЂР В Р’ВµР В РЎВ Р В Р вЂ¦Р В РЎвЂўР В Р вЂ Р В РЎвЂўР В РІвЂћвЂ“ Р РЋРІР‚В Р В Р’ВµР В Р вЂ¦Р РЋРІР‚в„– Р В РЎвЂўР РЋРІР‚С™ Р В РЎвЂ”Р РЋР вЂљР В Р’ВµР В РўвЂР РЋРІР‚в„–Р В РўвЂР РЋРЎвЂњР РЋРІР‚В°Р В Р’ВµР В РІвЂћвЂ“.`,
     );
   }
 
@@ -566,17 +568,17 @@ export async function getPortfolioDetailForUser(
   const cards: SaasPortfolioDetail["cards"] = [
     {
       id: "total-value",
-      label: "Стоимость",
+      label: "Р В Р Р‹Р РЋРІР‚С™Р В РЎвЂўР В РЎвЂР В РЎВР В РЎвЂўР РЋР С“Р РЋРІР‚С™Р РЋР Р‰",
       value: totalValue,
-      hint: "Текущая оценка всех позиций через unified price engine.",
+      hint: "Р В РЎС›Р В Р’ВµР В РЎвЂќР РЋРЎвЂњР РЋРІР‚В°Р В Р’В°Р РЋР РЏ Р В РЎвЂўР РЋРІР‚В Р В Р’ВµР В Р вЂ¦Р В РЎвЂќР В Р’В° Р В Р вЂ Р РЋР С“Р В Р’ВµР РЋРІР‚В¦ Р В РЎвЂ”Р В РЎвЂўР В Р’В·Р В РЎвЂР РЋРІР‚В Р В РЎвЂР В РІвЂћвЂ“ Р РЋРІР‚РЋР В Р’ВµР РЋР вЂљР В Р’ВµР В Р’В· unified price engine.",
       format: "currency" as const,
       tone: "neutral" as const,
     },
     {
       id: "total-cost",
-      label: "Себестоимость",
+      label: "Р В Р Р‹Р В Р’ВµР В Р’В±Р В Р’ВµР РЋР С“Р РЋРІР‚С™Р В РЎвЂўР В РЎвЂР В РЎВР В РЎвЂўР РЋР С“Р РЋРІР‚С™Р РЋР Р‰",
       value: totalCost,
-      hint: "Суммарная стоимость входа по позициям.",
+      hint: "Р В Р Р‹Р РЋРЎвЂњР В РЎВР В РЎВР В Р’В°Р РЋР вЂљР В Р вЂ¦Р В Р’В°Р РЋР РЏ Р РЋР С“Р РЋРІР‚С™Р В РЎвЂўР В РЎвЂР В РЎВР В РЎвЂўР РЋР С“Р РЋРІР‚С™Р РЋР Р‰ Р В Р вЂ Р РЋРІР‚В¦Р В РЎвЂўР В РўвЂР В Р’В° Р В РЎвЂ”Р В РЎвЂў Р В РЎвЂ”Р В РЎвЂўР В Р’В·Р В РЎвЂР РЋРІР‚В Р В РЎвЂР РЋР РЏР В РЎВ.",
       format: "currency" as const,
       tone: "neutral" as const,
     },
@@ -584,31 +586,31 @@ export async function getPortfolioDetailForUser(
       id: "total-pnl",
       label: "PnL",
       value: totalPnl,
-      hint: "Разница между текущей оценкой и cost basis.",
+      hint: "Р В Р’В Р В Р’В°Р В Р’В·Р В Р вЂ¦Р В РЎвЂР РЋРІР‚В Р В Р’В° Р В РЎВР В Р’ВµР В Р’В¶Р В РўвЂР РЋРЎвЂњ Р РЋРІР‚С™Р В Р’ВµР В РЎвЂќР РЋРЎвЂњР РЋРІР‚В°Р В Р’ВµР В РІвЂћвЂ“ Р В РЎвЂўР РЋРІР‚В Р В Р’ВµР В Р вЂ¦Р В РЎвЂќР В РЎвЂўР В РІвЂћвЂ“ Р В РЎвЂ cost basis.",
       format: "currency" as const,
       tone: totalPnl > 0 ? "positive" : totalPnl < 0 ? "negative" : "neutral",
     },
     {
       id: "roi",
       label: "ROI",
-      value: roi ?? "—",
-      hint: "Доходность относительно себестоимости.",
+      value: roi ?? "Р Р†Р вЂљРІР‚Сњ",
+      hint: "Р В РІР‚СњР В РЎвЂўР РЋРІР‚В¦Р В РЎвЂўР В РўвЂР В Р вЂ¦Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂўР РЋРІР‚С™Р В Р вЂ¦Р В РЎвЂўР РЋР С“Р В РЎвЂР РЋРІР‚С™Р В Р’ВµР В Р’В»Р РЋР Р‰Р В Р вЂ¦Р В РЎвЂў Р РЋР С“Р В Р’ВµР В Р’В±Р В Р’ВµР РЋР С“Р РЋРІР‚С™Р В РЎвЂўР В РЎвЂР В РЎВР В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В РЎвЂ.",
       format: typeof roi === "number" ? "percent" : "text",
       tone: roi !== null ? (roi > 0 ? "positive" : roi < 0 ? "negative" : "neutral") : "neutral",
     },
     {
       id: "positions",
-      label: "Позиции",
+      label: "Р В РЎСџР В РЎвЂўР В Р’В·Р В РЎвЂР РЋРІР‚В Р В РЎвЂР В РЎвЂ",
       value: positions.length,
-      hint: "Активные holdings в этом портфеле.",
+      hint: "Р В РЎвЂ™Р В РЎвЂќР РЋРІР‚С™Р В РЎвЂР В Р вЂ Р В Р вЂ¦Р РЋРІР‚в„–Р В Р’Вµ holdings Р В Р вЂ  Р РЋР РЉР РЋРІР‚С™Р В РЎвЂўР В РЎВ Р В РЎвЂ”Р В РЎвЂўР РЋР вЂљР РЋРІР‚С™Р РЋРІР‚С›Р В Р’ВµР В Р’В»Р В Р’Вµ.",
       format: "compact" as const,
       tone: "neutral" as const,
     },
     {
       id: "transactions",
-      label: "Транзакции",
+      label: "Р В РЎС›Р РЋР вЂљР В Р’В°Р В Р вЂ¦Р В Р’В·Р В Р’В°Р В РЎвЂќР РЋРІР‚В Р В РЎвЂР В РЎвЂ",
       value: portfolio._count.transactions,
-      hint: "События покупки, продажи и ручных обновлений.",
+      hint: "Р В Р Р‹Р В РЎвЂўР В Р’В±Р РЋРІР‚в„–Р РЋРІР‚С™Р В РЎвЂР РЋР РЏ Р В РЎвЂ”Р В РЎвЂўР В РЎвЂќР РЋРЎвЂњР В РЎвЂ”Р В РЎвЂќР В РЎвЂ, Р В РЎвЂ”Р РЋР вЂљР В РЎвЂўР В РўвЂР В Р’В°Р В Р’В¶Р В РЎвЂ Р В РЎвЂ Р РЋР вЂљР РЋРЎвЂњР РЋРІР‚РЋР В Р вЂ¦Р РЋРІР‚в„–Р РЋРІР‚В¦ Р В РЎвЂўР В Р’В±Р В Р вЂ¦Р В РЎвЂўР В Р вЂ Р В Р’В»Р В Р’ВµР В Р вЂ¦Р В РЎвЂР В РІвЂћвЂ“.",
       format: "compact" as const,
       tone: "neutral" as const,
     },
@@ -628,6 +630,29 @@ export async function getPortfolioDetailForUser(
       notes: transaction.notes,
     }),
   );
+
+  const structuredWarnings = [...warnings];
+  const insights = await buildPortfolioInsights({
+    workspaceId: portfolio.workspaceId,
+    portfolioId: portfolio.id,
+    portfolioName: portfolio.name,
+    baseCurrency: portfolio.baseCurrency,
+    totalValue,
+    totalCost,
+    totalPnl,
+    roi,
+    positionCount: portfolio._count.positions,
+    transactionCount: portfolio._count.transactions,
+    warnings: structuredWarnings,
+    analytics,
+    positions,
+    snapshots: analyticsSnapshots.map((snapshot) => ({
+      assetId: snapshot.assetId,
+      category: snapshot.asset.category.toLowerCase() as SaasAssetCategory,
+      capturedAt: snapshot.capturedAt.toISOString(),
+      price: decimalToNumber(snapshot.price) ?? 0,
+    })),
+  });
 
   return {
     id: portfolio.id,
@@ -656,8 +681,9 @@ export async function getPortfolioDetailForUser(
     categoryPerformance,
     positions,
     recentTransactions,
-    warnings: [...warnings],
+    warnings: structuredWarnings,
     analytics,
+    insights,
     telegramPricing,
     integrationSummary: portfolio.integrations.map((integration) => ({
       id: integration.id,

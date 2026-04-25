@@ -1,4 +1,4 @@
-﻿# Private Invest Dashboard
+# Private Invest Dashboard
 
 Private Next.js dashboard for tracking CS2 / Steam items, Telegram Gifts and crypto positions from Google Sheets.
 
@@ -13,6 +13,7 @@ Additional docs:
 - `docs/PRICE_ENGINE.md` for the unified SaaS price engine
 - `docs/TELEGRAM_GIFTS_PRICING.md` for the SaaS Telegram Gifts OTC pricing workflow
 - `docs/ALERTS.md` for the SaaS alerts, email and cron workflow
+- `docs/AI_INSIGHTS.md` for the SaaS deterministic insights layer
 
 ## Current status
 Implemented right now:
@@ -47,7 +48,8 @@ Implemented right now:
 - SaaS CS2 coverage now reuses the real shared provider chain (`steam -> buff_proxy -> manual`) with canonical name matching, stale warnings and optional FX fallback conversion
 - SaaS Telegram Gifts now have a dedicated OTC price workflow with `PRICE_UPDATE` history, review reminders and outlier detection inside `/app/portfolios/[portfolioId]`
 - SaaS portfolio detail pages now include analytics v1: historical value/PnL charts, asset-class drift, top positions, concentration risk and explainability based on positions + transactions + price snapshots
-- SaaS Alerts Center at `/app/alerts` with `AlertRule` / `AlertEvent`, manual evaluation, email provider abstraction and cron-ready `/api/cron/alerts`
+- SaaS Alerts Center at /app/alerts with AlertRule / AlertEvent, manual evaluation, email provider abstraction and cron-ready /api/cron/alerts
+- SaaS portfolio detail pages now include a deterministic AI Insights layer with summary, risk, liquidity, concentration, snapshot-change and valuation-quality commentary plus a clear non-advice disclaimer
 - `robots.txt` and `noindex/nofollow` protection for the private surface
 
 ## Stack

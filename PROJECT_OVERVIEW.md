@@ -1,4 +1,4 @@
-﻿# Project Overview
+# Project Overview
 
 ## Purpose
 This project started as a private investment terminal for tracking CS2 items, Telegram Gifts and crypto positions from Google Sheets or a Drive-hosted workbook. It now also has a defined migration path toward a multi-tenant SaaS platform while preserving the existing private production flow.
@@ -11,7 +11,7 @@ This project started as a private investment terminal for tracking CS2 items, Te
 - `src/lib/db`: typed database configuration helpers and Prisma 7 lazy client for the SaaS runtime.
 - `src/lib/imports`: import preview, deduplication, parsing and commit services for the SaaS Import Center.
 - `src/lib/auth`: Auth.js credentials config, password helpers, registration bootstrap and workspace context access.
-- `src/lib/saas`: DB-backed workspace, portfolio, manual asset, analytics and alerts services for the SaaS runtime.
+- `src/lib/saas`: DB-backed workspace, portfolio, manual asset, analytics, alerts and deterministic insights services for the SaaS runtime.
 - `src/lib/notifications`: email provider abstraction for alerts and future outbound channels.
 - `src/lib/portfolio`: portfolio assembly, transaction accounting, metrics and risk analytics.
 - `src/lib/providers`: external price providers for crypto, CS2 and Telegram gifts.
@@ -63,6 +63,7 @@ The next architecture phase treats the current private dashboard as a legacy-com
 - Stage 21 adds a dedicated Telegram Gifts OTC pricing workflow with price history, review reminders and outlier detection on `/app/portfolios/[portfolioId]`.
 - Stage 22 adds portfolio analytics v1 on the same SaaS detail page: history series, concentration analysis, top positions, realized/unrealized PnL and valuation explainability over positions + transactions + price snapshots.
 - Stage 23 adds `/app/alerts` with `AlertRule`, `AlertEvent`, email provider abstraction and cron-ready alert evaluation routes.
+- Stage 24 adds a prompt-safe AI Insights layer on `/app/portfolios/[portfolioId]` with deterministic summary, risk, liquidity, concentration, snapshot-change and valuation-quality commentary.
 - The Prisma schema already models users, workspaces, portfolios, assets, positions, transactions, integrations, subscriptions, audit logs and alerts for upcoming stages.
 
 ## Operational Notes
@@ -84,3 +85,4 @@ The next architecture phase treats the current private dashboard as a legacy-com
 - `docs/PRICE_ENGINE.md`: unified SaaS valuation engine, providers, TTL rules and snapshot behavior.
 - `docs/TELEGRAM_GIFTS_PRICING.md`: SaaS Telegram Gifts OTC pricing workflow and review rules.
 - `docs/ALERTS.md`: SaaS alert rules, email delivery and cron setup.
+- `docs/AI_INSIGHTS.md`: deterministic insights layer, prompt-safe context and future LLM extension point.

@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   AllocationDatum,
   AssetClassHistoryDatum,
   CategoryPerformanceDatum,
@@ -244,6 +244,7 @@ export type SaasPortfolioDetail = {
   recentTransactions: SaasPortfolioTransactionRow[];
   warnings: string[];
   analytics: SaasPortfolioAnalytics;
+  insights: SaasPortfolioInsights;
   telegramPricing: {
     positionCount: number;
     totalValue: number;
@@ -260,6 +261,46 @@ export type SaasPortfolioDetail = {
     status: string;
     lastSyncedAt: string | null;
   }[];
+};
+
+export type SaasPortfolioInsightCategory =
+  | "summary"
+  | "risk"
+  | "liquidity"
+  | "concentration"
+  | "change"
+  | "valuation";
+export type SaasPortfolioInsightTone = "neutral" | "positive" | "warning" | "critical";
+
+export type SaasPortfolioInsightMetric = {
+  label: string;
+  value: string;
+};
+
+export type SaasPortfolioInsightItem = {
+  id: string;
+  category: SaasPortfolioInsightCategory;
+  tone: SaasPortfolioInsightTone;
+  title: string;
+  summary: string;
+  details: string[];
+  metrics: SaasPortfolioInsightMetric[];
+};
+
+export type SaasPortfolioInsightSection = {
+  id: string;
+  title: string;
+  description: string;
+  items: SaasPortfolioInsightItem[];
+};
+
+export type SaasPortfolioInsights = {
+  providerId: string;
+  deterministic: boolean;
+  generatedAt: string;
+  headline: string;
+  disclaimer: string;
+  sections: SaasPortfolioInsightSection[];
 };
 
 export type SaasAlertPortfolioOption = {
