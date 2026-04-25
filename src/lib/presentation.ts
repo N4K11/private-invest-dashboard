@@ -3,6 +3,7 @@ import type {
   AssetCategory,
   Cs2AssetType,
   Cs2Position,
+  Cs2PriceConfidence,
   TransactionAction,
 } from "@/types/portfolio";
 
@@ -24,13 +25,17 @@ const liquidityLabels: Record<Cs2Position["liquidityLabel"], string> = {
 
 const priceSourceLabels: Record<string, string> = {
   steam_market_live: "Steam Market",
-  manual_sheet: "Цена из таблицы",
+  manual_sheet: "Ручная цена из таблицы",
   entry_price_fallback: "Резерв по цене входа",
   coingecko: "CoinGecko",
   sheet_fallback: "Резерв из таблицы",
   ton_sheet_x_coingecko: "TON по live-курсу",
   ton_sheet_nominal: "TON из таблицы",
-  transaction_price_update: "Последний price update",
+  transaction_price_update: "Price update из Transactions",
+  buff_proxy_live: "Buff proxy",
+  csfloat_live: "CSFloat",
+  pricempire_live: "PriceEmpire",
+  missing: "Цена отсутствует",
 };
 
 const transactionActionLabels: Record<TransactionAction, string> = {
@@ -39,6 +44,12 @@ const transactionActionLabels: Record<TransactionAction, string> = {
   transfer: "Трансфер",
   price_update: "Обновление цены",
   fee: "Комиссия",
+};
+
+const confidenceLabels: Record<Cs2PriceConfidence, string> = {
+  high: "Высокая",
+  medium: "Средняя",
+  low: "Низкая",
 };
 
 export function formatCs2TypeLabel(type: string) {
@@ -63,4 +74,8 @@ export function formatAssetCategoryLabel(category: AssetCategory | null) {
 
 export function formatTransactionActionLabel(action: string) {
   return transactionActionLabels[action as TransactionAction] ?? action.replace(/_/g, " ");
+}
+
+export function formatPriceConfidenceLabel(confidence: Cs2PriceConfidence) {
+  return confidenceLabels[confidence] ?? confidence;
 }

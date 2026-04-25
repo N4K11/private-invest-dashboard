@@ -487,6 +487,7 @@ async function loadWritableDocument() {
 function invalidatePortfolioCaches() {
   forgetRemembered("portfolio-source");
   forgetRememberedByPrefix("coingecko:");
+  forgetRememberedByPrefix("cs2:");
 }
 
 export async function getAdminWriteStatus(): Promise<AdminWriteStatus> {
@@ -612,3 +613,4 @@ export async function applyTransactionMutation(
     rowNumber,
   };
 }
+

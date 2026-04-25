@@ -1,30 +1,13 @@
-﻿import { remember } from "@/lib/cache/ttl-store";
-import {
+﻿import {
   computeMoneyMetrics,
   deriveCs2RiskScore,
   riskScoreToLiquidityLabel,
 } from "@/lib/portfolio/metrics";
+import { getConfiguredCs2Providers } from "@/lib/providers/cs2/provider-registry";
+import type { Cs2ResolvedPriceQuote } from "@/lib/providers/cs2/types";
+import { isTimestampStale } from "@/lib/providers/cs2/utils";
 import type { NormalizedCs2Row } from "@/lib/sheets/normalizers";
 import type { Cs2Position } from "@/types/portfolio";
-
-type SteamMarketSearchResult = {
-  name?: string;
-  hash_name?: string;
-  sell_price?: number;
-  sale_price?: number;
-  sell_price_text?: string;
-  sale_price_text?: string;
-};
-
-type Cs2LiveQuote = {
-  matchedName: string | null;
-  marketHashName: string | null;
-  price: number | null;
-  success: boolean;
-};
-
-const STEAM_MARKET_TTL_MS = 1000 * 60 * 60 * 6;
-const STEAM_MARKET_CONCURRENCY = 14;
 
 function normalizeLiquidityLabel(
   value: string | null,
@@ -47,180 +30,85 @@ function normalizeLiquidityLabel(
   return fallback;
 }
 
-function normalizeMarketText(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/ё/g, "е")
-    .replace(/[()]/g, " ")
-    .replace(/[-–—]/g, " ")
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function buildSteamSearchQuery(row: NormalizedCs2Row) {
-  const queryBase = row.wear ? `${row.name} ${row.wear}` : row.name;
-
-  return queryBase
-    .replace(/[|]/g, " ")
-    .replace(/[-–—]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function buildTargetMarketName(row: NormalizedCs2Row) {
-  return row.wear ? `${row.name} (${row.wear})` : row.name;
-}
-
-function scoreSteamCandidate(targetName: string, candidateName: string) {
-  const normalizedTarget = normalizeMarketText(targetName);
-  const normalizedCandidate = normalizeMarketText(candidateName);
-
-  if (!normalizedTarget || !normalizedCandidate) {
-    return 0;
+function mapQuoteSourceToPriceSource(quote: Cs2ResolvedPriceQuote | null, row: NormalizedCs2Row) {
+  if (!quote) {
+    return row.currentPrice !== null ? row.sheetPriceSource ?? "manual_sheet" : "missing";
   }
 
-  if (normalizedTarget === normalizedCandidate) {
-    return 10_000;
+  if (quote.sourceId === "steam") {
+    return "steam_market_live";
   }
 
-  let score = 0;
-
-  if (
-    normalizedCandidate.includes(normalizedTarget) ||
-    normalizedTarget.includes(normalizedCandidate)
-  ) {
-    score += 2_000;
+  if (quote.sourceId === "buff_proxy") {
+    return "buff_proxy_live";
   }
 
-  const targetTokens = normalizedTarget.split(" ");
-  const candidateTokens = new Set(normalizedCandidate.split(" "));
-  const sharedTokenCount = targetTokens.filter((token) => candidateTokens.has(token)).length;
+  if (quote.sourceId === "csfloat") {
+    return "csfloat_live";
+  }
 
-  score += sharedTokenCount * 140;
-  score -= Math.abs(targetTokens.length - candidateTokens.size) * 20;
+  if (quote.sourceId === "pricempire") {
+    return "pricempire_live";
+  }
 
-  return score;
+  return row.sheetPriceSource ?? "manual_sheet";
 }
 
-async function fetchSteamQuote(row: NormalizedCs2Row): Promise<Cs2LiveQuote> {
-  const targetName = buildTargetMarketName(row);
-  const query = buildSteamSearchQuery(row);
+function buildPriceWarning(quote: Cs2ResolvedPriceQuote | null, row: NormalizedCs2Row) {
+  if (!quote) {
+    return "Live provider не нашел цену, а в таблице нет manualCurrentPrice.";
+  }
 
-  return remember(`cs2:steam:${query}`, STEAM_MARKET_TTL_MS, async () => {
-    const url = new URL("https://steamcommunity.com/market/search/render/");
-    url.searchParams.set("query", query);
-    url.searchParams.set("appid", "730");
-    url.searchParams.set("norender", "1");
-    url.searchParams.set("count", "12");
-    url.searchParams.set("l", "russian");
-    url.searchParams.set("cc", "US");
+  if (quote.warning) {
+    return quote.warning;
+  }
 
-    try {
-      const response = await fetch(url, {
-        headers: {
-          "User-Agent": "Mozilla/5.0",
-          "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
-        },
-        signal: AbortSignal.timeout(7000),
-        next: {
-          revalidate: Math.floor(STEAM_MARKET_TTL_MS / 1000),
-        },
-      });
+  if (!quote.isLive && isTimestampStale(quote.lastUpdated ?? row.lastUpdated ?? null)) {
+    return "Цена устарела и требует ручного обновления в Google Sheets.";
+  }
 
-      if (!response.ok) {
-        throw new Error(`Steam returned ${response.status}`);
-      }
-
-      const payload = (await response.json()) as {
-        success?: boolean;
-        results?: SteamMarketSearchResult[];
-      };
-      const results = payload.results ?? [];
-
-      if (!payload.success || results.length === 0) {
-        return {
-          matchedName: null,
-          marketHashName: null,
-          price: null,
-          success: false,
-        };
-      }
-
-      const bestMatch = [...results]
-        .map((candidate) => ({
-          candidate,
-          score: scoreSteamCandidate(targetName, candidate.name ?? ""),
-        }))
-        .sort((left, right) => right.score - left.score)[0];
-
-      const bestCandidate = bestMatch?.candidate;
-      const bestPrice =
-        typeof bestCandidate?.sell_price === "number"
-          ? bestCandidate.sell_price / 100
-          : typeof bestCandidate?.sale_price === "number"
-            ? bestCandidate.sale_price / 100
-            : null;
-
-      if (!bestCandidate || bestMatch.score < 180) {
-        return {
-          matchedName: null,
-          marketHashName: null,
-          price: null,
-          success: false,
-        };
-      }
-
-      return {
-        matchedName: bestCandidate.name ?? null,
-        marketHashName: bestCandidate.hash_name ?? null,
-        price: bestPrice,
-        success: bestPrice !== null,
-      };
-    } catch {
-      return {
-        matchedName: null,
-        marketHashName: null,
-        price: null,
-        success: false,
-      };
-    }
-  });
-}
-
-async function mapWithConcurrency<TInput, TOutput>(
-  items: TInput[],
-  concurrency: number,
-  mapper: (item: TInput, index: number) => Promise<TOutput>,
-) {
-  const results = new Array<TOutput>(items.length);
-  let cursor = 0;
-
-  const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
-    while (true) {
-      const currentIndex = cursor;
-      cursor += 1;
-
-      if (currentIndex >= items.length) {
-        return;
-      }
-
-      results[currentIndex] = await mapper(items[currentIndex], currentIndex);
-    }
-  });
-
-  await Promise.all(workers);
-  return results;
+  return null;
 }
 
 export async function resolveCs2Positions(rows: NormalizedCs2Row[]) {
-  const liveQuotes = await mapWithConcurrency(rows, STEAM_MARKET_CONCURRENCY, (row) =>
-    fetchSteamQuote(row),
-  );
+  const { providers, warnings: registryWarnings } = getConfiguredCs2Providers();
+  const lookups = rows.map((row) => ({
+    assetId: row.id,
+    assetName: row.name,
+    row,
+  }));
+  const resolvedQuotes = new Map<string, Cs2ResolvedPriceQuote>();
+  const warnings = [...registryWarnings];
+  let unresolvedLookups = lookups;
 
-  const provisional = rows.map((row, index) => {
-    const liveQuote = liveQuotes[index];
-    const resolvedCurrentPrice = liveQuote.price ?? row.currentPrice ?? row.averageEntryPrice ?? null;
+  if (providers.length > 0) {
+    warnings.push(
+      `Активная цепочка CS2 providers: ${providers.map((provider) => provider.sourceName).join(" -> ")}.`,
+    );
+  }
+
+  for (const provider of providers) {
+    if (unresolvedLookups.length === 0) {
+      break;
+    }
+
+    const result = await provider.getBulkPrices(unresolvedLookups);
+    warnings.push(...result.warnings);
+
+    for (const lookup of unresolvedLookups) {
+      const quote = result.quotes.get(lookup.assetId);
+      if (quote && quote.price !== null) {
+        resolvedQuotes.set(lookup.assetId, quote);
+      }
+    }
+
+    unresolvedLookups = unresolvedLookups.filter((lookup) => !resolvedQuotes.has(lookup.assetId));
+  }
+
+  const provisional = rows.map((row) => {
+    const resolvedQuote = resolvedQuotes.get(row.id) ?? null;
+    const resolvedCurrentPrice =
+      resolvedQuote?.price ?? row.manualCurrentPrice ?? row.currentPrice ?? null;
     const metrics = computeMoneyMetrics(
       row.quantity,
       row.averageEntryPrice,
@@ -229,7 +117,7 @@ export async function resolveCs2Positions(rows: NormalizedCs2Row[]) {
 
     return {
       row,
-      liveQuote,
+      resolvedQuote,
       currentPrice: resolvedCurrentPrice,
       totalValue: metrics.totalValue,
       totalCost: metrics.totalCost,
@@ -239,10 +127,8 @@ export async function resolveCs2Positions(rows: NormalizedCs2Row[]) {
   });
 
   const totalCs2Value = provisional.reduce((sum, item) => sum + item.totalValue, 0);
-
   const positions: Cs2Position[] = provisional.map((item) => {
     const concentrationShare = totalCs2Value > 0 ? item.totalValue / totalCs2Value : 0;
-
     const riskScore = deriveCs2RiskScore({
       type: item.row.type,
       totalValue: item.totalValue,
@@ -252,8 +138,9 @@ export async function resolveCs2Positions(rows: NormalizedCs2Row[]) {
       concentrationShare,
       manualRiskScore: item.row.manualRiskScore,
     });
-
     const fallbackLiquidity = riskScoreToLiquidityLabel(riskScore);
+    const priceWarning = buildPriceWarning(item.resolvedQuote, item.row);
+    const priceLastUpdated = item.resolvedQuote?.lastUpdated ?? item.row.lastUpdated ?? null;
 
     return {
       id: item.row.id,
@@ -275,34 +162,40 @@ export async function resolveCs2Positions(rows: NormalizedCs2Row[]) {
       transactionCount: 0,
       riskScore,
       liquidityLabel: normalizeLiquidityLabel(item.row.liquidityLabel, fallbackLiquidity),
-      priceSource: item.liveQuote.success
-        ? "steam_market_live"
-        : item.row.currentPrice !== null
-          ? item.row.sheetPriceSource ?? "manual_sheet"
-          : "entry_price_fallback",
-      market: item.liveQuote.success ? "Steam Community Market" : item.row.market,
+      priceSource: mapQuoteSourceToPriceSource(item.resolvedQuote, item.row),
+      priceConfidence: item.resolvedQuote?.confidence ?? (priceWarning ? "low" : "medium"),
+      priceLastUpdated,
+      priceWarning,
+      market: item.resolvedQuote?.sourceName ?? item.row.market,
       status: item.row.status ?? null,
       lastUpdated: item.row.lastUpdated ?? null,
       notes: item.row.notes,
       rowRef: item.row.sheetRef,
-      isPriceEstimated: item.liveQuote.price === null && item.row.currentPrice === null,
+      isPriceEstimated: item.currentPrice === null,
     };
   });
 
-  const liveCount = liveQuotes.filter((quote) => quote.success).length;
-  const unresolvedCount = rows.length - liveCount;
-  const warnings: string[] = [];
+  const staleCount = positions.filter(
+    (position) => position.priceSource !== "steam_market_live" && Boolean(position.priceWarning),
+  ).length;
+  const liveCount = positions.filter((position) => position.priceSource.endsWith("_live")).length;
+  const manualCount = positions.filter((position) => position.priceSource === "manual_sheet").length;
+  const missingCount = positions.filter((position) => position.priceSource === "missing").length;
 
   if (liveCount > 0) {
-    warnings.push(
-      `Steam Market обновил live-цены для ${liveCount} CS2-позиций из ${rows.length}.`,
-    );
+    warnings.push(`CS2 live providers закрыли ${liveCount} позиций.`);
   }
 
-  if (unresolvedCount > 0) {
-    warnings.push(
-      `Для ${unresolvedCount} CS2-позиций Steam Market не дал точное совпадение. Они используют цену из таблицы или остаются без оценки.`,
-    );
+  if (manualCount > 0) {
+    warnings.push(`Для ${manualCount} CS2-позиций используется manual fallback из таблицы.`);
+  }
+
+  if (staleCount > 0) {
+    warnings.push(`У ${staleCount} CS2-позиций цена устарела и требует обновления.`);
+  }
+
+  if (missingCount > 0) {
+    warnings.push(`У ${missingCount} CS2-позиций цена отсутствует даже после всех fallback providers.`);
   }
 
   return {

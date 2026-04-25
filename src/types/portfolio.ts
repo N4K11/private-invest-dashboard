@@ -11,6 +11,7 @@ export type Cs2AssetType =
 export type DataSourceMode = "live" | "fallback" | "demo";
 export type QuantitySource = "sheet" | "transactions";
 export type TransactionAction = "buy" | "sell" | "transfer" | "price_update" | "fee";
+export type Cs2PriceConfidence = "high" | "medium" | "low";
 
 export interface SheetRowRef {
   sheetName: string;
@@ -110,6 +111,9 @@ export interface Cs2Position {
   riskScore: number;
   liquidityLabel: "High" | "Medium" | "Low" | "Unknown";
   priceSource: string;
+  priceConfidence: Cs2PriceConfidence;
+  priceLastUpdated: string | null;
+  priceWarning: string | null;
   market: string | null;
   status: string | null;
   lastUpdated: string | null;

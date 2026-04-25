@@ -179,7 +179,9 @@ A legacy workbook can be runtime-compatible even if canonical migration is still
 ## Notes
 - `currentPrice` is the preferred resolved current price from the sheet.
 - `manualCurrentPrice` is the manual fallback maintained by the operator.
+- For CS2, `lastUpdated` is now used to mark stale manual prices in the dashboard when the timestamp gets older than the configured threshold.
 - Live providers such as CoinGecko or Steam Market may override sheet values at runtime, but the sheet still acts as the fallback layer.
 - Use `Settings.currency=USD` unless you explicitly want another reporting currency.
 - When you add new provider-specific columns, update both the normalizer and `scripts/validate-google-sheet.mjs`.
+
 

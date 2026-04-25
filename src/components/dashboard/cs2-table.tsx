@@ -6,9 +6,15 @@ import { CS2_TYPE_OPTIONS } from "@/lib/constants";
 import {
   formatCs2TypeLabel,
   formatLiquidityLabel,
+  formatPriceConfidenceLabel,
   formatPriceSourceLabel,
 } from "@/lib/presentation";
-import { formatCurrency, formatNumber, formatPercent } from "@/lib/utils";
+import {
+  formatCurrency,
+  formatNumber,
+  formatPercent,
+  formatRelativeTime,
+} from "@/lib/utils";
 import type { Cs2Position } from "@/types/portfolio";
 
 type SortKey = "value" | "quantity" | "pnl" | "risk" | "name";
@@ -72,6 +78,19 @@ function EditButton({
       Редактировать
     </button>
   );
+}
+
+function formatPriceAge(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return formatRelativeTime(parsed);
 }
 
 export function Cs2Table({
@@ -218,8 +237,11 @@ export function Cs2Table({
                 <div className="min-w-0">
                   <p className="font-medium text-white">{position.name}</p>
                   <p className="mt-1 text-xs uppercase tracking-[0.18em] text-cyan-200/55">
-                    {formatPriceSourceLabel(position.priceSource)}
+                    {formatPriceSourceLabel(position.priceSource)} · {formatPriceConfidenceLabel(position.priceConfidence)} confidence
                   </p>
+                  {position.priceWarning ? (
+                    <p className="mt-2 text-xs text-amber-200/90">{position.priceWarning}</p>
+                  ) : null}
                 </div>
                 <span
                   className={`shrink-0 rounded-full border px-2.5 py-1 text-xs ${liquidityTone[position.liquidityLabel]}`}
@@ -244,6 +266,9 @@ export function Cs2Table({
                       ? formatCurrency(position.currentPrice, currency, 2)
                       : "—"}
                   </p>
+                  {formatPriceAge(position.priceLastUpdated) ? (
+                    <p className="mt-2 text-xs text-slate-400">{formatPriceAge(position.priceLastUpdated)}</p>
+                  ) : null}
                 </div>
                 <div className="rounded-2xl border border-white/8 bg-white/5 px-3 py-3">
                   <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Стоимость</p>
@@ -281,11 +306,11 @@ export function Cs2Table({
       </div>
 
       <div className="hidden overflow-hidden rounded-2xl border border-white/10 bg-slate-950/35 lg:block">
-        <div className="grid grid-cols-[1.7fr_0.75fr_0.9fr_0.9fr_1fr_1fr_0.95fr_0.9fr_0.9fr] gap-3 border-b border-white/10 px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">
+        <div className="grid grid-cols-[1.75fr_0.75fr_0.8fr_1.1fr_1fr_1fr_0.95fr_0.9fr_0.9fr] gap-3 border-b border-white/10 px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">
           <span>Позиция</span>
           <span>Тип</span>
           <span>Кол-во</span>
-          <span>Вход</span>
+          <span>Ценовой статус</span>
           <span>Текущая</span>
           <span>Стоимость</span>
           <span>PnL</span>
@@ -301,21 +326,25 @@ export function Cs2Table({
             visiblePositions.map((position) => (
               <div
                 key={position.id}
-                className="grid grid-cols-[1.7fr_0.75fr_0.9fr_0.9fr_1fr_1fr_0.95fr_0.9fr_0.9fr] gap-3 border-b border-white/6 px-4 py-4 text-sm text-slate-200 last:border-b-0"
+                className="grid grid-cols-[1.75fr_0.75fr_0.8fr_1.1fr_1fr_1fr_0.95fr_0.9fr_0.9fr] gap-3 border-b border-white/6 px-4 py-4 text-sm text-slate-200 last:border-b-0"
               >
                 <div>
                   <p className="font-medium text-white">{position.name}</p>
                   <p className="mt-1 text-xs uppercase tracking-[0.18em] text-cyan-200/55">
                     {formatPriceSourceLabel(position.priceSource)}
                   </p>
+                  {position.priceWarning ? (
+                    <p className="mt-2 text-xs text-amber-200/90">{position.priceWarning}</p>
+                  ) : null}
                 </div>
                 <span className="text-slate-300">{formatCs2TypeLabel(position.type)}</span>
                 <span>{formatNumber(position.quantity, 0)}</span>
-                <span>
-                  {position.averageEntryPrice !== null
-                    ? formatCurrency(position.averageEntryPrice, currency, 2)
-                    : "—"}
-                </span>
+                <div>
+                  <p className="text-white">{formatPriceConfidenceLabel(position.priceConfidence)} confidence</p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    {formatPriceAge(position.priceLastUpdated) ?? "Нет timestamp"}
+                  </p>
+                </div>
                 <span>
                   {position.currentPrice !== null
                     ? formatCurrency(position.currentPrice, currency, 2)

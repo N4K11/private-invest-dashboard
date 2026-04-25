@@ -14,7 +14,7 @@ Implemented right now:
 - full CS2 table with search, filters, sorting, pagination and mobile cards
 - Telegram Gifts panel with sheet-driven pricing
 - crypto panel with CoinGecko live pricing and sheet fallback
-- CS2 live pricing through Steam Market matching where a reliable match is available
+- CS2 multi-provider live pricing layer with provider chain, stale-price detection and manual fallback
 - protected admin mode with add/edit actions directly from the dashboard
 - transaction-driven PnL / ROI with cost basis, realized and unrealized PnL
 - transaction history table with filters by category, date, name and action
@@ -61,6 +61,10 @@ src/
     data/
     portfolio/
     providers/
+      cs2/
+        provider-registry.ts
+        types.ts
+        utils.ts
     security/
     sheets/
       client.ts
@@ -87,6 +91,11 @@ Copy `.env.example` to `.env.local` and fill in:
 - `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY`: service-account private key with `\n` escapes
 - `GOOGLE_SERVICE_ACCOUNT_JSON`: optional alternative to email/key pair
 - `COINGECKO_API_KEY`: optional, improves quota handling for live crypto pricing
+- `CS2_PROVIDER_ORDER`: provider chain, e.g. `steam,manual` or `buff_proxy,steam,manual`
+- `CS2_PRICE_STALE_HOURS`: manual CS2 quote becomes stale after this many hours
+- `CS2_BUFF_PROXY_URL`: optional custom JSON endpoint for a Buff/manual proxy adapter
+- `CSFLOAT_API_KEY`: reserved for future direct CSFloat adapter
+- `PRICEMPIRE_API_KEY`: reserved for future direct PriceEmpire adapter
 - `DEFAULT_CURRENCY`: reporting currency, default `USD`
 - `PORTFOLIO_CACHE_TTL_SECONDS`: Google Sheets cache TTL
 - `PRICE_CACHE_TTL_SECONDS`: live price cache TTL
@@ -205,6 +214,38 @@ This project currently uses Node-oriented server modules and `googleapis`, so Ve
 - simple in-memory rate limiting is enabled for auth, data and admin routes
 - secrets are not printed into logs or client bundles
 
+## CS2 provider chain
+The CS2 pricing layer now uses a provider interface plus configurable chain resolution.
+
+Current built-in providers:
+- `steam`: Steam Community Market live search with caching and batch resolution
+- `buff_proxy`: optional custom proxy endpoint for external/manual aggregated CS2 prices
+- `manual`: fallback to `manualCurrentPrice` / `currentPrice` from Google Sheets
+
+Resolution order is controlled by `CS2_PROVIDER_ORDER`.
+Examples:
+- `steam,manual`
+- `buff_proxy,steam,manual`
+- `manual`
+
+The dashboard also marks stale CS2 prices when `lastUpdated` in the sheet is older than `CS2_PRICE_STALE_HOURS`.
+
+Expected `CS2_BUFF_PROXY_URL` response shape:
+```json
+{
+  "items": [
+    {
+      "assetName": "AWP | Dragon Lore",
+      "matchedName": "AWP | Dragon Lore (Factory New)",
+      "price": 12345.67,
+      "confidence": "high",
+      "lastUpdated": "2026-04-25T12:00:00.000Z",
+      "warning": null
+    }
+  ]
+}
+```
+
 ## Add new price providers
 1. Create a provider in `src/lib/providers`.
 2. Keep the provider focused on one asset class.
@@ -217,7 +258,7 @@ This project currently uses Node-oriented server modules and `googleapis`, so Ve
 - portfolio history snapshots and performance-over-time charts
 - explicit delete flow with hard confirmation if physical row removal is ever needed
 - Telegram Gifts pricing workflow with stronger confidence / stale-price tracking
-- broader CS2 market coverage through additional providers beyond the current Steam Market layer
+- direct CSFloat / PriceEmpire adapters if you decide to operate through official paid APIs
 - durable cache/rate limit storage via Redis or similar for multi-instance production
 - optional admin actions for editing existing transactions and settings
 
@@ -227,4 +268,7 @@ npm run typecheck
 npm run lint
 npm run build
 ```
+
+
+
 

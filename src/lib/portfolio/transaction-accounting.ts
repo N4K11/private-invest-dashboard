@@ -23,6 +23,7 @@ export interface AssetAccountingResult {
   investedCapital: number;
   currentPrice: number | null;
   latestPriceUpdate: number | null;
+  latestPriceUpdateAt: string | null;
 }
 
 type ComputeAssetAccountingParams = {
@@ -223,6 +224,7 @@ export function computeAssetAccounting(
       investedCapital: totalCost,
       currentPrice: effectiveCurrentPrice,
       latestPriceUpdate: null,
+      latestPriceUpdateAt: null,
     };
   }
 
@@ -232,6 +234,7 @@ export function computeAssetAccounting(
   let fees = 0;
   let investedCapital = 0;
   let latestPriceUpdate: number | null = null;
+  let latestPriceUpdateAt: string | null = null;
   let inventoryTransactionCount = 0;
 
   for (const transaction of matchedTransactions) {
@@ -307,6 +310,7 @@ export function computeAssetAccounting(
     if (action === "price_update") {
       if (price !== null) {
         latestPriceUpdate = price;
+        latestPriceUpdateAt = transaction.date;
       }
 
       if (feeAmount > 0) {
@@ -366,5 +370,7 @@ export function computeAssetAccounting(
     investedCapital: roiBase > QUANTITY_EPSILON ? investedCapital : heldCost,
     currentPrice: effectiveCurrentPrice,
     latestPriceUpdate,
+    latestPriceUpdateAt,
   };
 }
+

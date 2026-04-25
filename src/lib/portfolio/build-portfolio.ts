@@ -128,7 +128,7 @@ function applyAccountingToCs2(
 
     const useTransactionPrice =
       accounting.latestPriceUpdate !== null &&
-      (position.currentPrice === null || position.priceSource === "entry_price_fallback");
+      (position.currentPrice === null || position.priceSource === "manual_sheet" || position.priceSource === "missing");
     const currentPrice = useTransactionPrice ? accounting.latestPriceUpdate : accounting.currentPrice;
 
     return {
@@ -146,6 +146,9 @@ function applyAccountingToCs2(
       fees: accounting.fees,
       transactionCount: accounting.transactionCount,
       priceSource: useTransactionPrice ? "transaction_price_update" : position.priceSource,
+      priceLastUpdated: useTransactionPrice ? accounting.latestPriceUpdateAt : position.priceLastUpdated,
+      priceConfidence: useTransactionPrice ? "medium" : position.priceConfidence,
+      priceWarning: useTransactionPrice ? null : position.priceWarning,
       isPriceEstimated: currentPrice === null,
     } satisfies Cs2Position;
   });
@@ -367,4 +370,5 @@ export async function getPortfolioSnapshot(): Promise<PortfolioSnapshot> {
     },
   };
 }
+
 
