@@ -1,47 +1,30 @@
-﻿import { NextResponse, type NextRequest } from "next/server";
+﻿import { type NextRequest } from "next/server";
 
-import {
-  requestHasDashboardAccess,
-  unauthorizedResponse,
-} from "@/lib/auth/dashboard-auth";
-import { getEnv } from "@/lib/env";
-import { applyRateLimit, getClientIp } from "@/lib/security/rate-limit";
 import { getAdminWriteStatus } from "@/lib/sheets/writeback";
+import {
+  privateApiError,
+  privateApiJson,
+  sanitizeErrorMessage,
+} from "@/lib/security/http";
+import { guardPrivateApiRequest } from "@/lib/security/private-route";
 
 export async function GET(request: NextRequest) {
-  const env = getEnv();
-  const ip = getClientIp(request);
-  const rateLimit = applyRateLimit(
-    `admin-meta:${ip}`,
-    env.RATE_LIMIT_MAX_REQUESTS,
-    env.RATE_LIMIT_WINDOW_SECONDS * 1000,
-  );
+  const blockedResponse = guardPrivateApiRequest(request, {
+    scope: "admin-meta",
+    rateLimitMessage: "Превышен лимит запросов.",
+  });
 
-  if (!rateLimit.success) {
-    return NextResponse.json(
-      { error: "Превышен лимит запросов." },
-      {
-        status: 429,
-        headers: {
-          "Retry-After": String(rateLimit.retryAfter),
-          "Cache-Control": "no-store",
-        },
-      },
+  if (blockedResponse) {
+    return blockedResponse;
+  }
+
+  try {
+    const admin = await getAdminWriteStatus();
+    return privateApiJson({ admin });
+  } catch (error) {
+    return privateApiError(
+      500,
+      sanitizeErrorMessage(error, "Не удалось получить статус admin mode."),
     );
   }
-
-  if (!requestHasDashboardAccess(request)) {
-    return unauthorizedResponse();
-  }
-
-  const admin = await getAdminWriteStatus();
-
-  return NextResponse.json(
-    { admin },
-    {
-      headers: {
-        "Cache-Control": "no-store",
-      },
-    },
-  );
 }

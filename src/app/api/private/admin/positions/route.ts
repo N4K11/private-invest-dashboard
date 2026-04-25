@@ -1,13 +1,14 @@
-﻿import { NextResponse, type NextRequest } from "next/server";
+﻿import { type NextRequest } from "next/server";
 import { ZodError } from "zod";
 
-import {
-  requestHasDashboardAccess,
-  unauthorizedResponse,
-} from "@/lib/auth/dashboard-auth";
 import { adminMutationSchema } from "@/lib/admin/schema";
 import { getEnv } from "@/lib/env";
-import { applyRateLimit, getClientIp } from "@/lib/security/rate-limit";
+import {
+  privateApiError,
+  privateApiJson,
+  sanitizeErrorMessage,
+} from "@/lib/security/http";
+import { guardPrivateApiRequest } from "@/lib/security/private-route";
 import { applyAdminMutation } from "@/lib/sheets/writeback";
 
 function getValidationErrors(error: ZodError) {
@@ -19,28 +20,14 @@ function getValidationErrors(error: ZodError) {
 
 export async function POST(request: NextRequest) {
   const env = getEnv();
-  const ip = getClientIp(request);
-  const rateLimit = applyRateLimit(
-    `admin-write:${ip}`,
-    Math.max(8, Math.floor(env.RATE_LIMIT_MAX_REQUESTS / 2)),
-    env.RATE_LIMIT_WINDOW_SECONDS * 1000,
-  );
+  const blockedResponse = guardPrivateApiRequest(request, {
+    scope: "admin-write",
+    maxRequests: Math.max(8, Math.floor(env.RATE_LIMIT_MAX_REQUESTS / 2)),
+    rateLimitMessage: "Превышен лимит запросов на запись.",
+  });
 
-  if (!rateLimit.success) {
-    return NextResponse.json(
-      { error: "Превышен лимит запросов на запись." },
-      {
-        status: 429,
-        headers: {
-          "Retry-After": String(rateLimit.retryAfter),
-          "Cache-Control": "no-store",
-        },
-      },
-    );
-  }
-
-  if (!requestHasDashboardAccess(request)) {
-    return unauthorizedResponse();
+  if (blockedResponse) {
+    return blockedResponse;
   }
 
   try {
@@ -48,46 +35,20 @@ export async function POST(request: NextRequest) {
     const payload = adminMutationSchema.parse(rawPayload);
     const result = await applyAdminMutation(payload);
 
-    return NextResponse.json(
-      {
-        ok: true,
-        result,
-      },
-      {
-        headers: {
-          "Cache-Control": "no-store",
-        },
-      },
-    );
+    return privateApiJson({
+      ok: true,
+      result,
+    });
   } catch (error) {
     if (error instanceof ZodError) {
-      return NextResponse.json(
-        {
-          error: "Некорректный payload admin mode.",
-          details: getValidationErrors(error),
-        },
-        {
-          status: 400,
-          headers: {
-            "Cache-Control": "no-store",
-          },
-        },
-      );
+      return privateApiError(400, "Некорректный payload admin mode.", {
+        details: getValidationErrors(error),
+      });
     }
 
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Не удалось сохранить изменения в Google Sheets.",
-      },
-      {
-        status: 500,
-        headers: {
-          "Cache-Control": "no-store",
-        },
-      },
+    return privateApiError(
+      500,
+      sanitizeErrorMessage(error, "Не удалось сохранить изменения в Google Sheets."),
     );
   }
 }

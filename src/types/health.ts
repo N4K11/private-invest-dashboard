@@ -27,6 +27,10 @@ export interface HealthIndicator {
 export interface CacheHealthSnapshot {
   tone: HealthTone;
   summary: string;
+  driver: "memory" | "redis_rest";
+  remoteEnabled: boolean;
+  remoteHealthy: boolean | null;
+  remoteSummary: string;
   totalEntries: number;
   priceEntries: number;
   sourceEntries: number;

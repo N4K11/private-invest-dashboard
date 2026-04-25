@@ -1,4 +1,6 @@
-﻿import { createHash, timingSafeEqual } from "node:crypto";
+﻿import "server-only";
+
+import { createHash, timingSafeEqual } from "node:crypto";
 
 import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
@@ -8,6 +10,7 @@ import {
   DASHBOARD_COOKIE_NAME,
 } from "@/lib/constants";
 import { getEnv, isDashboardConfigured } from "@/lib/env";
+import { privateApiError } from "@/lib/security/http";
 
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 12;
 
@@ -137,13 +140,5 @@ export function sanitizeRedirectPath(redirectTo?: string | null) {
 }
 
 export function unauthorizedResponse(message = "Нет доступа", status = 401) {
-  return NextResponse.json(
-    { error: message },
-    {
-      status,
-      headers: {
-        "Cache-Control": "no-store",
-      },
-    },
-  );
+  return privateApiError(status, message);
 }

@@ -1,4 +1,4 @@
-﻿import { NextResponse, type NextRequest } from "next/server";
+﻿import { type NextRequest } from "next/server";
 import { z } from "zod";
 
 import {
@@ -9,6 +9,12 @@ import {
   unauthorizedResponse,
 } from "@/lib/auth/dashboard-auth";
 import { getEnv, isDashboardConfigured } from "@/lib/env";
+import {
+  privateApiError,
+  privateApiJson,
+  privateApiRateLimitError,
+  sanitizeErrorMessage,
+} from "@/lib/security/http";
 import { applyRateLimit, getClientIp } from "@/lib/security/rate-limit";
 
 const loginPayloadSchema = z.object({
@@ -26,71 +32,48 @@ export async function POST(request: NextRequest) {
   );
 
   if (!rateLimit.success) {
-    return NextResponse.json(
-      { error: "Слишком много попыток входа. Попробуй позже." },
-      {
-        status: 429,
-        headers: {
-          "Retry-After": String(rateLimit.retryAfter),
-          "Cache-Control": "no-store",
-        },
-      },
+    return privateApiRateLimitError(
+      "Слишком много попыток входа. Попробуй позже.",
+      rateLimit.retryAfter,
     );
   }
 
-  if (!isDashboardConfigured()) {
-    return NextResponse.json(
-      { error: "Секреты dashboard еще не настроены." },
-      {
-        status: 503,
-        headers: {
-          "Cache-Control": "no-store",
-        },
-      },
-    );
-  }
+  try {
+    if (!isDashboardConfigured()) {
+      return privateApiError(503, "Секреты dashboard еще не настроены.");
+    }
 
-  const payload = loginPayloadSchema.safeParse(await request.json().catch(() => null));
-  if (!payload.success) {
-    return NextResponse.json(
-      { error: "Некорректный auth payload." },
-      {
-        status: 400,
-        headers: {
-          "Cache-Control": "no-store",
-        },
-      },
-    );
-  }
+    const payload = loginPayloadSchema.safeParse(await request.json().catch(() => null));
+    if (!payload.success) {
+      return privateApiError(400, "Некорректный auth payload.");
+    }
 
-  if (!isValidDashboardToken(payload.data.token)) {
-    return unauthorizedResponse("Неверный токен dashboard.");
-  }
+    if (!isValidDashboardToken(payload.data.token)) {
+      return unauthorizedResponse("Неверный токен dashboard.");
+    }
 
-  const response = NextResponse.json(
-    {
+    const response = privateApiJson({
       ok: true,
       redirectTo: sanitizeRedirectPath(payload.data.redirectTo),
-    },
-    {
-      headers: {
-        "Cache-Control": "no-store",
-      },
-    },
-  );
+    });
 
-  return setDashboardSessionCookie(response);
+    return setDashboardSessionCookie(response);
+  } catch (error) {
+    return privateApiError(
+      500,
+      sanitizeErrorMessage(error, "Не удалось завершить dashboard login."),
+    );
+  }
 }
 
 export async function DELETE() {
-  const response = NextResponse.json(
-    { ok: true },
-    {
-      headers: {
-        "Cache-Control": "no-store",
-      },
-    },
-  );
-
-  return clearDashboardSessionCookie(response);
+  try {
+    const response = privateApiJson({ ok: true });
+    return clearDashboardSessionCookie(response);
+  } catch (error) {
+    return privateApiError(
+      500,
+      sanitizeErrorMessage(error, "Не удалось завершить dashboard logout."),
+    );
+  }
 }

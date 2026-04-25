@@ -59,7 +59,7 @@ function buildStatusIndicators(params: {
   readDocument: SpreadsheetDocument | null;
   readError: string | null;
   writeAccess: Awaited<ReturnType<typeof getAdminWriteStatus>>;
-  cache: ReturnType<typeof getPortfolioCacheHealth>;
+  cache: Awaited<ReturnType<typeof getPortfolioCacheHealth>>;
 }) {
   const statuses: HealthIndicator[] = [];
 
@@ -134,9 +134,13 @@ function buildStatusIndicators(params: {
       params.cache.tone,
       params.cache.summary,
       [
+        `Cache driver: ${params.cache.driver}`,
         `Portfolio source cached: ${params.cache.portfolioSourceCached ? "yes" : "no"}`,
         `Price entries: ${params.cache.priceEntries}`,
         `In-flight entries: ${params.cache.inFlightEntries}`,
+        params.cache.remoteEnabled
+          ? `Remote cache: ${params.cache.remoteHealthy === false ? "degraded" : params.cache.remoteHealthy === true ? "healthy" : "pending"}`
+          : "Remote cache: disabled",
       ],
     ),
   );
@@ -339,7 +343,7 @@ export async function runPriceProviderDiagnostics(
 
 export async function getDashboardHealthSnapshot(): Promise<DashboardHealthSnapshot> {
   const snapshot = await getPortfolioSnapshot();
-  const cache = getPortfolioCacheHealth();
+  const cache = await getPortfolioCacheHealth();
   const admin = await getAdminWriteStatus();
 
   let readDocument: SpreadsheetDocument | null = null;
@@ -386,3 +390,7 @@ export async function getDashboardHealthSnapshot(): Promise<DashboardHealthSnaps
     },
   };
 }
+
+
+
+

@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "validate:sheets": "node scripts/validate-google-sheet.mjs"
+    "validate:sheets": "node scripts/validate-google-sheet.mjs",
+    "verify:bundle": "node scripts/verify-client-bundle.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",

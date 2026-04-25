@@ -416,9 +416,11 @@ export function SettingsHealthShell({
                   <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Cache</p>
                   <p className="mt-3 text-2xl font-semibold text-white">{health.cache.totalEntries}</p>
                   <div className="mt-3 space-y-2 text-sm text-slate-300">
+                    <p>Driver: {health.cache.driver}</p>
                     <p>Price entries: {health.cache.priceEntries}</p>
                     <p>Source entries: {health.cache.sourceEntries}</p>
                     <p>In-flight: {health.cache.inFlightEntries}</p>
+                    <p>Remote: {health.cache.remoteEnabled ? health.cache.remoteHealthy === false ? "degraded" : health.cache.remoteHealthy === true ? "healthy" : "pending" : "disabled"}</p>
                   </div>
                 </div>
                 <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
@@ -431,6 +433,10 @@ export function SettingsHealthShell({
                     <p>File: {health.admin.fileName ?? "—"}</p>
                   </div>
                 </div>
+              </div>
+
+              <div className="mt-5 rounded-3xl border border-white/10 bg-white/5 px-4 py-4 text-sm leading-6 text-slate-300">
+                {health.cache.remoteSummary}
               </div>
 
               {health.warnings.length > 0 ? (
@@ -499,11 +505,13 @@ export function SettingsHealthShell({
                     <div className="rounded-3xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
                       <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Cache before</p>
                       <p className="mt-3">Entries: {actionResult.cacheBefore.totalEntries}</p>
+                      <p className="mt-2">Driver: {actionResult.cacheBefore.driver}</p>
                       <p className="mt-2">Price entries: {actionResult.cacheBefore.priceEntries}</p>
                     </div>
                     <div className="rounded-3xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
                       <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Cache after</p>
                       <p className="mt-3">Entries: {actionResult.cacheAfter.totalEntries}</p>
+                      <p className="mt-2">Driver: {actionResult.cacheAfter.driver}</p>
                       <p className="mt-2">Price entries: {actionResult.cacheAfter.priceEntries}</p>
                     </div>
                   </div>
@@ -530,3 +538,5 @@ export function SettingsHealthShell({
     </>
   );
 }
+
+

@@ -27,7 +27,7 @@ Implemented right now:
 - private Settings / Health page at `/invest-dashboard/[slug]/settings`
 - premium loading skeletons, reusable empty states and route-level error boundary for the private dashboard
 - protected health actions for cache refresh, Google Sheet validation, snapshot creation and provider diagnostics
-- simple in-memory cache and rate limiting
+- memory cache with optional Redis REST shared cache fallback plus rate limiting
 - `robots.txt` and `noindex/nofollow` protection for the private surface
 
 ## Stack
@@ -125,6 +125,10 @@ Copy `.env.example` to `.env.local` and fill in:
 - `PRICE_CACHE_TTL_SECONDS`: live price cache TTL
 - `RATE_LIMIT_WINDOW_SECONDS`: auth/API rate-limit window
 - `RATE_LIMIT_MAX_REQUESTS`: max requests per window
+- `CACHE_DRIVER`: `memory` or `redis_rest`
+- `CACHE_REDIS_REST_URL`: optional Redis REST endpoint (Upstash/compatible)
+- `CACHE_REDIS_REST_TOKEN`: auth token for Redis REST
+- `CACHE_KEY_PREFIX`: namespace prefix for shared cache keys
 
 ## Google Sheets setup
 1. Create or reuse a Google Cloud project.
@@ -201,6 +205,8 @@ The risk layer is intentionally analytical. It highlights where data quality, li
 ## Settings / Health page
 The private route `/invest-dashboard/[slug]/settings` is an operator-facing diagnostic surface.
 
+It now also shows whether the project is on pure memory cache or hybrid memory + Redis REST cache.
+
 Current capabilities:
 - token-gate status
 - Google Sheets read status
@@ -230,6 +236,14 @@ Authenticate either by:
 - calling the API with `Authorization: Bearer YOUR_TOKEN`
 
 ## Deploy
+See also [DEPLOYMENT.md](DEPLOYMENT.md) for the production checklist, proxy examples and troubleshooting.
+
+### Pre-deploy checklist
+1. `npm run typecheck`
+2. `npm run lint`
+3. `npm run build`
+4. `npm run verify:bundle`
+5. `node --env-file=.env.local scripts/validate-google-sheet.mjs` if `.env.local` exists and Google Sheets is configured.
 
 ### Vercel
 1. Import the repo.
@@ -360,4 +374,8 @@ npm run typecheck
 npm run lint
 npm run build
 ```
+
+
+
+
 

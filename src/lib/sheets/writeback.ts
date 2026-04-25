@@ -10,7 +10,7 @@ import {
   type AdminPortfolioSnapshotMutationInput,
   type AdminTransactionMutationInput,
 } from "@/lib/admin/schema";
-import { forgetRemembered, forgetRememberedByPrefix } from "@/lib/cache/ttl-store";
+import { invalidatePortfolioCaches } from "@/lib/cache/portfolio-cache";
 import { isGoogleSheetsConfigured } from "@/lib/env";
 import { buildPortfolioSnapshotFromSource } from "@/lib/portfolio/build-portfolio";
 import {
@@ -578,11 +578,7 @@ async function loadWritableDocument() {
   return document;
 }
 
-function invalidatePortfolioCaches() {
-  forgetRemembered("portfolio-source");
-  forgetRememberedByPrefix("coingecko:");
-  forgetRememberedByPrefix("cs2:");
-}
+
 
 export async function getAdminWriteStatus(): Promise<AdminWriteStatus> {
   if (!isGoogleSheetsConfigured()) {
@@ -659,7 +655,7 @@ export async function applyAdminMutation(input: AdminMutationInput): Promise<Adm
   ];
 
   await persistWorkbook(document, workbook, touchedSheets);
-  invalidatePortfolioCaches();
+  await invalidatePortfolioCaches();
 
   return {
     entityId: String(nextRecord.id),
@@ -697,7 +693,7 @@ export async function applyTransactionMutation(
   ];
 
   await persistWorkbook(document, workbook, touchedSheets);
-  invalidatePortfolioCaches();
+  await invalidatePortfolioCaches();
 
   return {
     entityId: String(nextRecord.id),
@@ -760,7 +756,7 @@ export async function applyPortfolioSnapshotMutation(
   ];
 
   await persistWorkbook(document, workbook, touchedSheets);
-  invalidatePortfolioCaches();
+  await invalidatePortfolioCaches();
 
   return {
     entityId: dateKey,
@@ -771,3 +767,5 @@ export async function applyPortfolioSnapshotMutation(
     date: dateKey,
   };
 }
+
+

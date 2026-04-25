@@ -1,42 +1,92 @@
-﻿import { z } from "zod";
+﻿import "server-only";
+
+import { z } from "zod";
 
 import {
   DASHBOARD_SLUG_PLACEHOLDER,
   DEFAULT_CURRENCY,
 } from "@/lib/constants";
 
-const envSchema = z.object({
-  NODE_ENV: z
-    .enum(["development", "test", "production"])
-    .default("development"),
-  PRIVATE_DASHBOARD_SLUG: z
-    .string()
-    .trim()
-    .min(1)
-    .default(DASHBOARD_SLUG_PLACEHOLDER),
-  DASHBOARD_SECRET_TOKEN: z.string().trim().default(""),
-  GOOGLE_SHEETS_SPREADSHEET_ID: z.string().trim().optional(),
-  GOOGLE_SERVICE_ACCOUNT_EMAIL: z.string().trim().optional(),
-  GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: z.string().trim().optional(),
-  GOOGLE_SERVICE_ACCOUNT_JSON: z.string().trim().optional(),
-  COINGECKO_API_KEY: z.string().trim().optional(),
-  CS2_PROVIDER_ORDER: z.string().trim().default("steam,manual"),
-  CS2_PRICE_STALE_HOURS: z.coerce.number().int().min(1).default(72),
-  CS2_BUFF_PROXY_URL: z.string().trim().url().optional(),
-  CSFLOAT_API_KEY: z.string().trim().optional(),
-  PRICEMPIRE_API_KEY: z.string().trim().optional(),
-  TELEGRAM_PRICE_STALE_DAYS: z.coerce.number().int().min(1).default(14),
-  DEFAULT_CURRENCY: z.string().trim().min(3).default(DEFAULT_CURRENCY),
-  PORTFOLIO_CACHE_TTL_SECONDS: z.coerce.number().int().min(30).default(300),
-  PRICE_CACHE_TTL_SECONDS: z.coerce.number().int().min(30).default(120),
-  RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().min(10).default(60),
-  RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().min(1).default(25),
-  NEXT_PUBLIC_SITE_URL: z.string().trim().optional(),
-});
+const envSchema = z
+  .object({
+    NODE_ENV: z
+      .enum(["development", "test", "production"])
+      .default("development"),
+    PRIVATE_DASHBOARD_SLUG: z
+      .string()
+      .trim()
+      .min(1)
+      .default(DASHBOARD_SLUG_PLACEHOLDER),
+    DASHBOARD_SECRET_TOKEN: z.string().trim().default(""),
+    GOOGLE_SHEETS_SPREADSHEET_ID: z.string().trim().optional(),
+    GOOGLE_SERVICE_ACCOUNT_EMAIL: z.string().trim().optional(),
+    GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: z.string().trim().optional(),
+    GOOGLE_SERVICE_ACCOUNT_JSON: z.string().trim().optional(),
+    COINGECKO_API_KEY: z.string().trim().optional(),
+    CS2_PROVIDER_ORDER: z.string().trim().default("steam,manual"),
+    CS2_PRICE_STALE_HOURS: z.coerce.number().int().min(1).default(72),
+    CS2_BUFF_PROXY_URL: z.string().trim().url().optional(),
+    CSFLOAT_API_KEY: z.string().trim().optional(),
+    PRICEMPIRE_API_KEY: z.string().trim().optional(),
+    TELEGRAM_PRICE_STALE_DAYS: z.coerce.number().int().min(1).default(14),
+    DEFAULT_CURRENCY: z.string().trim().min(3).default(DEFAULT_CURRENCY),
+    PORTFOLIO_CACHE_TTL_SECONDS: z.coerce.number().int().min(30).default(300),
+    PRICE_CACHE_TTL_SECONDS: z.coerce.number().int().min(30).default(120),
+    RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().min(10).default(60),
+    RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().min(1).default(25),
+    CACHE_DRIVER: z.enum(["memory", "redis_rest"]).default("memory"),
+    CACHE_REDIS_REST_URL: z.string().trim().url().optional(),
+    CACHE_REDIS_REST_TOKEN: z.string().trim().optional(),
+    CACHE_KEY_PREFIX: z.string().trim().min(1).default("private-invest-dashboard"),
+    NEXT_PUBLIC_SITE_URL: z.string().trim().optional(),
+  })
+  .superRefine((env, context) => {
+    const hasSplitCredentials = Boolean(
+      env.GOOGLE_SERVICE_ACCOUNT_EMAIL && env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY,
+    );
+    const hasPartialSplitCredentials =
+      Boolean(env.GOOGLE_SERVICE_ACCOUNT_EMAIL) !==
+      Boolean(env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY);
+
+    if (hasPartialSplitCredentials && !env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY"],
+        message:
+          "GOOGLE_SERVICE_ACCOUNT_EMAIL и GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY должны задаваться вместе, если не используется GOOGLE_SERVICE_ACCOUNT_JSON.",
+      });
+    }
+
+    if (
+      env.CACHE_DRIVER === "redis_rest" &&
+      (!env.CACHE_REDIS_REST_URL || !env.CACHE_REDIS_REST_TOKEN)
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["CACHE_DRIVER"],
+        message:
+          "Для CACHE_DRIVER=redis_rest нужны CACHE_REDIS_REST_URL и CACHE_REDIS_REST_TOKEN.",
+      });
+    }
+
+    if (
+      env.GOOGLE_SHEETS_SPREADSHEET_ID &&
+      !env.GOOGLE_SERVICE_ACCOUNT_JSON &&
+      !hasSplitCredentials
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["GOOGLE_SHEETS_SPREADSHEET_ID"],
+        message:
+          "Для live Google Sheets source нужен GOOGLE_SERVICE_ACCOUNT_JSON или пара GOOGLE_SERVICE_ACCOUNT_EMAIL / GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY.",
+      });
+    }
+  });
 
 export type AppEnv = z.infer<typeof envSchema>;
 
 let cachedEnv: AppEnv | null = null;
+let startupValidated = false;
 
 function normalizeSpreadsheetId(value?: string) {
   if (!value) {
@@ -48,12 +98,8 @@ function normalizeSpreadsheetId(value?: string) {
   return match?.[1] ?? trimmed;
 }
 
-export function getEnv() {
-  if (cachedEnv) {
-    return cachedEnv;
-  }
-
-  cachedEnv = envSchema.parse({
+function parseEnvironment() {
+  return envSchema.parse({
     NODE_ENV: process.env.NODE_ENV,
     PRIVATE_DASHBOARD_SLUG: process.env.PRIVATE_DASHBOARD_SLUG,
     DASHBOARD_SECRET_TOKEN: process.env.DASHBOARD_SECRET_TOKEN,
@@ -76,20 +122,42 @@ export function getEnv() {
     PRICE_CACHE_TTL_SECONDS: process.env.PRICE_CACHE_TTL_SECONDS,
     RATE_LIMIT_WINDOW_SECONDS: process.env.RATE_LIMIT_WINDOW_SECONDS,
     RATE_LIMIT_MAX_REQUESTS: process.env.RATE_LIMIT_MAX_REQUESTS,
+    CACHE_DRIVER: process.env.CACHE_DRIVER,
+    CACHE_REDIS_REST_URL: process.env.CACHE_REDIS_REST_URL,
+    CACHE_REDIS_REST_TOKEN: process.env.CACHE_REDIS_REST_TOKEN,
+    CACHE_KEY_PREFIX: process.env.CACHE_KEY_PREFIX,
     NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
   });
+}
 
+export function getEnv() {
+  if (cachedEnv) {
+    return cachedEnv;
+  }
+
+  cachedEnv = parseEnvironment();
   return cachedEnv;
 }
 
-export function isDashboardConfigured() {
-  const env = getEnv();
+export function validateEnvironmentOnStartup() {
+  if (startupValidated) {
+    return getEnv();
+  }
 
+  startupValidated = true;
+  return getEnv();
+}
+
+function isDashboardConfiguredFromEnv(env: AppEnv) {
   return Boolean(
     env.PRIVATE_DASHBOARD_SLUG &&
       env.PRIVATE_DASHBOARD_SLUG !== DASHBOARD_SLUG_PLACEHOLDER &&
       env.DASHBOARD_SECRET_TOKEN.length >= 12,
   );
+}
+
+export function isDashboardConfigured() {
+  return isDashboardConfiguredFromEnv(getEnv());
 }
 
 export function isGoogleSheetsConfigured() {
@@ -102,4 +170,9 @@ export function isGoogleSheetsConfigured() {
   return Boolean(
     env.GOOGLE_SHEETS_SPREADSHEET_ID && (hasJson || hasSplitCredentials),
   );
+}
+
+export function isExternalCacheConfigured() {
+  const env = getEnv();
+  return env.CACHE_DRIVER === "redis_rest";
 }
