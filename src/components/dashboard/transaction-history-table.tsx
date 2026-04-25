@@ -2,6 +2,7 @@
 
 import { startTransition, useDeferredValue, useMemo, useState } from "react";
 
+import { DashboardStatePanel } from "@/components/dashboard/dashboard-state-panel";
 import { TRANSACTION_ACTION_OPTIONS } from "@/lib/constants";
 import {
   formatAssetCategoryLabel,
@@ -9,13 +10,6 @@ import {
 } from "@/lib/presentation";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import type { AssetCategory, TransactionAction, TransactionRecord } from "@/types/portfolio";
-
-type TransactionHistoryTableProps = {
-  transactions: TransactionRecord[];
-  currency: string;
-  adminEnabled?: boolean;
-  onAddTransaction?: () => void;
-};
 
 function toDateInputValue(value: string | null) {
   if (!value) {
@@ -78,11 +72,18 @@ export function TransactionHistoryTable({
   currency,
   adminEnabled = false,
   onAddTransaction,
-}: TransactionHistoryTableProps) {
+}: {
+  transactions: TransactionRecord[];
+  currency: string;
+  adminEnabled?: boolean;
+  onAddTransaction?: () => void;
+}) {
   const [query, setQuery] = useState("");
   const [assetType, setAssetType] = useState<AssetCategory | "all">("all");
   const [action, setAction] = useState<TransactionAction | "all">("all");
-  const [dateFrom, setDateFrom] = useState(() => toDateInputValue(transactions[transactions.length - 1]?.date ?? null));
+  const [dateFrom, setDateFrom] = useState(() =>
+    toDateInputValue(transactions[transactions.length - 1]?.date ?? null),
+  );
   const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
 
@@ -110,6 +111,19 @@ export function TransactionHistoryTable({
     (safePage - 1) * pageSize,
     safePage * pageSize,
   );
+  const visibleRangeStart = filteredTransactions.length === 0 ? 0 : (safePage - 1) * pageSize + 1;
+  const visibleRangeEnd = Math.min(safePage * pageSize, filteredTransactions.length);
+  const hasActiveFilters =
+    query.trim().length > 0 || assetType !== "all" || action !== "all" || Boolean(dateFrom) || Boolean(dateTo);
+
+  function resetFilters() {
+    setQuery("");
+    setAssetType("all");
+    setAction("all");
+    setDateFrom("");
+    setDateTo("");
+    setPage(1);
+  }
 
   return (
     <div className="space-y-5">
@@ -190,6 +204,18 @@ export function TransactionHistoryTable({
           <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
             {filteredTransactions.length.toLocaleString("ru-RU")} транзакций
           </span>
+          <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1.5 text-cyan-100">
+            Показано {visibleRangeStart}-{visibleRangeEnd}
+          </span>
+          {hasActiveFilters ? (
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white transition hover:bg-white/8"
+            >
+              Сбросить фильтры
+            </button>
+          ) : null}
           {adminEnabled && onAddTransaction ? (
             <button
               type="button"
@@ -204,9 +230,16 @@ export function TransactionHistoryTable({
 
       <div className="space-y-3 lg:hidden">
         {visibleTransactions.length === 0 ? (
-          <div className="rounded-3xl border border-white/10 bg-slate-950/35 px-4 py-8 text-sm text-slate-400">
-            По текущим фильтрам транзакции не найдены.
-          </div>
+          <DashboardStatePanel
+            eyebrow="Transactions"
+            title="По текущим фильтрам транзакции не найдены"
+            description={
+              hasActiveFilters
+                ? "Сбрось часть фильтров по датам, категории или действию, чтобы вернуть скрытые записи в историю."
+                : "Когда в workbook появятся сделки и price updates, здесь автоматически появится хронология событий."
+            }
+            className="min-h-[220px]"
+          />
         ) : (
           visibleTransactions.map((transaction) => (
             <article
@@ -254,38 +287,49 @@ export function TransactionHistoryTable({
       </div>
 
       <div className="hidden overflow-hidden rounded-2xl border border-white/10 bg-slate-950/35 lg:block">
-        <div className="grid grid-cols-[1fr_0.8fr_1.4fr_0.85fr_0.85fr_0.8fr_0.8fr_1.25fr] gap-3 border-b border-white/10 px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">
-          <span>Дата</span>
-          <span>Категория</span>
-          <span>Актив</span>
-          <span>Действие</span>
-          <span>Кол-во</span>
-          <span>Цена</span>
-          <span>Fees</span>
-          <span>Заметки</span>
-        </div>
-        <div className="max-h-[560px] overflow-y-auto">
-          {visibleTransactions.length === 0 ? (
-            <div className="px-4 py-10 text-sm text-slate-400">
-              По текущим фильтрам транзакции не найдены.
+        <div className="max-h-[560px] overflow-auto">
+          <div className="min-w-[1080px]">
+            <div className="sticky top-0 z-20 grid grid-cols-[1fr_0.8fr_1.4fr_0.85fr_0.85fr_0.8fr_0.8fr_1.25fr] gap-3 border-b border-white/10 bg-slate-950/95 px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400 backdrop-blur-xl">
+              <span>Дата</span>
+              <span>Категория</span>
+              <span>Актив</span>
+              <span>Действие</span>
+              <span>Кол-во</span>
+              <span>Цена</span>
+              <span>Fees</span>
+              <span>Заметки</span>
             </div>
-          ) : (
-            visibleTransactions.map((transaction) => (
-              <div
-                key={transaction.id}
-                className="grid grid-cols-[1fr_0.8fr_1.4fr_0.85fr_0.85fr_0.8fr_0.8fr_1.25fr] gap-3 border-b border-white/6 px-4 py-4 text-sm text-slate-200 last:border-b-0"
-              >
-                <span className="text-slate-300">{formatDateTime(transaction.date)}</span>
-                <span>{formatAssetCategoryLabel(transaction.assetType)}</span>
-                <span className="font-medium text-white">{transaction.assetName ?? "—"}</span>
-                <span>{formatTransactionActionLabel(transaction.action)}</span>
-                <span>{transaction.quantity !== null ? formatNumber(transaction.quantity, 6) : "—"}</span>
-                <span>{transaction.price !== null ? formatCurrency(transaction.price, currency, 2) : "—"}</span>
-                <span>{formatCurrency(transaction.fees, currency, 2)}</span>
-                <span className="text-slate-400">{transaction.notes ?? "—"}</span>
+            {visibleTransactions.length === 0 ? (
+              <div className="p-4">
+                <DashboardStatePanel
+                  eyebrow="Transactions"
+                  title="История пуста для выбранного диапазона"
+                  description={
+                    hasActiveFilters
+                      ? "Сбрось фильтры по диапазону дат или действию, чтобы увидеть больше строк."
+                      : "После первой транзакции, комиссии или price update тут появится лента операций."
+                  }
+                  className="min-h-[220px]"
+                />
               </div>
-            ))
-          )}
+            ) : (
+              visibleTransactions.map((transaction) => (
+                <div
+                  key={transaction.id}
+                  className="grid grid-cols-[1fr_0.8fr_1.4fr_0.85fr_0.85fr_0.8fr_0.8fr_1.25fr] gap-3 border-b border-white/6 px-4 py-4 text-sm text-slate-200 last:border-b-0"
+                >
+                  <span className="text-slate-300">{formatDateTime(transaction.date)}</span>
+                  <span>{formatAssetCategoryLabel(transaction.assetType)}</span>
+                  <span className="font-medium text-white">{transaction.assetName ?? "—"}</span>
+                  <span>{formatTransactionActionLabel(transaction.action)}</span>
+                  <span>{transaction.quantity !== null ? formatNumber(transaction.quantity, 6) : "—"}</span>
+                  <span>{transaction.price !== null ? formatCurrency(transaction.price, currency, 2) : "—"}</span>
+                  <span>{formatCurrency(transaction.fees, currency, 2)}</span>
+                  <span className="text-slate-400">{transaction.notes ?? "—"}</span>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
 
@@ -299,7 +343,7 @@ export function TransactionHistoryTable({
           Назад
         </button>
         <span className="text-sm text-slate-400">
-          Страница {safePage}/{pageCount}
+          Страница {safePage}/{pageCount} · {pageSize} строк на экран
         </span>
         <button
           type="button"

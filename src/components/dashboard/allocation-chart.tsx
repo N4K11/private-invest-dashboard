@@ -1,14 +1,10 @@
 ﻿"use client";
 
 import { useSyncExternalStore } from "react";
-import {
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-} from "recharts";
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
+import { ChartSurfaceSkeleton } from "@/components/dashboard/chart-surface-skeleton";
+import { DashboardStatePanel } from "@/components/dashboard/dashboard-state-panel";
 import { formatCurrency } from "@/lib/utils";
 import type { AllocationDatum } from "@/types/portfolio";
 
@@ -21,9 +17,21 @@ const subscribe = () => () => undefined;
 
 export function AllocationChart({ data, currency }: AllocationChartProps) {
   const isMounted = useSyncExternalStore(subscribe, () => true, () => false);
+  const hasData = data.some((entry) => entry.value > 0);
 
   if (!isMounted) {
-    return <div className="h-[320px] w-full rounded-2xl bg-white/5" />;
+    return <ChartSurfaceSkeleton />;
+  }
+
+  if (!hasData) {
+    return (
+      <DashboardStatePanel
+        eyebrow="Аллокация недоступна"
+        title="Нет оцененных активов для pie chart"
+        description="Как только у позиций появятся текущие цены, график структуры портфеля автоматически заполнится долями по категориям."
+        className="h-[320px] min-h-[320px]"
+      />
+    );
   }
 
   return (

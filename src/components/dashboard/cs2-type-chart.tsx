@@ -11,6 +11,8 @@ import {
   YAxis,
 } from "recharts";
 
+import { ChartSurfaceSkeleton } from "@/components/dashboard/chart-surface-skeleton";
+import { DashboardStatePanel } from "@/components/dashboard/dashboard-state-panel";
 import { formatCs2TypeLabel } from "@/lib/presentation";
 import { formatCurrency } from "@/lib/utils";
 import type { Cs2TypeBreakdownDatum } from "@/types/portfolio";
@@ -24,9 +26,21 @@ const subscribe = () => () => undefined;
 
 export function Cs2TypeChart({ data, currency }: Cs2TypeChartProps) {
   const isMounted = useSyncExternalStore(subscribe, () => true, () => false);
+  const hasData = data.some((entry) => entry.value > 0);
 
   if (!isMounted) {
-    return <div className="h-[320px] w-full rounded-2xl bg-white/5" />;
+    return <ChartSurfaceSkeleton />;
+  }
+
+  if (!hasData) {
+    return (
+      <DashboardStatePanel
+        eyebrow="CS2 composition пуст"
+        title="Типы CS2 пока не оценены"
+        description="Когда позиции получат live price или sheet fallback price, этот блок покажет распределение стоимости по stickers, skins, cases и другим сегментам."
+        className="h-[320px] min-h-[320px]"
+      />
+    );
   }
 
   return (

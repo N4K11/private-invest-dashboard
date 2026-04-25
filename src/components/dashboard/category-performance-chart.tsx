@@ -11,6 +11,8 @@ import {
   YAxis,
 } from "recharts";
 
+import { ChartSurfaceSkeleton } from "@/components/dashboard/chart-surface-skeleton";
+import { DashboardStatePanel } from "@/components/dashboard/dashboard-state-panel";
 import { formatCurrency } from "@/lib/utils";
 import type { CategoryPerformanceDatum } from "@/types/portfolio";
 
@@ -26,9 +28,21 @@ export function CategoryPerformanceChart({
   currency,
 }: CategoryPerformanceChartProps) {
   const isMounted = useSyncExternalStore(subscribe, () => true, () => false);
+  const hasData = data.some((entry) => entry.cost > 0 || entry.value > 0);
 
   if (!isMounted) {
-    return <div className="h-[320px] w-full rounded-2xl bg-white/5" />;
+    return <ChartSurfaceSkeleton />;
+  }
+
+  if (!hasData) {
+    return (
+      <DashboardStatePanel
+        eyebrow="Сравнение недоступно"
+        title="Недостаточно данных для cost vs value"
+        description="График активируется, когда в sheet появится хотя бы одна позиция с себестоимостью или текущей оценкой."
+        className="h-[320px] min-h-[320px]"
+      />
+    );
   }
 
   return (
@@ -58,16 +72,8 @@ export function CategoryPerformanceChart({
               color: "#f8fafc",
             }}
           />
-          <Bar
-            dataKey="cost"
-            radius={[10, 10, 0, 0]}
-            fill="rgba(61,139,255,0.75)"
-          />
-          <Bar
-            dataKey="value"
-            radius={[10, 10, 0, 0]}
-            fill="rgba(0,209,160,0.8)"
-          />
+          <Bar dataKey="cost" radius={[10, 10, 0, 0]} fill="rgba(61,139,255,0.75)" />
+          <Bar dataKey="value" radius={[10, 10, 0, 0]} fill="rgba(0,209,160,0.8)" />
         </BarChart>
       </ResponsiveContainer>
     </div>

@@ -11,6 +11,7 @@ import {
   YAxis,
 } from "recharts";
 
+import { ChartSurfaceSkeleton } from "@/components/dashboard/chart-surface-skeleton";
 import { HistoryEmptyState } from "@/components/dashboard/history-empty-state";
 import {
   formatHistoryAxisDate,
@@ -30,7 +31,7 @@ export function AssetClassHistoryChart({ data, currency }: AssetClassHistoryChar
   const isMounted = useSyncExternalStore(subscribe, () => true, () => false);
 
   if (!isMounted) {
-    return <div className="h-[320px] w-full rounded-2xl bg-white/5" />;
+    return <ChartSurfaceSkeleton />;
   }
 
   if (data.length === 0) {

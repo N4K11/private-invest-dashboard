@@ -14,17 +14,18 @@ Implemented right now:
 - portfolio risk analytics with concentration, missing/stale price risk and liquidity signals
 - recommendation labels: `hold`, `watch`, `consider_trimming`, `needs_price_update`, `illiquid`
 - high-risk watchlist plus high-risk filter inside the CS2 registry
-- full CS2 table with search, filters, sorting, pagination and mobile cards
+- full CS2 table with search, sticky desktop header, quick filters, sorting, pagination and mobile cards
 - Telegram Gifts pricing workflow with manual price notes, stale warnings, analytics and quick price-update actions
 - crypto panel with CoinGecko live pricing and sheet fallback
 - CS2 multi-provider live pricing layer with provider chain, stale-price detection and manual fallback
 - protected admin mode with add/edit actions directly from the dashboard
 - transaction-driven PnL / ROI with cost basis, realized and unrealized PnL
-- transaction history table with filters by category, date, name and action
+- transaction history table with filters by category, date, name and action plus sticky desktop header
 - transaction form for `buy` / `sell` / `transfer` / `price_update` / `fee`
 - write-back to native Google Sheets and Drive-hosted Excel workbooks
 - Audit_Log append on every admin create/update action, including transactions and portfolio snapshots
 - private Settings / Health page at `/invest-dashboard/[slug]/settings`
+- premium loading skeletons, reusable empty states and route-level error boundary for the private dashboard
 - protected health actions for cache refresh, Google Sheet validation, snapshot creation and provider diagnostics
 - simple in-memory cache and rate limiting
 - `robots.txt` and `noindex/nofollow` protection for the private surface
@@ -359,3 +360,4 @@ npm run typecheck
 npm run lint
 npm run build
 ```
+
