@@ -68,6 +68,26 @@ function parseQuantity(value: string) {
   return Number.isFinite(parsed) ? parsed : Number.NaN;
 }
 
+function buildDefaultDateValue() {
+  const now = new Date();
+  const timezoneOffsetMs = now.getTimezoneOffset() * 60_000;
+  return new Date(now.getTime() - timezoneOffsetMs).toISOString().slice(0, 16);
+}
+
+function toDateTimeInput(value: string | null | undefined) {
+  if (!value) {
+    return buildDefaultDateValue();
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return buildDefaultDateValue();
+  }
+
+  const timezoneOffsetMs = parsed.getTimezoneOffset() * 60_000;
+  return new Date(parsed.getTime() - timezoneOffsetMs).toISOString().slice(0, 16);
+}
+
 function buildInitialForm(state: AdminEditorState | null): FormState {
   if (!state) {
     return {};
@@ -98,7 +118,9 @@ function buildInitialForm(state: AdminEditorState | null): FormState {
       entryPrice: numberToInput(position?.entryPrice),
       manualCurrentPrice: numberToInput(position?.manualCurrentPrice),
       priceConfidence: position?.priceConfidence ?? "medium",
+      sourceNote: position?.priceSourceNote ?? "",
       liquidityNote: position?.liquidityNote ?? "",
+      lastCheckedAt: toDateTimeInput(position?.priceLastCheckedAt),
       status: position?.status ?? "hold",
       notes: position?.notes ?? "",
     };
@@ -267,7 +289,9 @@ export function PositionEditorDrawer({
         entryPrice,
         manualCurrentPrice,
         priceConfidence: ((form.priceConfidence ?? "medium").trim() || null) as "low" | "medium" | "high" | null,
+        sourceNote: (form.sourceNote ?? "").trim() || null,
         liquidityNote: (form.liquidityNote ?? "").trim() || null,
+        lastCheckedAt: (form.lastCheckedAt ?? "").trim() || null,
         status: (form.status ?? "hold").trim() || "hold",
         notes: (form.notes ?? "").trim() || null,
       };
@@ -449,20 +473,28 @@ export function PositionEditorDrawer({
           </div>
 
           {activeState.entityType === "telegram" ? (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Уверенность в цене">
-                <select value={form.priceConfidence ?? "medium"} onChange={(event) => updateField("priceConfidence", event.target.value)} className="w-full rounded-2xl border border-white/12 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/50">
-                  {TELEGRAM_PRICE_CONFIDENCE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value} className="bg-slate-950">
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+            <>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <Field label="Уверенность в цене">
+                  <select value={form.priceConfidence ?? "medium"} onChange={(event) => updateField("priceConfidence", event.target.value)} className="w-full rounded-2xl border border-white/12 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/50">
+                    {TELEGRAM_PRICE_CONFIDENCE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value} className="bg-slate-950">
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Дата price check">
+                  <input type="datetime-local" value={form.lastCheckedAt ?? buildDefaultDateValue()} onChange={(event) => updateField("lastCheckedAt", event.target.value)} className="w-full rounded-2xl border border-white/12 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/50" />
+                </Field>
+                <Field label="Ликвидность / note">
+                  <input value={form.liquidityNote ?? ""} onChange={(event) => updateField("liquidityNote", event.target.value)} className="w-full rounded-2xl border border-white/12 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/50" />
+                </Field>
+              </div>
+              <Field label="Источник оценки / source note">
+                <textarea value={form.sourceNote ?? ""} onChange={(event) => updateField("sourceNote", event.target.value)} rows={3} className="w-full rounded-3xl border border-white/12 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/50" />
               </Field>
-              <Field label="Ликвидность / note">
-                <input value={form.liquidityNote ?? ""} onChange={(event) => updateField("liquidityNote", event.target.value)} className="w-full rounded-2xl border border-white/12 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/50" />
-              </Field>
-            </div>
+            </>
           ) : null}
 
           <Field label="Статус">
@@ -497,4 +529,3 @@ export function PositionEditorDrawer({
     </div>
   );
 }
-

@@ -11,7 +11,9 @@ export type Cs2AssetType =
 export type DataSourceMode = "live" | "fallback" | "demo";
 export type QuantitySource = "sheet" | "transactions";
 export type TransactionAction = "buy" | "sell" | "transfer" | "price_update" | "fee";
-export type Cs2PriceConfidence = "high" | "medium" | "low";
+export type PriceConfidence = "high" | "medium" | "low";
+export type Cs2PriceConfidence = PriceConfidence;
+export type TelegramPriceConfidence = PriceConfidence;
 
 export interface SheetRowRef {
   sheetName: string;
@@ -59,6 +61,13 @@ export interface Cs2TypeBreakdownDatum {
   type: string;
   value: number;
   count: number;
+}
+
+export interface TelegramCollectionBreakdownDatum {
+  collection: string;
+  value: number;
+  quantity: number;
+  positions: number;
 }
 
 export interface SummaryCardDatum {
@@ -141,7 +150,11 @@ export interface TelegramGiftPosition {
   unrealizedPnl: number;
   fees: number;
   transactionCount: number;
-  priceConfidence: string | null;
+  priceConfidence: TelegramPriceConfidence | null;
+  priceSourceNote: string | null;
+  priceLastCheckedAt: string | null;
+  priceWarning: string | null;
+  isPriceStale: boolean;
   liquidityNote: string | null;
   status: string | null;
   lastUpdated: string | null;
@@ -190,6 +203,16 @@ export interface TransactionRecord {
   rowRef: SheetRowRef | null;
 }
 
+export interface TelegramGiftAnalytics {
+  totalValue: number;
+  totalItems: number;
+  valueByCollection: TelegramCollectionBreakdownDatum[];
+  topGiftsByValue: TelegramGiftPosition[];
+  lowConfidencePricing: TelegramGiftPosition[];
+  stalePriceList: TelegramGiftPosition[];
+  recentPriceUpdates: TransactionRecord[];
+}
+
 export interface PortfolioCharts {
   allocation: AllocationDatum[];
   categoryPerformance: CategoryPerformanceDatum[];
@@ -205,6 +228,7 @@ export interface PortfolioSnapshot {
   };
   telegramGifts: {
     positions: TelegramGiftPosition[];
+    analytics: TelegramGiftAnalytics;
   };
   crypto: {
     positions: CryptoPosition[];

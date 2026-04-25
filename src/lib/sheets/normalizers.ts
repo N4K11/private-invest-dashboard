@@ -5,7 +5,7 @@
   normalizeSheetHeader,
 } from "@/lib/sheets/schema";
 import { parseNumberish, toSlugFragment } from "@/lib/utils";
-import type { Cs2AssetType, SheetRowRef } from "@/types/portfolio";
+import type { Cs2AssetType, SheetRowRef, TelegramPriceConfidence } from "@/types/portfolio";
 
 export type SheetCellValue = string | number | boolean | null | undefined;
 
@@ -51,7 +51,8 @@ export interface NormalizedTelegramGiftRow {
   manualCurrentPrice?: number | null;
   currentPrice?: number | null;
   collection?: string | null;
-  priceConfidence?: string | null;
+  priceConfidence?: TelegramPriceConfidence | null;
+  sourceNote?: string | null;
   liquidityNote?: string | null;
   status?: string | null;
   lastUpdated?: string | null;
@@ -366,12 +367,14 @@ function normalizeTelegramRows(
           : tonPrice !== null
             ? "TON"
             : null,
-      priceConfidence: getString(row, getFieldAliases("Telegram_Gifts", "priceConfidence")),
+      priceConfidence:
+        (getString(row, getFieldAliases("Telegram_Gifts", "priceConfidence")) as TelegramPriceConfidence | null),
+      sourceNote: getString(row, getFieldAliases("Telegram_Gifts", "sourceNote")),
       liquidityNote: getString(row, getFieldAliases("Telegram_Gifts", "liquidityNote")),
       status: getString(row, getFieldAliases("Telegram_Gifts", "status")),
       lastUpdated: getString(row, getFieldAliases("Telegram_Gifts", "lastUpdated")),
       priceSource:
-        getString(row, ["price_source", "priceSource", "source"]) ??
+        getString(row, getFieldAliases("Telegram_Gifts", "priceSource")) ??
         (tonPrice !== null
           ? "ton_sheet"
           : manualCurrentPrice !== null || currentPrice !== null
@@ -555,4 +558,5 @@ export function normalizeWorkbook(workbook: RawSpreadsheetWorkbook): NormalizedW
     settings: normalizeSettings(settingsSheet.values),
   };
 }
+
 

@@ -15,7 +15,10 @@ import type {
   Cs2TypeBreakdownDatum,
   PortfolioSnapshot,
   SummaryCardDatum,
+  TelegramCollectionBreakdownDatum,
+  TelegramGiftAnalytics,
   TelegramGiftPosition,
+  TransactionRecord,
 } from "@/types/portfolio";
 
 function buildSummaryCards(params: {
@@ -108,6 +111,28 @@ function buildCategoryPerformanceData(
   }));
 }
 
+function isDateAfter(left: string | null, right: string | null) {
+  if (!left) {
+    return false;
+  }
+
+  const leftTimestamp = Date.parse(left);
+  if (!Number.isFinite(leftTimestamp)) {
+    return false;
+  }
+
+  if (!right) {
+    return true;
+  }
+
+  const rightTimestamp = Date.parse(right);
+  if (!Number.isFinite(rightTimestamp)) {
+    return true;
+  }
+
+  return leftTimestamp >= rightTimestamp;
+}
+
 function applyAccountingToCs2(
   positions: Cs2Position[],
   transactions: import("@/lib/sheets/normalizers").NormalizedTransactionRow[],
@@ -128,7 +153,9 @@ function applyAccountingToCs2(
 
     const useTransactionPrice =
       accounting.latestPriceUpdate !== null &&
-      (position.currentPrice === null || position.priceSource === "manual_sheet" || position.priceSource === "missing");
+      (position.currentPrice === null ||
+        position.priceSource === "manual_sheet" ||
+        position.priceSource === "missing");
     const currentPrice = useTransactionPrice ? accounting.latestPriceUpdate : accounting.currentPrice;
 
     return {
@@ -179,8 +206,10 @@ function applyAccountingToTelegram(
 
     const useTransactionPrice =
       accounting.latestPriceUpdate !== null &&
-      ((position.estimatedPrice ?? position.currentPrice) === null ||
-        position.priceSource === "manual_sheet");
+      (position.estimatedPrice === null ||
+        position.priceSource === "manual_sheet" ||
+        position.priceSource.startsWith("ton_sheet") ||
+        isDateAfter(accounting.latestPriceUpdateAt, position.priceLastCheckedAt));
     const estimatedPrice = useTransactionPrice ? accounting.latestPriceUpdate : accounting.currentPrice;
 
     return {
@@ -200,6 +229,13 @@ function applyAccountingToTelegram(
       fees: accounting.fees,
       transactionCount: accounting.transactionCount,
       priceSource: useTransactionPrice ? "transaction_price_update" : position.priceSource,
+      priceLastCheckedAt: useTransactionPrice ? accounting.latestPriceUpdateAt : position.priceLastCheckedAt,
+      priceSourceNote: useTransactionPrice
+        ? "Последнее manual обновление через Transactions / price_update."
+        : position.priceSourceNote,
+      priceConfidence: useTransactionPrice ? position.priceConfidence ?? "medium" : position.priceConfidence,
+      priceWarning: useTransactionPrice ? null : position.priceWarning,
+      isPriceStale: useTransactionPrice ? false : position.isPriceStale,
     } satisfies TelegramGiftPosition;
   });
 
@@ -254,6 +290,49 @@ function applyAccountingToCrypto(
   return {
     positions: nextPositions,
     investedCapital: totalInvestedCapital,
+  };
+}
+
+function buildTelegramCollectionBreakdown(positions: TelegramGiftPosition[]) {
+  const grouped = positions.reduce<Record<string, TelegramCollectionBreakdownDatum>>((acc, position) => {
+    const collection = position.collection?.trim() || "Без коллекции";
+    const current = acc[collection] ?? {
+      collection,
+      value: 0,
+      quantity: 0,
+      positions: 0,
+    };
+
+    current.value += position.totalValue;
+    current.quantity += position.quantity;
+    current.positions += 1;
+    acc[collection] = current;
+    return acc;
+  }, {});
+
+  return Object.values(grouped).sort((left, right) => right.value - left.value);
+}
+
+function buildTelegramGiftAnalytics(
+  positions: TelegramGiftPosition[],
+  transactions: TransactionRecord[],
+): TelegramGiftAnalytics {
+  return {
+    totalValue: positions.reduce((sum, position) => sum + position.totalValue, 0),
+    totalItems: positions.reduce((sum, position) => sum + position.quantity, 0),
+    valueByCollection: buildTelegramCollectionBreakdown(positions).slice(0, 8),
+    topGiftsByValue: positions.slice(0, 8),
+    lowConfidencePricing: positions
+      .filter((position) => position.priceConfidence === "low" || position.priceConfidence === null)
+      .sort((left, right) => right.totalValue - left.totalValue)
+      .slice(0, 8),
+    stalePriceList: positions
+      .filter((position) => position.isPriceStale)
+      .sort((left, right) => right.totalValue - left.totalValue)
+      .slice(0, 8),
+    recentPriceUpdates: transactions
+      .filter((transaction) => transaction.assetType === "telegram" && transaction.action === "price_update")
+      .slice(0, 8),
   };
 }
 
@@ -345,6 +424,7 @@ export async function getPortfolioSnapshot(): Promise<PortfolioSnapshot> {
     },
     telegramGifts: {
       positions: telegramPositions,
+      analytics: buildTelegramGiftAnalytics(telegramPositions, transactions),
     },
     crypto: {
       positions: cryptoPositions,
@@ -370,5 +450,3 @@ export async function getPortfolioSnapshot(): Promise<PortfolioSnapshot> {
     },
   };
 }
-
-

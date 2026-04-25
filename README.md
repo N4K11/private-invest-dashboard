@@ -12,7 +12,7 @@ Implemented right now:
 - canonical Google Sheets validator for tabs and required columns
 - summary cards, allocation charts and category charts
 - full CS2 table with search, filters, sorting, pagination and mobile cards
-- Telegram Gifts panel with sheet-driven pricing
+- Telegram Gifts pricing workflow with manual price notes, stale warnings, analytics and quick price-update actions
 - crypto panel with CoinGecko live pricing and sheet fallback
 - CS2 multi-provider live pricing layer with provider chain, stale-price detection and manual fallback
 - protected admin mode with add/edit actions directly from the dashboard
@@ -65,6 +65,8 @@ src/
         provider-registry.ts
         types.ts
         utils.ts
+      telegram-gifts/
+        types.ts
     security/
     sheets/
       client.ts
@@ -96,6 +98,7 @@ Copy `.env.example` to `.env.local` and fill in:
 - `CS2_BUFF_PROXY_URL`: optional custom JSON endpoint for a Buff/manual proxy adapter
 - `CSFLOAT_API_KEY`: reserved for future direct CSFloat adapter
 - `PRICEMPIRE_API_KEY`: reserved for future direct PriceEmpire adapter
+- `TELEGRAM_PRICE_STALE_DAYS`: threshold for stale Telegram Gift prices based on last manual check date
 - `DEFAULT_CURRENCY`: reporting currency, default `USD`
 - `PORTFOLIO_CACHE_TTL_SECONDS`: Google Sheets cache TTL
 - `PRICE_CACHE_TTL_SECONDS`: live price cache TTL
@@ -138,7 +141,7 @@ Current capabilities:
 - edit manual current price / sheet fallback price
 - edit status
 - edit notes
-- edit `priceConfidence` and `liquidityNote` for Telegram Gifts
+- edit `priceConfidence`, `sourceNote`, `liquidityNote` and last checked date for Telegram Gifts
 - add new CS2 / Telegram / Crypto positions
 - add transaction rows for `buy`, `sell`, `transfer`, `price_update`, `fee`
 - transaction history filters by category, date, action and asset name
@@ -246,6 +249,21 @@ Expected `CS2_BUFF_PROXY_URL` response shape:
 }
 ```
 
+## Telegram Gifts pricing workflow
+Telegram Gifts now support a dedicated manual and semi-automatic pricing flow.
+
+Current workflow:
+- `manualCurrentPrice` / `currentPrice` in the sheet for operator-entered prices
+- `priceConfidence`, `sourceNote`, `liquidityNote`, `lastUpdated` for manual price governance
+- quick `price_update` action from the dashboard into `Transactions`
+- stale-price warnings when the last manual check becomes older than `TELEGRAM_PRICE_STALE_DAYS`
+- collection analytics, top gifts, low-confidence list and stale-price list in the UI
+
+Future provider path:
+- the Telegram pricing layer now has a provider interface in `src/lib/providers/telegram-gifts/types.ts`
+- today it uses manual sheet pricing first and TON sheet conversion as a secondary provider
+- later you can plug an external OTC / marketplace source without rewriting the dashboard shell
+
 ## Add new price providers
 1. Create a provider in `src/lib/providers`.
 2. Keep the provider focused on one asset class.
@@ -257,7 +275,7 @@ Expected `CS2_BUFF_PROXY_URL` response shape:
 ## What still needs to be done for full portfolio operations
 - portfolio history snapshots and performance-over-time charts
 - explicit delete flow with hard confirmation if physical row removal is ever needed
-- Telegram Gifts pricing workflow with stronger confidence / stale-price tracking
+- external Telegram Gifts market/OTC provider if you decide to automate more than manual + TON-based pricing
 - direct CSFloat / PriceEmpire adapters if you decide to operate through official paid APIs
 - durable cache/rate limit storage via Redis or similar for multi-instance production
 - optional admin actions for editing existing transactions and settings

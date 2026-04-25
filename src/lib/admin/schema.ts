@@ -185,3 +185,4 @@ export const adminTransactionMutationSchema = z.object({
 export type AdminMutationInput = z.infer<typeof adminMutationSchema>;
 export type AdminRowRefInput = z.infer<typeof adminRowRefSchema>;
 export type AdminTransactionMutationInput = z.infer<typeof adminTransactionMutationSchema>;
+

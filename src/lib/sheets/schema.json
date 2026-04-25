@@ -1,123 +1,784 @@
 {
   "tabs": {
     "Summary": {
-      "aliases": ["Summary"],
+      "aliases": [
+        "Summary"
+      ],
       "requiredForCanonical": true,
       "fields": [
-        { "key": "metric", "required": true, "aliases": ["metric", "key", "name", "метрика", "показатель"] },
-        { "key": "value", "required": true, "aliases": ["value", "значение"] }
+        {
+          "key": "metric",
+          "required": true,
+          "aliases": [
+            "metric",
+            "key",
+            "name",
+            "метрика",
+            "показатель"
+          ]
+        },
+        {
+          "key": "value",
+          "required": true,
+          "aliases": [
+            "value",
+            "значение"
+          ]
+        }
       ]
     },
     "CS2_Positions": {
-      "aliases": ["CS2_Positions", "CS2 Assets"],
+      "aliases": [
+        "CS2_Positions",
+        "CS2 Assets"
+      ],
       "requiredForCanonical": true,
       "fields": [
-        { "key": "id", "required": true, "aliases": ["id"] },
-        { "key": "assetType", "required": true, "aliases": ["assetType", "asset_type", "type", "тип"] },
-        { "key": "assetName", "required": true, "aliases": ["assetName", "asset_name", "name", "item_name", "название", "предмет"] },
-        { "key": "category", "required": true, "aliases": ["category", "group", "категория"] },
-        { "key": "quantity", "required": true, "aliases": ["quantity", "qty", "amount", "count", "количество"] },
-        { "key": "entryPrice", "required": true, "aliases": ["entryPrice", "entry_price", "average_entry_price", "avg_entry_price", "buy_price", "средняя_цена_входа", "цена_входа"] },
-        { "key": "manualCurrentPrice", "required": true, "aliases": ["manualCurrentPrice", "manual_current_price", "manual_price", "ручная_текущая_цена"] },
-        { "key": "currentPrice", "required": true, "aliases": ["currentPrice", "current_price", "market_price", "price_now", "текущая_цена", "цена_сейчас"] },
-        { "key": "priceSource", "required": true, "aliases": ["priceSource", "price_source", "source", "источник_цены"] },
-        { "key": "currency", "required": true, "aliases": ["currency", "quote_currency", "валюта"] },
-        { "key": "status", "required": true, "aliases": ["status", "state", "статус"] },
-        { "key": "notes", "required": true, "aliases": ["notes", "comment", "заметки", "комментарий"] },
-        { "key": "lastUpdated", "required": true, "aliases": ["lastUpdated", "last_updated", "updated_at", "price_updated_at", "last_checked"] },
-        { "key": "wear", "required": false, "aliases": ["wear", "condition", "float", "состояние"] },
-        { "key": "rarity", "required": false, "aliases": ["rarity", "grade", "редкость"] },
-        { "key": "riskScore", "required": false, "aliases": ["risk_score", "illiquidity_score", "риск", "риск_скор"] },
-        { "key": "liquidityLabel", "required": false, "aliases": ["liquidity", "liquidity_label", "ликвидность"] },
-        { "key": "market", "required": false, "aliases": ["market", "exchange", "source_market", "рынок"] }
+        {
+          "key": "id",
+          "required": true,
+          "aliases": [
+            "id"
+          ]
+        },
+        {
+          "key": "assetType",
+          "required": true,
+          "aliases": [
+            "assetType",
+            "asset_type",
+            "type",
+            "тип"
+          ]
+        },
+        {
+          "key": "assetName",
+          "required": true,
+          "aliases": [
+            "assetName",
+            "asset_name",
+            "name",
+            "item_name",
+            "название",
+            "предмет"
+          ]
+        },
+        {
+          "key": "category",
+          "required": true,
+          "aliases": [
+            "category",
+            "group",
+            "категория"
+          ]
+        },
+        {
+          "key": "quantity",
+          "required": true,
+          "aliases": [
+            "quantity",
+            "qty",
+            "amount",
+            "count",
+            "количество"
+          ]
+        },
+        {
+          "key": "entryPrice",
+          "required": true,
+          "aliases": [
+            "entryPrice",
+            "entry_price",
+            "average_entry_price",
+            "avg_entry_price",
+            "buy_price",
+            "средняя_цена_входа",
+            "цена_входа"
+          ]
+        },
+        {
+          "key": "manualCurrentPrice",
+          "required": true,
+          "aliases": [
+            "manualCurrentPrice",
+            "manual_current_price",
+            "manual_price",
+            "ручная_текущая_цена"
+          ]
+        },
+        {
+          "key": "currentPrice",
+          "required": true,
+          "aliases": [
+            "currentPrice",
+            "current_price",
+            "market_price",
+            "price_now",
+            "текущая_цена",
+            "цена_сейчас"
+          ]
+        },
+        {
+          "key": "priceSource",
+          "required": true,
+          "aliases": [
+            "priceSource",
+            "price_source",
+            "source",
+            "источник_цены"
+          ]
+        },
+        {
+          "key": "currency",
+          "required": true,
+          "aliases": [
+            "currency",
+            "quote_currency",
+            "валюта"
+          ]
+        },
+        {
+          "key": "status",
+          "required": true,
+          "aliases": [
+            "status",
+            "state",
+            "статус"
+          ]
+        },
+        {
+          "key": "notes",
+          "required": true,
+          "aliases": [
+            "notes",
+            "comment",
+            "заметки",
+            "комментарий"
+          ]
+        },
+        {
+          "key": "lastUpdated",
+          "required": true,
+          "aliases": [
+            "lastUpdated",
+            "last_updated",
+            "updated_at",
+            "price_updated_at",
+            "last_checked"
+          ]
+        },
+        {
+          "key": "wear",
+          "required": false,
+          "aliases": [
+            "wear",
+            "condition",
+            "float",
+            "состояние"
+          ]
+        },
+        {
+          "key": "rarity",
+          "required": false,
+          "aliases": [
+            "rarity",
+            "grade",
+            "редкость"
+          ]
+        },
+        {
+          "key": "riskScore",
+          "required": false,
+          "aliases": [
+            "risk_score",
+            "illiquidity_score",
+            "риск",
+            "риск_скор"
+          ]
+        },
+        {
+          "key": "liquidityLabel",
+          "required": false,
+          "aliases": [
+            "liquidity",
+            "liquidity_label",
+            "ликвидность"
+          ]
+        },
+        {
+          "key": "market",
+          "required": false,
+          "aliases": [
+            "market",
+            "exchange",
+            "source_market",
+            "рынок"
+          ]
+        }
       ]
     },
     "Telegram_Gifts": {
-      "aliases": ["Telegram_Gifts", "Telegram Gifts"],
+      "aliases": [
+        "Telegram_Gifts",
+        "Telegram Gifts"
+      ],
       "requiredForCanonical": true,
       "fields": [
-        { "key": "id", "required": true, "aliases": ["id"] },
-        { "key": "giftName", "required": true, "aliases": ["giftName", "gift_name", "name", "gift", "title", "название", "подарок"] },
-        { "key": "collection", "required": true, "aliases": ["collection", "series", "коллекция"] },
-        { "key": "quantity", "required": true, "aliases": ["quantity", "qty", "amount", "count", "количество"] },
-        { "key": "entryPrice", "required": true, "aliases": ["entryPrice", "entry_price", "buy_price", "цена_входа"] },
-        { "key": "manualCurrentPrice", "required": true, "aliases": ["manualCurrentPrice", "manual_current_price", "manual_price", "estimated_price", "price", "approx_price", "примерная_цена"] },
-        { "key": "currentPrice", "required": true, "aliases": ["currentPrice", "current_price", "текущая_цена"] },
-        { "key": "priceConfidence", "required": true, "aliases": ["priceConfidence", "price_confidence", "confidence", "достоверность_цены"] },
-        { "key": "liquidityNote", "required": true, "aliases": ["liquidityNote", "liquidity_note", "liquidity", "liquidity_label", "ликвидность"] },
-        { "key": "status", "required": true, "aliases": ["status", "state", "статус"] },
-        { "key": "notes", "required": true, "aliases": ["notes", "comment", "заметки", "комментарий"] },
-        { "key": "lastUpdated", "required": true, "aliases": ["lastUpdated", "last_updated", "updated_at", "last_checked"] },
-        { "key": "priceTon", "required": false, "aliases": ["price_ton", "ton_price"] },
-        { "key": "totalTon", "required": false, "aliases": ["total_ton"] }
+        {
+          "key": "id",
+          "required": true,
+          "aliases": [
+            "id"
+          ]
+        },
+        {
+          "key": "giftName",
+          "required": true,
+          "aliases": [
+            "giftName",
+            "gift_name",
+            "name",
+            "gift",
+            "title",
+            "название",
+            "подарок"
+          ]
+        },
+        {
+          "key": "collection",
+          "required": true,
+          "aliases": [
+            "collection",
+            "series",
+            "коллекция"
+          ]
+        },
+        {
+          "key": "quantity",
+          "required": true,
+          "aliases": [
+            "quantity",
+            "qty",
+            "amount",
+            "count",
+            "количество"
+          ]
+        },
+        {
+          "key": "entryPrice",
+          "required": true,
+          "aliases": [
+            "entryPrice",
+            "entry_price",
+            "buy_price",
+            "цена_входа"
+          ]
+        },
+        {
+          "key": "manualCurrentPrice",
+          "required": true,
+          "aliases": [
+            "manualCurrentPrice",
+            "manual_current_price",
+            "manual_price",
+            "estimated_price",
+            "price",
+            "approx_price",
+            "примерная_цена"
+          ]
+        },
+        {
+          "key": "currentPrice",
+          "required": true,
+          "aliases": [
+            "currentPrice",
+            "current_price",
+            "текущая_цена"
+          ]
+        },
+        {
+          "key": "priceSource",
+          "required": false,
+          "aliases": [
+            "priceSource",
+            "price_source",
+            "source",
+            "????????_????"
+          ]
+        },
+        {
+          "key": "priceConfidence",
+          "required": true,
+          "aliases": [
+            "priceConfidence",
+            "price_confidence",
+            "confidence",
+            "достоверность_цены"
+          ]
+        },
+        {
+          "key": "liquidityNote",
+          "required": true,
+          "aliases": [
+            "liquidityNote",
+            "liquidity_note",
+            "liquidity",
+            "liquidity_label",
+            "ликвидность"
+          ]
+        },
+        {
+          "key": "status",
+          "required": true,
+          "aliases": [
+            "status",
+            "state",
+            "статус"
+          ]
+        },
+        {
+          "key": "sourceNote",
+          "required": false,
+          "aliases": [
+            "sourceNote",
+            "source_note",
+            "price_note",
+            "source_comment",
+            "????????_??????"
+          ]
+        },
+        {
+          "key": "notes",
+          "required": true,
+          "aliases": [
+            "notes",
+            "comment",
+            "заметки",
+            "комментарий"
+          ]
+        },
+        {
+          "key": "lastUpdated",
+          "required": true,
+          "aliases": [
+            "lastUpdated",
+            "last_updated",
+            "updated_at",
+            "last_checked",
+            "lastCheckedAt",
+            "last_checked_at",
+            "price_checked_at"
+          ]
+        },
+        {
+          "key": "priceTon",
+          "required": false,
+          "aliases": [
+            "price_ton",
+            "ton_price"
+          ]
+        },
+        {
+          "key": "totalTon",
+          "required": false,
+          "aliases": [
+            "total_ton"
+          ]
+        }
       ]
     },
     "Crypto": {
-      "aliases": ["Crypto"],
+      "aliases": [
+        "Crypto"
+      ],
       "requiredForCanonical": true,
       "fields": [
-        { "key": "id", "required": true, "aliases": ["id"] },
-        { "key": "symbol", "required": true, "aliases": ["symbol", "ticker", "монета", "тикер"] },
-        { "key": "name", "required": true, "aliases": ["name", "asset", "coin_name", "название", "актив"] },
-        { "key": "quantity", "required": true, "aliases": ["quantity", "qty", "amount", "count", "количество"] },
-        { "key": "entryPrice", "required": true, "aliases": ["entryPrice", "entry_price", "average_entry_price", "avg_entry_price", "buy_price", "цена_входа", "средняя_цена_входа"] },
-        { "key": "currentPrice", "required": true, "aliases": ["currentPrice", "current_price", "market_price", "текущая_цена"] },
-        { "key": "priceSource", "required": true, "aliases": ["priceSource", "price_source", "source", "источник_цены"] },
-        { "key": "walletNote", "required": true, "aliases": ["walletNote", "wallet_note", "wallet", "кошелек"] },
-        { "key": "status", "required": true, "aliases": ["status", "state", "статус"] },
-        { "key": "notes", "required": true, "aliases": ["notes", "comment", "заметки", "комментарий"] },
-        { "key": "lastUpdated", "required": true, "aliases": ["lastUpdated", "last_updated", "updated_at", "last_checked"] },
-        { "key": "currency", "required": false, "aliases": ["currency", "quote_currency", "валюта"] }
+        {
+          "key": "id",
+          "required": true,
+          "aliases": [
+            "id"
+          ]
+        },
+        {
+          "key": "symbol",
+          "required": true,
+          "aliases": [
+            "symbol",
+            "ticker",
+            "монета",
+            "тикер"
+          ]
+        },
+        {
+          "key": "name",
+          "required": true,
+          "aliases": [
+            "name",
+            "asset",
+            "coin_name",
+            "название",
+            "актив"
+          ]
+        },
+        {
+          "key": "quantity",
+          "required": true,
+          "aliases": [
+            "quantity",
+            "qty",
+            "amount",
+            "count",
+            "количество"
+          ]
+        },
+        {
+          "key": "entryPrice",
+          "required": true,
+          "aliases": [
+            "entryPrice",
+            "entry_price",
+            "average_entry_price",
+            "avg_entry_price",
+            "buy_price",
+            "цена_входа",
+            "средняя_цена_входа"
+          ]
+        },
+        {
+          "key": "currentPrice",
+          "required": true,
+          "aliases": [
+            "currentPrice",
+            "current_price",
+            "market_price",
+            "текущая_цена"
+          ]
+        },
+        {
+          "key": "priceSource",
+          "required": true,
+          "aliases": [
+            "priceSource",
+            "price_source",
+            "source",
+            "источник_цены"
+          ]
+        },
+        {
+          "key": "walletNote",
+          "required": true,
+          "aliases": [
+            "walletNote",
+            "wallet_note",
+            "wallet",
+            "кошелек"
+          ]
+        },
+        {
+          "key": "status",
+          "required": true,
+          "aliases": [
+            "status",
+            "state",
+            "статус"
+          ]
+        },
+        {
+          "key": "notes",
+          "required": true,
+          "aliases": [
+            "notes",
+            "comment",
+            "заметки",
+            "комментарий"
+          ]
+        },
+        {
+          "key": "lastUpdated",
+          "required": true,
+          "aliases": [
+            "lastUpdated",
+            "last_updated",
+            "updated_at",
+            "last_checked"
+          ]
+        },
+        {
+          "key": "currency",
+          "required": false,
+          "aliases": [
+            "currency",
+            "quote_currency",
+            "валюта"
+          ]
+        }
       ]
     },
     "Transactions": {
-      "aliases": ["Transactions"],
+      "aliases": [
+        "Transactions"
+      ],
       "requiredForCanonical": true,
       "fields": [
-        { "key": "id", "required": true, "aliases": ["id"] },
-        { "key": "date", "required": true, "aliases": ["date", "datetime", "дата"] },
-        { "key": "assetType", "required": true, "aliases": ["assetType", "asset_type", "type", "категория", "тип"] },
-        { "key": "assetName", "required": true, "aliases": ["assetName", "asset_name", "asset", "name", "актив", "название"] },
-        { "key": "action", "required": true, "aliases": ["action", "operation", "действие"] },
-        { "key": "quantity", "required": true, "aliases": ["quantity", "qty", "amount", "количество"] },
-        { "key": "price", "required": true, "aliases": ["price", "unit_price", "цена"] },
-        { "key": "fees", "required": true, "aliases": ["fees", "fee", "комиссия"] },
-        { "key": "currency", "required": true, "aliases": ["currency", "валюта"] },
-        { "key": "notes", "required": true, "aliases": ["notes", "comment", "заметки", "комментарий"] }
+        {
+          "key": "id",
+          "required": true,
+          "aliases": [
+            "id"
+          ]
+        },
+        {
+          "key": "date",
+          "required": true,
+          "aliases": [
+            "date",
+            "datetime",
+            "дата"
+          ]
+        },
+        {
+          "key": "assetType",
+          "required": true,
+          "aliases": [
+            "assetType",
+            "asset_type",
+            "type",
+            "категория",
+            "тип"
+          ]
+        },
+        {
+          "key": "assetName",
+          "required": true,
+          "aliases": [
+            "assetName",
+            "asset_name",
+            "asset",
+            "name",
+            "актив",
+            "название"
+          ]
+        },
+        {
+          "key": "action",
+          "required": true,
+          "aliases": [
+            "action",
+            "operation",
+            "действие"
+          ]
+        },
+        {
+          "key": "quantity",
+          "required": true,
+          "aliases": [
+            "quantity",
+            "qty",
+            "amount",
+            "количество"
+          ]
+        },
+        {
+          "key": "price",
+          "required": true,
+          "aliases": [
+            "price",
+            "unit_price",
+            "цена"
+          ]
+        },
+        {
+          "key": "fees",
+          "required": true,
+          "aliases": [
+            "fees",
+            "fee",
+            "комиссия"
+          ]
+        },
+        {
+          "key": "currency",
+          "required": true,
+          "aliases": [
+            "currency",
+            "валюта"
+          ]
+        },
+        {
+          "key": "notes",
+          "required": true,
+          "aliases": [
+            "notes",
+            "comment",
+            "заметки",
+            "комментарий"
+          ]
+        }
       ]
     },
     "Portfolio_History": {
-      "aliases": ["Portfolio_History"],
+      "aliases": [
+        "Portfolio_History"
+      ],
       "requiredForCanonical": true,
       "fields": [
-        { "key": "date", "required": true, "aliases": ["date", "дата"] },
-        { "key": "totalValue", "required": true, "aliases": ["totalValue", "total_value", "итого_стоимость"] },
-        { "key": "cs2Value", "required": true, "aliases": ["cs2Value", "cs2_value"] },
-        { "key": "telegramValue", "required": true, "aliases": ["telegramValue", "telegram_value"] },
-        { "key": "cryptoValue", "required": true, "aliases": ["cryptoValue", "crypto_value"] },
-        { "key": "totalPnl", "required": true, "aliases": ["totalPnl", "total_pnl"] },
-        { "key": "notes", "required": true, "aliases": ["notes", "comment", "заметки", "комментарий"] }
+        {
+          "key": "date",
+          "required": true,
+          "aliases": [
+            "date",
+            "дата"
+          ]
+        },
+        {
+          "key": "totalValue",
+          "required": true,
+          "aliases": [
+            "totalValue",
+            "total_value",
+            "итого_стоимость"
+          ]
+        },
+        {
+          "key": "cs2Value",
+          "required": true,
+          "aliases": [
+            "cs2Value",
+            "cs2_value"
+          ]
+        },
+        {
+          "key": "telegramValue",
+          "required": true,
+          "aliases": [
+            "telegramValue",
+            "telegram_value"
+          ]
+        },
+        {
+          "key": "cryptoValue",
+          "required": true,
+          "aliases": [
+            "cryptoValue",
+            "crypto_value"
+          ]
+        },
+        {
+          "key": "totalPnl",
+          "required": true,
+          "aliases": [
+            "totalPnl",
+            "total_pnl"
+          ]
+        },
+        {
+          "key": "notes",
+          "required": true,
+          "aliases": [
+            "notes",
+            "comment",
+            "заметки",
+            "комментарий"
+          ]
+        }
       ]
     },
     "Settings": {
-      "aliases": ["Settings"],
+      "aliases": [
+        "Settings"
+      ],
       "requiredForCanonical": true,
       "fields": [
-        { "key": "key", "required": true, "aliases": ["key", "setting", "name", "ключ"] },
-        { "key": "value", "required": true, "aliases": ["value", "значение"] }
+        {
+          "key": "key",
+          "required": true,
+          "aliases": [
+            "key",
+            "setting",
+            "name",
+            "ключ"
+          ]
+        },
+        {
+          "key": "value",
+          "required": true,
+          "aliases": [
+            "value",
+            "значение"
+          ]
+        }
       ]
     },
     "Audit_Log": {
-      "aliases": ["Audit_Log"],
+      "aliases": [
+        "Audit_Log"
+      ],
       "requiredForCanonical": true,
       "fields": [
-        { "key": "date", "required": true, "aliases": ["date", "datetime", "дата"] },
-        { "key": "userAction", "required": true, "aliases": ["userAction", "user_action", "action", "действие_пользователя"] },
-        { "key": "entityType", "required": true, "aliases": ["entityType", "entity_type", "тип_сущности"] },
-        { "key": "entityId", "required": true, "aliases": ["entityId", "entity_id", "id_сущности"] },
-        { "key": "before", "required": true, "aliases": ["before", "до"] },
-        { "key": "after", "required": true, "aliases": ["after", "после"] },
-        { "key": "notes", "required": true, "aliases": ["notes", "comment", "заметки", "комментарий"] }
+        {
+          "key": "date",
+          "required": true,
+          "aliases": [
+            "date",
+            "datetime",
+            "дата"
+          ]
+        },
+        {
+          "key": "userAction",
+          "required": true,
+          "aliases": [
+            "userAction",
+            "user_action",
+            "action",
+            "действие_пользователя"
+          ]
+        },
+        {
+          "key": "entityType",
+          "required": true,
+          "aliases": [
+            "entityType",
+            "entity_type",
+            "тип_сущности"
+          ]
+        },
+        {
+          "key": "entityId",
+          "required": true,
+          "aliases": [
+            "entityId",
+            "entity_id",
+            "id_сущности"
+          ]
+        },
+        {
+          "key": "before",
+          "required": true,
+          "aliases": [
+            "before",
+            "до"
+          ]
+        },
+        {
+          "key": "after",
+          "required": true,
+          "aliases": [
+            "after",
+            "после"
+          ]
+        },
+        {
+          "key": "notes",
+          "required": true,
+          "aliases": [
+            "notes",
+            "comment",
+            "заметки",
+            "комментарий"
+          ]
+        }
       ]
     }
   }

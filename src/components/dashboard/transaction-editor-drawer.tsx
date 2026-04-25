@@ -16,6 +16,7 @@ type TransactionEditorDrawerProps = {
   error: string | null;
   validationErrors: FieldError[];
   isSubmitting: boolean;
+  initialData?: Partial<FormState> | null;
   onClose: () => void;
   onSubmit: (payload: AdminTransactionMutationInput) => void;
 };
@@ -38,6 +39,20 @@ function buildDefaultDateValue() {
   return new Date(now.getTime() - timezoneOffsetMs).toISOString().slice(0, 16);
 }
 
+function buildInitialForm(initialData?: Partial<FormState> | null): FormState {
+  return {
+    date: initialData?.date ?? buildDefaultDateValue(),
+    assetType: initialData?.assetType ?? "cs2",
+    assetName: initialData?.assetName ?? "",
+    action: initialData?.action ?? "buy",
+    quantity: initialData?.quantity ?? "",
+    price: initialData?.price ?? "",
+    fees: initialData?.fees ?? "",
+    currency: initialData?.currency ?? "USD",
+    notes: initialData?.notes ?? "",
+  };
+}
+
 function parseOptionalNumber(value: string) {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -54,20 +69,11 @@ export function TransactionEditorDrawer({
   error,
   validationErrors,
   isSubmitting,
+  initialData,
   onClose,
   onSubmit,
 }: TransactionEditorDrawerProps) {
-  const [form, setForm] = useState<FormState>({
-    date: buildDefaultDateValue(),
-    assetType: "cs2",
-    assetName: "",
-    action: "buy",
-    quantity: "",
-    price: "",
-    fees: "",
-    currency: "USD",
-    notes: "",
-  });
+  const [form, setForm] = useState<FormState>(() => buildInitialForm(initialData));
   const [clientError, setClientError] = useState<string | null>(null);
 
   if (!open) {
@@ -295,3 +301,4 @@ export function TransactionEditorDrawer({
     </div>
   );
 }
+

@@ -3,7 +3,7 @@ import type {
   AssetCategory,
   Cs2AssetType,
   Cs2Position,
-  Cs2PriceConfidence,
+  PriceConfidence,
   TransactionAction,
 } from "@/types/portfolio";
 
@@ -46,7 +46,7 @@ const transactionActionLabels: Record<TransactionAction, string> = {
   fee: "Комиссия",
 };
 
-const confidenceLabels: Record<Cs2PriceConfidence, string> = {
+const confidenceLabels: Record<PriceConfidence, string> = {
   high: "Высокая",
   medium: "Средняя",
   low: "Низкая",
@@ -76,6 +76,7 @@ export function formatTransactionActionLabel(action: string) {
   return transactionActionLabels[action as TransactionAction] ?? action.replace(/_/g, " ");
 }
 
-export function formatPriceConfidenceLabel(confidence: Cs2PriceConfidence) {
+export function formatPriceConfidenceLabel(confidence: PriceConfidence) {
   return confidenceLabels[confidence] ?? confidence;
 }
+

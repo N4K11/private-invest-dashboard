@@ -7,17 +7,20 @@ import { CategoryPerformanceChart } from "@/components/dashboard/category-perfor
 import { CryptoPanel } from "@/components/dashboard/crypto-panel";
 import { Cs2Table } from "@/components/dashboard/cs2-table";
 import { Cs2TypeChart } from "@/components/dashboard/cs2-type-chart";
-import { PositionEditorDrawer, type AdminEditorState } from "@/components/dashboard/position-editor-drawer";
+import {
+  PositionEditorDrawer,
+  type AdminEditorState,
+} from "@/components/dashboard/position-editor-drawer";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { SummaryCard } from "@/components/dashboard/summary-card";
 import { TelegramGiftsList } from "@/components/dashboard/telegram-gifts-list";
 import { TransactionEditorDrawer } from "@/components/dashboard/transaction-editor-drawer";
 import { TransactionHistoryTable } from "@/components/dashboard/transaction-history-table";
-import { CATEGORY_META } from "@/lib/constants";
 import type {
   AdminMutationInput,
   AdminTransactionMutationInput,
 } from "@/lib/admin/schema";
+import { CATEGORY_META } from "@/lib/constants";
 import { formatCs2TypeLabel, formatLiquidityLabel } from "@/lib/presentation";
 import {
   formatCompactNumber,
@@ -25,7 +28,12 @@ import {
   formatPercent,
   formatRelativeTime,
 } from "@/lib/utils";
-import type { Cs2Position, PortfolioSnapshot, TopHolding } from "@/types/portfolio";
+import type {
+  Cs2Position,
+  PortfolioSnapshot,
+  TelegramGiftPosition,
+  TopHolding,
+} from "@/types/portfolio";
 
 type DashboardShellProps = {
   snapshot: PortfolioSnapshot;
@@ -43,6 +51,18 @@ type AdminMeta = {
 type ValidationError = {
   path: string;
   message: string;
+};
+
+type TransactionDrawerPrefill = {
+  date: string;
+  assetType: "cs2" | "telegram" | "crypto";
+  assetName: string;
+  action: "buy" | "sell" | "transfer" | "price_update" | "fee";
+  quantity: string;
+  price: string;
+  fees: string;
+  currency: string;
+  notes: string;
 };
 
 function HoldingsList({ holdings, currency }: { holdings: TopHolding[]; currency: string }) {
@@ -143,6 +163,29 @@ function getAdminModeLabel(mode: AdminMeta["mode"]) {
   return "Недоступно";
 }
 
+function buildDefaultDateValue() {
+  const now = new Date();
+  const timezoneOffsetMs = now.getTimezoneOffset() * 60_000;
+  return new Date(now.getTime() - timezoneOffsetMs).toISOString().slice(0, 16);
+}
+
+function buildTelegramPriceUpdatePrefill(
+  position: TelegramGiftPosition,
+  currency: string,
+): TransactionDrawerPrefill {
+  return {
+    date: buildDefaultDateValue(),
+    assetType: "telegram",
+    assetName: position.name,
+    action: "price_update",
+    quantity: "",
+    price: position.estimatedPrice !== null ? String(position.estimatedPrice) : "",
+    fees: "",
+    currency,
+    notes: `Price update для ${position.name}`,
+  };
+}
+
 export function DashboardShell({ snapshot }: DashboardShellProps) {
   const [currentSnapshot, setCurrentSnapshot] = useState(snapshot);
   const [isAdminMode, setIsAdminMode] = useState(false);
@@ -155,6 +198,8 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
   const [editorError, setEditorError] = useState<string | null>(null);
   const [editorValidationErrors, setEditorValidationErrors] = useState<ValidationError[]>([]);
   const [isTransactionDrawerOpen, setIsTransactionDrawerOpen] = useState(false);
+  const [transactionPrefill, setTransactionPrefill] = useState<TransactionDrawerPrefill | null>(null);
+  const [transactionDrawerRevision, setTransactionDrawerRevision] = useState(0);
   const [transactionError, setTransactionError] = useState<string | null>(null);
   const [transactionValidationErrors, setTransactionValidationErrors] = useState<ValidationError[]>([]);
   const [toast, setToast] = useState<{ tone: "success" | "error"; message: string } | null>(null);
@@ -244,7 +289,8 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
   }
 
   function openPositionEditor(state: AdminEditorState) {
-    setTransactionDrawerOpen(false);
+    toggleTransactionDrawer(false);
+    setTransactionPrefill(null);
     setTransactionError(null);
     setTransactionValidationErrors([]);
     setEditorError(null);
@@ -252,13 +298,21 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
     setEditorState(state);
   }
 
-  function setTransactionDrawerOpen(open: boolean) {
+  function toggleTransactionDrawer(open: boolean) {
     setIsTransactionDrawerOpen(open);
     if (open) {
       setEditorState(null);
       setEditorError(null);
       setEditorValidationErrors([]);
     }
+  }
+
+  function openTransactionDrawer(prefill: TransactionDrawerPrefill | null = null) {
+    setTransactionPrefill(prefill);
+    setTransactionError(null);
+    setTransactionValidationErrors([]);
+    setTransactionDrawerRevision((current) => current + 1);
+    toggleTransactionDrawer(true);
   }
 
   async function handleEditorSubmit(payload: AdminMutationInput) {
@@ -352,7 +406,8 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
       }
 
       await refreshSnapshot();
-      setTransactionDrawerOpen(false);
+      toggleTransactionDrawer(false);
+      setTransactionPrefill(null);
       setToast({
         tone: "success",
         message: "Транзакция сохранена и уже участвует в расчетах PnL/ROI.",
@@ -506,7 +561,7 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
                     <button type="button" onClick={() => openPositionEditor({ entityType: "crypto", operation: "create" })} disabled={!adminMeta?.canWrite} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white transition hover:bg-white/8 disabled:cursor-not-allowed disabled:opacity-40">
                       + Добавить Crypto
                     </button>
-                    <button type="button" onClick={() => setTransactionDrawerOpen(true)} disabled={!adminMeta?.canWrite} className="rounded-2xl border border-cyan-300/20 bg-cyan-300/10 px-4 py-3 text-sm font-medium text-cyan-100 transition hover:bg-cyan-300/16 disabled:cursor-not-allowed disabled:opacity-40">
+                    <button type="button" onClick={() => openTransactionDrawer()} disabled={!adminMeta?.canWrite} className="rounded-2xl border border-cyan-300/20 bg-cyan-300/10 px-4 py-3 text-sm font-medium text-cyan-100 transition hover:bg-cyan-300/16 disabled:cursor-not-allowed disabled:opacity-40">
                       + Добавить транзакцию
                     </button>
                   </div>
@@ -594,13 +649,17 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
           <section className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
             <SectionCard
               title="Подарки Telegram"
-              eyebrow="Оценка через TON"
-              description="Цены берутся из таблицы в TON и автоматически конвертируются в USD по live-курсу. Если есть transactions, они переопределяют cost basis и PnL."
+              eyebrow="Manual + semi-auto pricing"
+              description="Manual price, confidence, source note и last checked date живут прямо в sheet. Для semi-auto сценария подарки можно оценивать через TON c live-конвертацией, а историю price updates вести отдельными транзакциями."
             >
               <TelegramGiftsList
                 positions={currentSnapshot.telegramGifts.positions}
+                analytics={currentSnapshot.telegramGifts.analytics}
                 currency={currency}
                 adminEnabled={adminReady}
+                onQuickPriceUpdate={(position) => {
+                  openTransactionDrawer(buildTelegramPriceUpdatePrefill(position, currency));
+                }}
                 onEditPosition={(position) => {
                   openPositionEditor({
                     entityType: "telegram",
@@ -639,7 +698,7 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
               transactions={currentSnapshot.transactions.items}
               currency={currency}
               adminEnabled={adminReady}
-              onAddTransaction={() => setTransactionDrawerOpen(true)}
+              onAddTransaction={() => openTransactionDrawer()}
             />
           </SectionCard>
         </div>
@@ -670,7 +729,9 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
       ) : null}
 
       <TransactionEditorDrawer
+        key={transactionDrawerRevision}
         open={isTransactionDrawerOpen}
+        initialData={transactionPrefill}
         canWrite={Boolean(adminMeta?.canWrite)}
         error={transactionError}
         validationErrors={transactionValidationErrors}
@@ -680,7 +741,8 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
             return;
           }
 
-          setTransactionDrawerOpen(false);
+          toggleTransactionDrawer(false);
+          setTransactionPrefill(null);
           setTransactionError(null);
           setTransactionValidationErrors([]);
         }}
@@ -699,3 +761,7 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
     </>
   );
 }
+
+
+
+

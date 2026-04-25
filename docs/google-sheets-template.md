@@ -57,9 +57,11 @@ Optional but supported:
 - `liquidityNote`
 - `status`
 - `notes`
-- `lastUpdated`
+- `lastUpdated` (used as the last checked timestamp for the manual pricing workflow)
 
 Optional but supported:
+- `priceSource`
+- `sourceNote`
 - `price_ton`
 - `total_ton`
 
@@ -145,7 +147,7 @@ Admin mode writes into the matched working tab:
 - canonical tab if it already exists
 - legacy alias tab if the workbook is still on the old layout
 
-When saving, the write layer can automatically append missing canonical columns into the target sheet so that new admin fields such as `status`, `notes`, `lastUpdated`, `priceConfidence` or `walletNote` have a stable place to live.
+When saving, the write layer can automatically append missing canonical columns into the target sheet so that new admin fields such as `status`, `notes`, `lastUpdated`, `priceConfidence`, `sourceNote` or `walletNote` have a stable place to live.
 
 Every create/update action appends a row to `Audit_Log`.
 
@@ -179,9 +181,12 @@ A legacy workbook can be runtime-compatible even if canonical migration is still
 ## Notes
 - `currentPrice` is the preferred resolved current price from the sheet.
 - `manualCurrentPrice` is the manual fallback maintained by the operator.
-- For CS2, `lastUpdated` is now used to mark stale manual prices in the dashboard when the timestamp gets older than the configured threshold.
+- For CS2, `lastUpdated` is used to mark stale manual prices in the dashboard when the timestamp gets older than the configured threshold.
+- For Telegram Gifts, `lastUpdated` acts as the last manual price check date. The dashboard marks gifts as stale when it gets older than `TELEGRAM_PRICE_STALE_DAYS`.
 - Live providers such as CoinGecko or Steam Market may override sheet values at runtime, but the sheet still acts as the fallback layer.
 - Use `Settings.currency=USD` unless you explicitly want another reporting currency.
 - When you add new provider-specific columns, update both the normalizer and `scripts/validate-google-sheet.mjs`.
+
+
 
 
