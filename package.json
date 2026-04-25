@@ -9,9 +9,18 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "validate:sheets": "node scripts/validate-google-sheet.mjs",
-    "verify:bundle": "node scripts/verify-client-bundle.mjs"
+    "verify:bundle": "node scripts/verify-client-bundle.mjs",
+    "db:format": "prisma format --schema prisma/schema.prisma",
+    "db:validate": "prisma validate --schema prisma/schema.prisma",
+    "db:generate": "prisma generate --schema prisma/schema.prisma",
+    "db:migrate:dev": "prisma migrate dev --schema prisma/schema.prisma",
+    "db:migrate:deploy": "prisma migrate deploy --schema prisma/schema.prisma",
+    "db:push": "prisma db push --schema prisma/schema.prisma",
+    "db:seed": "node prisma/seed.mjs",
+    "db:studio": "prisma studio --schema prisma/schema.prisma"
   },
   "dependencies": {
+    "@prisma/client": "^7.8.0",
     "clsx": "^2.1.1",
     "googleapis": "^171.4.0",
     "lucide-react": "^1.11.0",
@@ -30,6 +39,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
+    "prisma": "^7.8.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

@@ -7,11 +7,14 @@ This project started as a private investment terminal for tracking CS2 items, Te
 - `src/app`: App Router pages and private API routes.
 - `src/components/dashboard`: UI blocks for cards, charts, tables, admin drawers and health views.
 - `src/lib/sheets`: Google Sheets / Drive workbook access, schema validation, normalization and write-back.
+- `src/lib/db`: typed database configuration helpers for the future SaaS runtime.
 - `src/lib/portfolio`: portfolio assembly, transaction accounting, metrics and risk analytics.
 - `src/lib/providers`: external price providers for crypto, CS2 and Telegram gifts.
 - `src/lib/cache`: in-memory cache with optional Redis REST shared cache.
 - `src/lib/security`: token validation, rate limiting and secure HTTP response helpers.
 - `src/types`: shared TypeScript contracts for portfolio and health payloads.
+- `prisma/schema.prisma`: PostgreSQL schema for the future SaaS data model.
+- `prisma.config.ts`: Prisma 7 datasource and migration configuration.
 
 ## Current Data Flow
 1. A private API route requests source data from `src/lib/sheets`.
@@ -33,18 +36,21 @@ This project started as a private investment terminal for tracking CS2 items, Te
 - Write path: admin actions write back to the source sheet/workbook and append `Audit_Log` rows.
 - Historical snapshots are stored in `Portfolio_History`.
 - Transaction-based accounting is stored in `Transactions`.
+- Prisma/PostgreSQL foundation is present in the repository, but it is not the active runtime source of truth yet.
 
 ## SaaS Direction
 The next architecture phase treats the current private dashboard as a legacy-compatible runtime inside a broader SaaS product.
 - Database-backed SaaS entities will become the long-term source of truth.
 - Google Sheets will remain supported as an integration adapter.
 - The hidden-route private dashboard will stay alive during the migration.
+- The Prisma schema already models users, workspaces, portfolios, assets, positions, transactions, integrations, subscriptions and audit logs for upcoming stages.
 
 ## Operational Notes
 - If the service account has only `Viewer`, the dashboard stays read-only.
 - Full admin mode requires `Editor` access on the source spreadsheet/workbook.
 - `scripts/validate-google-sheet.mjs` validates source structure against the canonical schema.
 - `scripts/verify-client-bundle.mjs` checks that secrets do not leak into client bundles.
+- Prisma commands require `DATABASE_URL`; `DIRECT_URL` remains optional for future split-connection setups, but the current legacy dashboard runtime does not require either.
 
 ## Main Docs
 - `README.md`: setup, env, deployment and provider guidance.
@@ -52,3 +58,4 @@ The next architecture phase treats the current private dashboard as a legacy-com
 - `docs/google-sheets-template.md`: canonical sheet layout.
 - `docs/SAAS_ARCHITECTURE.md`: target SaaS domain model and architectural boundaries.
 - `docs/MIGRATION_PRIVATE_TO_SAAS.md`: staged migration path from legacy private mode to SaaS.
+- `docs/DATABASE.md`: Prisma/PostgreSQL models, commands and migration notes.

@@ -1,0 +1,353 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum PortfolioVisibility {
+  PRIVATE
+  SHARED_LINK
+  WORKSPACE
+}
+
+enum AssetCategory {
+  CS2
+  TELEGRAM
+  CRYPTO
+  CUSTOM
+  NFT
+}
+
+enum PositionStatus {
+  ACTIVE
+  CLOSED
+  ARCHIVED
+}
+
+enum TransactionAction {
+  BUY
+  SELL
+  TRANSFER
+  PRICE_UPDATE
+  FEE
+  ADJUSTMENT
+}
+
+enum PriceSourceType {
+  MANUAL
+  GOOGLE_SHEETS
+  COINGECKO
+  STEAM_MARKET
+  CSFLOAT
+  PRICEEMPIRE
+  TELEGRAM_TON_CONVERSION
+  IMPORTED
+}
+
+enum IntegrationType {
+  GOOGLE_SHEETS
+  GOOGLE_DRIVE_WORKBOOK
+  CSV_UPLOAD
+  JSON_UPLOAD
+  STEAM_IMPORT
+  MANUAL
+}
+
+enum IntegrationMode {
+  IMPORT_ONLY
+  SYNC_READ
+  SYNC_READ_WRITE
+}
+
+enum IntegrationStatus {
+  ACTIVE
+  PAUSED
+  ERROR
+  DISCONNECTED
+}
+
+enum SubscriptionPlan {
+  FREE
+  PRO
+  WHALE
+  TEAM
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  INCOMPLETE
+}
+
+enum AuditActorType {
+  USER
+  SYSTEM
+  INTEGRATION
+}
+
+enum AuditSeverity {
+  INFO
+  WARNING
+  ERROR
+  CRITICAL
+}
+
+model User {
+  id              String            @id @default(cuid())
+  email           String            @unique
+  displayName     String?
+  timezone        String            @default("UTC")
+  locale          String?
+  isActive        Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  ownedWorkspaces Workspace[]       @relation("WorkspaceOwner")
+  memberships     WorkspaceMember[] @relation("WorkspaceMemberships")
+  auditLogs       AuditLog[]        @relation("AuditLogActor")
+
+  @@map("users")
+}
+
+model Workspace {
+  id              String            @id @default(cuid())
+  name            String
+  slug            String            @unique
+  ownerId         String
+  defaultCurrency String            @default("USD")
+  timezone        String            @default("UTC")
+  isArchived      Boolean           @default(false)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  owner           User              @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  members         WorkspaceMember[]
+  portfolios      Portfolio[]
+  assets          Asset[]
+  integrations    Integration[]
+  subscription    Subscription?
+  auditLogs       AuditLog[]
+
+  @@index([ownerId])
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  id          String        @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        WorkspaceRole @default(MEMBER)
+  status      String        @default("active")
+  joinedAt    DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User          @relation("WorkspaceMemberships", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId, role])
+  @@map("workspace_members")
+}
+
+model Portfolio {
+  id                  String              @id @default(cuid())
+  workspaceId         String
+  name                String
+  slug                String
+  visibility          PortfolioVisibility @default(PRIVATE)
+  baseCurrency        String              @default("USD")
+  riskProfile         String?             @default("balanced")
+  legacyPrivateSlug   String?             @unique
+  legacyAccessEnabled Boolean             @default(false)
+  isArchived          Boolean             @default(false)
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  workspace           Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  positions           Position[]
+  transactions        Transaction[]
+  priceSnapshots      PriceSnapshot[]
+  integrations        Integration[]
+  auditLogs           AuditLog[]
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId, visibility])
+  @@map("portfolios")
+}
+
+model Asset {
+  id             String          @id @default(cuid())
+  workspaceId    String
+  category       AssetCategory
+  name           String
+  symbol         String?
+  normalizedKey  String
+  externalSource String?
+  externalId     String?
+  metadata       Json?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  positions      Position[]
+  transactions   Transaction[]
+  priceSnapshots PriceSnapshot[]
+
+  @@unique([workspaceId, normalizedKey])
+  @@index([workspaceId, category])
+  @@index([externalSource, externalId])
+  @@map("assets")
+}
+
+model Position {
+  id                 String           @id @default(cuid())
+  portfolioId        String
+  assetId            String
+  integrationId      String?
+  quantity           Decimal          @db.Decimal(30, 10)
+  averageEntryPrice  Decimal?         @db.Decimal(20, 8)
+  currentPrice       Decimal?         @db.Decimal(20, 8)
+  manualCurrentPrice Decimal?         @db.Decimal(20, 8)
+  priceSource        PriceSourceType?
+  status             PositionStatus   @default(ACTIVE)
+  notes              String?
+  metadata           Json?
+  openedAt           DateTime?
+  closedAt           DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  portfolio          Portfolio        @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  asset              Asset            @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  integration        Integration?     @relation(fields: [integrationId], references: [id], onDelete: SetNull)
+
+  @@unique([portfolioId, assetId])
+  @@index([assetId, status])
+  @@index([integrationId])
+  @@map("positions")
+}
+
+model Transaction {
+  id                String            @id @default(cuid())
+  portfolioId       String
+  assetId           String
+  integrationId     String?
+  action            TransactionAction
+  occurredAt        DateTime
+  quantity          Decimal?          @db.Decimal(30, 10)
+  unitPrice         Decimal?          @db.Decimal(20, 8)
+  fees              Decimal?          @db.Decimal(20, 8)
+  currency          String?           @default("USD")
+  externalReference String?           @unique
+  notes             String?
+  metadata          Json?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  portfolio         Portfolio         @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  asset             Asset             @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  integration       Integration?      @relation(fields: [integrationId], references: [id], onDelete: SetNull)
+
+  @@index([portfolioId, occurredAt])
+  @@index([assetId, occurredAt])
+  @@index([integrationId])
+  @@map("transactions")
+}
+
+model PriceSnapshot {
+  id          String          @id @default(cuid())
+  portfolioId String
+  assetId     String
+  capturedAt  DateTime        @default(now())
+  currency    String          @default("USD")
+  price       Decimal         @db.Decimal(20, 8)
+  source      PriceSourceType
+  confidence  String?
+  metadata    Json?
+  createdAt   DateTime        @default(now())
+  portfolio   Portfolio       @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  asset       Asset           @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@unique([portfolioId, assetId, capturedAt, source])
+  @@index([portfolioId, capturedAt])
+  @@index([assetId, capturedAt])
+  @@map("price_snapshots")
+}
+
+model Integration {
+  id              String            @id @default(cuid())
+  workspaceId     String
+  portfolioId     String?
+  name            String
+  type            IntegrationType
+  mode            IntegrationMode   @default(SYNC_READ)
+  status          IntegrationStatus @default(ACTIVE)
+  config          Json
+  secretConfig    Json?
+  lastSyncedAt    DateTime?
+  lastSyncCursor  String?
+  lastSyncMessage String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  workspace       Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  portfolio       Portfolio?        @relation(fields: [portfolioId], references: [id], onDelete: SetNull)
+  positions       Position[]
+  transactions    Transaction[]
+  auditLogs       AuditLog[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId, type, status])
+  @@index([portfolioId])
+  @@map("integrations")
+}
+
+model Subscription {
+  id                    String             @id @default(cuid())
+  workspaceId           String             @unique
+  plan                  SubscriptionPlan   @default(FREE)
+  status                SubscriptionStatus @default(TRIALING)
+  billingProvider       String?
+  billingCustomerId     String?
+  billingSubscriptionId String?
+  seatCount             Int                @default(1)
+  currentPeriodStart    DateTime?
+  currentPeriodEnd      DateTime?
+  trialEndsAt           DateTime?
+  cancelAtPeriodEnd     Boolean            @default(false)
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  workspace             Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([plan, status])
+  @@map("subscriptions")
+}
+
+model AuditLog {
+  id            String         @id @default(cuid())
+  workspaceId   String
+  portfolioId   String?
+  userId        String?
+  integrationId String?
+  actorType     AuditActorType
+  action        String
+  entityType    String
+  entityId      String?
+  severity      AuditSeverity  @default(INFO)
+  message       String
+  payload       Json?
+  createdAt     DateTime       @default(now())
+  workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  portfolio     Portfolio?     @relation(fields: [portfolioId], references: [id], onDelete: SetNull)
+  user          User?          @relation("AuditLogActor", fields: [userId], references: [id], onDelete: SetNull)
+  integration   Integration?   @relation(fields: [integrationId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+  @@index([portfolioId, createdAt])
+  @@index([integrationId, createdAt])
+  @@map("audit_logs")
+}

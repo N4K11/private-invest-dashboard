@@ -7,6 +7,8 @@ Additional docs:
 - `DEPLOYMENT.md` for deployment notes
 - `docs/SAAS_ARCHITECTURE.md` for the target SaaS domain model
 - `docs/MIGRATION_PRIVATE_TO_SAAS.md` for the staged migration plan
+- `docs/DATABASE.md` for the Prisma/PostgreSQL foundation
+
 ## Current status
 Implemented right now:
 - hidden dashboard route: `/invest-dashboard/[PRIVATE_DASHBOARD_SLUG]`
@@ -33,6 +35,7 @@ Implemented right now:
 - premium loading skeletons, reusable empty states and route-level error boundary for the private dashboard
 - protected health actions for cache refresh, Google Sheet validation, snapshot creation and provider diagnostics
 - memory cache with optional Redis REST shared cache fallback plus rate limiting
+- Prisma/PostgreSQL SaaS database foundation with schema, seed script and migration docs
 - `robots.txt` and `noindex/nofollow` protection for the private surface
 
 ## Stack
@@ -43,6 +46,7 @@ Implemented right now:
 - Recharts
 - Google Sheets API (`googleapis`)
 - Google Drive API fallback for uploaded Excel workbooks
+- PostgreSQL + Prisma schema foundation for future SaaS mode
 - `xlsx` for workbook parsing and write-back
 - `zod` for env and admin payload validation
 
@@ -81,7 +85,9 @@ src/
     admin/
     auth/
     cache/
+    client/
     data/
+    db/
     health/
     portfolio/
     providers/
@@ -100,11 +106,21 @@ src/
       writeback.ts
   types/
     health.ts
+    portfolio.ts
 docs/
+  DATABASE.md
   google-sheets-template.md
+  MIGRATION_PRIVATE_TO_SAAS.md
+  SAAS_ARCHITECTURE.md
+prisma/
+  schema.prisma
+  seed.mjs
+prisma.config.ts
 scripts/
   validate-google-sheet.mjs
+  verify-client-bundle.mjs
 .env.example
+PROJECT_OVERVIEW.md
 README.md
 ```
 
@@ -114,6 +130,8 @@ Copy `.env.example` to `.env.local` and fill in:
 - `PRIVATE_DASHBOARD_SLUG`: long private route fragment
 - `DASHBOARD_SECRET_TOKEN`: token/password for the dashboard and API
 - `NEXT_PUBLIC_SITE_URL`: canonical domain for deployment
+- `DATABASE_URL`: PostgreSQL connection string for future SaaS/database-backed mode
+- `DIRECT_URL`: optional direct PostgreSQL connection string reserved for future split-connection tooling
 - `GOOGLE_SHEETS_SPREADSHEET_ID`: spreadsheet id or full Sheets URL
 - `GOOGLE_SERVICE_ACCOUNT_EMAIL`: Google service-account email
 - `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY`: service-account private key with `\n` escapes
@@ -134,6 +152,21 @@ Copy `.env.example` to `.env.local` and fill in:
 - `CACHE_REDIS_REST_URL`: optional Redis REST endpoint (Upstash/compatible)
 - `CACHE_REDIS_REST_TOKEN`: auth token for Redis REST
 - `CACHE_KEY_PREFIX`: namespace prefix for shared cache keys
+
+## Database foundation
+The repository now includes a Prisma/PostgreSQL schema for the future SaaS mode. The current private dashboard still works without database env vars and continues to use the Google Sheets integration path in production.
+
+Common commands:
+
+```bash
+npm run db:format
+npm run db:validate
+npm run db:generate
+npm run db:migrate:dev -- --name init_saas_foundation
+npm run db:seed
+```
+
+See [docs/DATABASE.md](docs/DATABASE.md) for model descriptions, migration flow, Prisma 7 config notes and production commands.
 
 ## Google Sheets setup
 1. Create or reuse a Google Cloud project.
