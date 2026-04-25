@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import type { ReactNode } from "react";
 
@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { href: "/app/portfolios", label: "Портфели", match: "prefix" },
   { href: "/app/import", label: "Импорт", match: "exact" },
   { href: "/app/alerts", label: "Алерты", match: "exact" },
+  { href: "/app/billing", label: "Биллинг", match: "exact" },
   { href: "/app/settings", label: "Настройки", match: "exact" },
 ] as const;
 

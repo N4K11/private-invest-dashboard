@@ -1,4 +1,4 @@
-﻿import "server-only";
+import "server-only";
 
 import { z } from "zod";
 
@@ -47,6 +47,12 @@ const envSchema = z
     ALERT_EMAIL_REPLY_TO: z.string().trim().optional(),
     RESEND_API_KEY: z.string().trim().optional(),
     ALERTS_CRON_SECRET: z.string().trim().optional(),
+    STRIPE_SECRET_KEY: z.string().trim().optional(),
+    STRIPE_WEBHOOK_SECRET: z.string().trim().optional(),
+    STRIPE_PRO_PRICE_ID: z.string().trim().optional(),
+    STRIPE_WHALE_PRICE_ID: z.string().trim().optional(),
+    STRIPE_TEAM_PRICE_ID: z.string().trim().optional(),
+    STRIPE_PORTAL_CONFIGURATION_ID: z.string().trim().optional(),
     NEXT_PUBLIC_SITE_URL: z.string().trim().optional(),
   })
   .superRefine((env, context) => {
@@ -87,6 +93,23 @@ const envSchema = z
         path: ["GOOGLE_SHEETS_SPREADSHEET_ID"],
         message:
           "Для live Google Sheets source нужен GOOGLE_SERVICE_ACCOUNT_JSON или пара GOOGLE_SERVICE_ACCOUNT_EMAIL / GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY.",
+      });
+    }
+
+    const hasAnyStripeConfig = Boolean(
+      env.STRIPE_SECRET_KEY ||
+        env.STRIPE_WEBHOOK_SECRET ||
+        env.STRIPE_PRO_PRICE_ID ||
+        env.STRIPE_WHALE_PRICE_ID ||
+        env.STRIPE_TEAM_PRICE_ID ||
+        env.STRIPE_PORTAL_CONFIGURATION_ID,
+    );
+
+    if (hasAnyStripeConfig && !env.STRIPE_SECRET_KEY) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["STRIPE_SECRET_KEY"],
+        message: "Для Stripe billing нужен STRIPE_SECRET_KEY.",
       });
     }
 
@@ -166,6 +189,12 @@ function parseEnvironment() {
     ALERT_EMAIL_REPLY_TO: process.env.ALERT_EMAIL_REPLY_TO,
     RESEND_API_KEY: process.env.RESEND_API_KEY,
     ALERTS_CRON_SECRET: process.env.ALERTS_CRON_SECRET,
+    STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
+    STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
+    STRIPE_PRO_PRICE_ID: process.env.STRIPE_PRO_PRICE_ID,
+    STRIPE_WHALE_PRICE_ID: process.env.STRIPE_WHALE_PRICE_ID,
+    STRIPE_TEAM_PRICE_ID: process.env.STRIPE_TEAM_PRICE_ID,
+    STRIPE_PORTAL_CONFIGURATION_ID: process.env.STRIPE_PORTAL_CONFIGURATION_ID,
     NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
   });
 }
@@ -231,4 +260,17 @@ export function isAlertEmailConfigured() {
 
 export function isAlertsCronConfigured() {
   return Boolean(getEnv().ALERTS_CRON_SECRET);
+}
+
+export function isStripeBillingConfigured() {
+  const env = getEnv();
+  return Boolean(
+    env.STRIPE_SECRET_KEY &&
+      (env.STRIPE_PRO_PRICE_ID || env.STRIPE_WHALE_PRICE_ID || env.STRIPE_TEAM_PRICE_ID),
+  );
+}
+
+export function isStripeWebhookConfigured() {
+  const env = getEnv();
+  return Boolean(env.STRIPE_SECRET_KEY && env.STRIPE_WEBHOOK_SECRET);
 }

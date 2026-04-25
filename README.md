@@ -14,6 +14,7 @@ Additional docs:
 - `docs/TELEGRAM_GIFTS_PRICING.md` for the SaaS Telegram Gifts OTC pricing workflow
 - `docs/ALERTS.md` for the SaaS alerts, email and cron workflow
 - `docs/AI_INSIGHTS.md` for the SaaS deterministic insights layer
+- `docs/BILLING.md` for Stripe Checkout, Customer Portal and webhook sync
 
 ## Current status
 Implemented right now:
@@ -50,6 +51,7 @@ Implemented right now:
 - SaaS portfolio detail pages now include analytics v1: historical value/PnL charts, asset-class drift, top positions, concentration risk and explainability based on positions + transactions + price snapshots
 - SaaS Alerts Center at /app/alerts with AlertRule / AlertEvent, manual evaluation, email provider abstraction and cron-ready /api/cron/alerts
 - SaaS portfolio detail pages now include a deterministic AI Insights layer with summary, risk, liquidity, concentration, snapshot-change and valuation-quality commentary plus a clear non-advice disclaimer
+- SaaS billing now includes `/app/billing`, Stripe Checkout, Stripe Customer Portal, webhook signature verification and subscription sync back into PostgreSQL
 - `robots.txt` and `noindex/nofollow` protection for the private surface
 
 ## Stack
@@ -64,6 +66,7 @@ Implemented right now:
 - xlsx-based CSV/Drive workbook parsing for the SaaS Import Center
 - `xlsx` for workbook parsing and write-back
 - `zod` for env and admin payload validation
+- Stripe Billing API via server-side REST + webhook HMAC verification
 
 ## Current scope
 This release is read/write-capable if the Google service account has `Editor` access to the spreadsheet or Drive workbook.
@@ -86,7 +89,10 @@ src/
     api/private/admin/positions
     api/private/admin/transactions
     api/private/admin/snapshots
+    api/app/billing
+    api/webhooks/stripe
     app
+    app/billing
     app/portfolios
     app/settings
     invest-dashboard/[dashboardSlug]
@@ -94,6 +100,7 @@ src/
     login
     register
   components/app/
+    billing-center.tsx
     manual-asset-manager.tsx
     saas-app-shell.tsx
   components/auth/
@@ -116,6 +123,8 @@ src/
   lib/
     admin/
     saas/
+      billing/
+      billing.ts
     auth/
     cache/
     client/
@@ -178,6 +187,8 @@ Copy `.env.example` to `.env.local` and fill in:
 - `CS2_PROVIDER_ORDER`: provider chain, e.g. `steam,manual` or `buff_proxy,steam,manual`
 - `CS2_PRICE_STALE_HOURS`: manual CS2 quote becomes stale after this many hours
 - `CS2_BUFF_PROXY_URL`: optional custom JSON endpoint for a Buff/manual proxy adapter
+- `CS2_BUFF_PROXY_TOKEN`: optional bearer token for the Buff/manual proxy endpoint
+- `CS2_FX_FALLBACK_RATES_JSON`: optional JSON map for quote-currency fallback conversion inside CS2 pricing
 - `CSFLOAT_API_KEY`: reserved for future direct CSFloat adapter
 - `PRICEMPIRE_API_KEY`: reserved for future direct PriceEmpire adapter
 - `TELEGRAM_PRICE_STALE_DAYS`: threshold for stale Telegram Gift prices based on last manual check date
@@ -195,6 +206,12 @@ Copy `.env.example` to `.env.local` and fill in:
 - `ALERT_EMAIL_REPLY_TO`: optional reply-to for alert emails
 - `RESEND_API_KEY`: API key for Resend delivery
 - `ALERTS_CRON_SECRET`: bearer secret for `/api/cron/alerts`
+- `STRIPE_SECRET_KEY`: Stripe secret key for hosted SaaS billing
+- `STRIPE_WEBHOOK_SECRET`: Stripe webhook signing secret for `/api/webhooks/stripe`
+- `STRIPE_PRO_PRICE_ID`: recurring Stripe price id for the Pro plan
+- `STRIPE_WHALE_PRICE_ID`: recurring Stripe price id for the Whale plan
+- `STRIPE_TEAM_PRICE_ID`: recurring Stripe price id for the Team plan
+- `STRIPE_PORTAL_CONFIGURATION_ID`: optional Stripe Customer Portal configuration id
 
 ## Database foundation
 The repository now includes a Prisma/PostgreSQL schema for the future SaaS mode. The current private dashboard still works without database env vars and continues to use the Google Sheets integration path in production.
@@ -307,6 +324,7 @@ Protected SaaS routes:
 - `/app/portfolios/[portfolioId]`
 - `/app/import` 
 - `/app/alerts`
+- `/app/billing`
 - `/app/settings`
 
 SaaS management API routes:
@@ -315,6 +333,8 @@ SaaS management API routes:
 - `PATCH /api/app/alerts/rules/[ruleId]` 
 - `DELETE /api/app/alerts/rules/[ruleId]` 
 - `POST /api/app/alerts/evaluate`
+- `POST /api/app/billing/checkout`
+- `POST /api/app/billing/portal`
 - `POST /api/app/import/preview`
 - `POST /api/app/import/commit`
 - `POST /api/app/workspaces/active`
@@ -325,6 +345,9 @@ SaaS management API routes:
 Public auth routes:
 - `/login`
 - `/register`
+
+Public billing webhook route:
+- `POST /api/webhooks/stripe`
 
 Manual flow:
 1. Set `DATABASE_URL` and `AUTH_SECRET` in `.env.local`.
@@ -341,6 +364,7 @@ Manual flow:
 12. For Telegram Gifts, use the dedicated OTC pricing block to save reviewed quotes, keep `PRICE_UPDATE` history and monitor outlier warnings.
 13. Use the analytics section on `/app/portfolios/[portfolioId]` to inspect value history, allocation drift, concentration risk, realized/unrealized PnL and valuation quality.
 14. Open `/app/alerts` to create alert rules, run manual evaluations and inspect delivery history.
+15. Open `/app/billing` to review plan limits, start Stripe Checkout and use Customer Portal after the first paid subscription is created.
 
 ## Manual Asset Manager
 Current SaaS portfolio detail pages now support direct database-backed position CRUD without Google Sheets. The manager is designed for owner/admin roles and writes through protected `/api/app` routes with rate limiting, audit log entries and automatic buy/sell transaction generation. See [docs/MANUAL_ASSETS.md](docs/MANUAL_ASSETS.md) for the exact flow and test cases.
@@ -350,6 +374,9 @@ Telegram Gifts in `/app/portfolios/[portfolioId]` now use a dedicated manual / O
 
 ## SaaS alerts & notifications
 SaaS workspaces now include an Alerts Center at `/app/alerts`. It manages `AlertRule` and `AlertEvent`, supports `price_above`, `price_below`, `portfolio_value_change`, `stale_price` and `concentration_risk`, and can deliver notifications through a provider abstraction (`noop` or `resend`). Manual checks run from the UI, while scheduled checks should hit `/api/cron/alerts` from Vercel Cron or VPS cron. See [docs/ALERTS.md](docs/ALERTS.md) for setup and examples.
+
+## SaaS billing
+Hosted SaaS billing now lives at `/app/billing`. It exposes the Free / Pro / Whale / Team plan catalog, workspace usage vs plan envelopes, Stripe Checkout, Stripe Customer Portal and a signed webhook route at `/api/webhooks/stripe` that syncs subscription state back into PostgreSQL. See [docs/BILLING.md](docs/BILLING.md) for env setup, Stripe CLI usage and webhook behavior.
 
 ## Local development
 ```bash

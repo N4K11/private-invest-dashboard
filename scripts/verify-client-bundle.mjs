@@ -1,4 +1,4 @@
-﻿import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
 const staticDir = path.resolve(process.cwd(), ".next", "static");
@@ -12,6 +12,8 @@ const forbiddenEnvKeys = [
   "CSFLOAT_API_KEY",
   "PRICEMPIRE_API_KEY",
   "CACHE_REDIS_REST_TOKEN",
+  "STRIPE_SECRET_KEY",
+  "STRIPE_WEBHOOK_SECRET",
 ];
 
 function walkFiles(rootDir) {
@@ -62,4 +64,3 @@ if (findings.length > 0) {
 }
 
 console.log(`Client bundle safety check passed across ${files.length} static files.`);
-

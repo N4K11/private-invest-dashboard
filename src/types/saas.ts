@@ -80,6 +80,68 @@ export type SaasWorkspaceOverview = {
   lastActivityAt: string | null;
   recentPortfolios: SaasPortfolioListItem[];
 };
+export type SaasSubscriptionPlan = "free" | "pro" | "whale" | "team";
+export type SaasSubscriptionStatus =
+  | "trialing"
+  | "active"
+  | "past_due"
+  | "canceled"
+  | "incomplete";
+
+export type SaasBillingUsageMetric = {
+  key: string;
+  label: string;
+  used: number;
+  limit: number | null;
+  remaining: number | null;
+  unit: string;
+};
+
+export type SaasBillingPlanCard = {
+  plan: SaasSubscriptionPlan;
+  label: string;
+  description: string;
+  monthlyPriceUsd: number;
+  seatsIncluded: number;
+  highlights: string[];
+  limits: {
+    portfolios: number | null;
+    positions: number | null;
+    integrations: number | null;
+    priceRefreshHours: number | null;
+    alerts: number | null;
+    historyRetentionDays: number | null;
+  };
+  stripePriceConfigured: boolean;
+  isCurrent: boolean;
+  canCheckout: boolean;
+};
+
+export type SaasWorkspaceBillingSummary = {
+  workspaceId: string;
+  workspaceName: string;
+  workspaceSlug: string;
+  role: SaasWorkspaceRole;
+  canManage: boolean;
+  providerConfigured: boolean;
+  webhookConfigured: boolean;
+  customerPortalReady: boolean;
+  currentSubscription: {
+    plan: SaasSubscriptionPlan;
+    status: SaasSubscriptionStatus;
+    billingProvider: string | null;
+    billingCustomerId: string | null;
+    billingSubscriptionId: string | null;
+    seatCount: number;
+    currentPeriodStart: string | null;
+    currentPeriodEnd: string | null;
+    trialEndsAt: string | null;
+    cancelAtPeriodEnd: boolean;
+  };
+  usage: SaasBillingUsageMetric[];
+  plans: SaasBillingPlanCard[];
+  warnings: string[];
+};
 
 export type SaasPortfolioListItem = {
   id: string;

@@ -11,7 +11,7 @@ This project started as a private investment terminal for tracking CS2 items, Te
 - `src/lib/db`: typed database configuration helpers and Prisma 7 lazy client for the SaaS runtime.
 - `src/lib/imports`: import preview, deduplication, parsing and commit services for the SaaS Import Center.
 - `src/lib/auth`: Auth.js credentials config, password helpers, registration bootstrap and workspace context access.
-- `src/lib/saas`: DB-backed workspace, portfolio, manual asset, analytics, alerts and deterministic insights services for the SaaS runtime.
+- `src/lib/saas`: DB-backed workspace, portfolio, manual asset, analytics, alerts, billing and deterministic insights services for the SaaS runtime.
 - `src/lib/notifications`: email provider abstraction for alerts and future outbound channels.
 - `src/lib/portfolio`: portfolio assembly, transaction accounting, metrics and risk analytics.
 - `src/lib/providers`: external price providers for crypto, CS2 and Telegram gifts.
@@ -40,7 +40,8 @@ This project started as a private investment terminal for tracking CS2 items, Te
 7. Workspace and portfolio CRUD flows through protected `/api/app/*` routes with auth, permissions and validation.
 8. SaaS valuation flows through a unified price engine that resolves quotes by asset class and persists `PriceSnapshot` rows.
 9. SaaS alert checks are exposed via `/api/app/alerts/evaluate` and `/api/cron/alerts`, while scheduling itself stays outside the app runtime.
-10. Secrets stay server-side in env variables and are never returned to the client bundle.
+10. SaaS billing routes `/api/app/billing/*` require auth + workspace permissions, while `/api/webhooks/stripe` stays public but verifies the Stripe signature before any subscription sync happens.
+11. Secrets stay server-side in env variables and are never returned to the client bundle.
 
 ## Current Persistence Model
 - Read path: Google Sheets API or Google Drive API + workbook parsing.
@@ -64,6 +65,7 @@ The next architecture phase treats the current private dashboard as a legacy-com
 - Stage 22 adds portfolio analytics v1 on the same SaaS detail page: history series, concentration analysis, top positions, realized/unrealized PnL and valuation explainability over positions + transactions + price snapshots.
 - Stage 23 adds `/app/alerts` with `AlertRule`, `AlertEvent`, email provider abstraction and cron-ready alert evaluation routes.
 - Stage 24 adds a prompt-safe AI Insights layer on `/app/portfolios/[portfolioId]` with deterministic summary, risk, liquidity, concentration, snapshot-change and valuation-quality commentary.
+- Stage 25 adds `/app/billing`, Stripe Checkout, Stripe Customer Portal, signed webhook sync and plan envelopes for Free / Pro / Whale / Team.
 - The Prisma schema already models users, workspaces, portfolios, assets, positions, transactions, integrations, subscriptions, audit logs and alerts for upcoming stages.
 
 ## Operational Notes
@@ -86,3 +88,4 @@ The next architecture phase treats the current private dashboard as a legacy-com
 - `docs/TELEGRAM_GIFTS_PRICING.md`: SaaS Telegram Gifts OTC pricing workflow and review rules.
 - `docs/ALERTS.md`: SaaS alert rules, email delivery and cron setup.
 - `docs/AI_INSIGHTS.md`: deterministic insights layer, prompt-safe context and future LLM extension point.
+- `docs/BILLING.md`: Stripe billing setup, webhook behavior and local Stripe CLI flow.
