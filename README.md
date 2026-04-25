@@ -11,6 +11,9 @@ Implemented right now:
 - automatic Drive-hosted Excel workbook fallback via `Google Drive API + xlsx`
 - canonical Google Sheets validator for tabs and required columns
 - summary cards, allocation charts, category charts and portfolio history performance charts
+- portfolio risk analytics with concentration, missing/stale price risk and liquidity signals
+- recommendation labels: `hold`, `watch`, `consider_trimming`, `needs_price_update`, `illiquid`
+- high-risk watchlist plus high-risk filter inside the CS2 registry
 - full CS2 table with search, filters, sorting, pagination and mobile cards
 - Telegram Gifts pricing workflow with manual price notes, stale warnings, analytics and quick price-update actions
 - crypto panel with CoinGecko live pricing and sheet fallback
@@ -18,7 +21,7 @@ Implemented right now:
 - protected admin mode with add/edit actions directly from the dashboard
 - transaction-driven PnL / ROI with cost basis, realized and unrealized PnL
 - transaction history table with filters by category, date, name and action
-- transaction form for buy / sell / transfer / price_update / fee
+- transaction form for `buy` / `sell` / `transfer` / `price_update` / `fee`
 - write-back to native Google Sheets and Drive-hosted Excel workbooks
 - Audit_Log append on every admin create/update action, including transactions and portfolio snapshots
 - simple in-memory cache and rate limiting
@@ -36,7 +39,7 @@ Implemented right now:
 - `zod` for env and admin payload validation
 
 ## Current scope
-This release is now read/write-capable if the Google service account has `Editor` access to the spreadsheet or Drive workbook.
+This release is read/write-capable if the Google service account has `Editor` access to the spreadsheet or Drive workbook.
 
 If the service account only has `Viewer`, the dashboard stays fully usable in read-only mode, but admin mode shows a clear write-permission error and does not save changes.
 
@@ -52,6 +55,8 @@ src/
     api/private/admin/snapshots
     invest-dashboard/[dashboardSlug]
   components/dashboard/
+    portfolio-risk-panel.tsx
+    recommendation-badge.tsx
     position-editor-drawer.tsx
     transaction-editor-drawer.tsx
     transaction-history-table.tsx
@@ -109,8 +114,6 @@ Copy `.env.example` to `.env.local` and fill in:
 - `RATE_LIMIT_WINDOW_SECONDS`: auth/API rate-limit window
 - `RATE_LIMIT_MAX_REQUESTS`: max requests per window
 
-No new env vars are required specifically for admin mode. The only operational requirement is `Editor` access for the service account.
-
 ## Google Sheets setup
 1. Create or reuse a Google Cloud project.
 2. Enable the Google Sheets API.
@@ -130,7 +133,7 @@ node --env-file=.env.local scripts/validate-google-sheet.mjs
 ## Sheet structure
 See [docs/google-sheets-template.md](docs/google-sheets-template.md).
 
-The project now distinguishes between:
+The project distinguishes between:
 - canonical schema: the target long-term tab and column structure
 - legacy compatibility: older workbooks that can still be loaded today
 
@@ -147,8 +150,8 @@ Current capabilities:
 - edit notes
 - edit `priceConfidence`, `sourceNote`, `liquidityNote` and last checked date for Telegram Gifts
 - add new CS2 / Telegram / Crypto positions
-- add transaction rows for uy, sell, 	ransfer, price_update, ee`r
-- create a daily portfolio snapshot in Portfolio_History with duplicate-day protection
+- add transaction rows for `buy`, `sell`, `transfer`, `price_update`, `fee`
+- create a daily portfolio snapshot in `Portfolio_History` with duplicate-day protection
 - transaction history filters by category, date, action and asset name
 - append every mutation to `Audit_Log`
 - support both canonical sheets and legacy alias tabs such as `CS2 Assets` / `Telegram Gifts`
@@ -160,6 +163,28 @@ Current safety behavior:
 - positions are not physically deleted by the UI
 - a second snapshot on the same date requires explicit confirmation and updates the existing row instead of creating silent duplicates
 - use `archived` or `dead` to retire a position without removing history
+
+## Risk analytics
+The dashboard now includes a portfolio-wide risk layer.
+
+Current signals:
+- concentration by category and by single position
+- missing price risk
+- stale price risk
+- low-liquidity / thin-market risk
+- manual or medium-confidence pricing risk
+- recommendation labels per position
+
+Current outputs:
+- portfolio risk score
+- narrative risk summary in plain text
+- category exposure blocks
+- top positions by value
+- top positions by quantity
+- high-risk watchlist
+- CS2 high-risk filter directly in the table
+
+The risk layer is intentionally analytical. It highlights where data quality, liquidity or concentration may require attention. It is not investment advice.
 
 ## Local development
 ```bash
@@ -224,7 +249,7 @@ This project currently uses Node-oriented server modules and `googleapis`, so Ve
 - secrets are not printed into logs or client bundles
 
 ## CS2 provider chain
-The CS2 pricing layer now uses a provider interface plus configurable chain resolution.
+The CS2 pricing layer uses a provider interface plus configurable chain resolution.
 
 Current built-in providers:
 - `steam`: Steam Community Market live search with caching and batch resolution
@@ -256,7 +281,7 @@ Expected `CS2_BUFF_PROXY_URL` response shape:
 ```
 
 ## Telegram Gifts pricing workflow
-Telegram Gifts now support a dedicated manual and semi-automatic pricing flow.
+Telegram Gifts support a dedicated manual and semi-automatic pricing flow.
 
 Current workflow:
 - `manualCurrentPrice` / `currentPrice` in the sheet for operator-entered prices
@@ -271,7 +296,7 @@ Future provider path:
 - later you can plug an external OTC / marketplace source without rewriting the dashboard shell
 
 ## Portfolio history snapshots
-Portfolio history is now based on the `Portfolio_History` sheet and the private route `POST /api/private/admin/snapshots`.
+Portfolio history is based on the `Portfolio_History` sheet and the private route `POST /api/private/admin/snapshots`.
 
 Current behavior:
 - admin mode has a `Create snapshot now` action
@@ -309,8 +334,3 @@ npm run typecheck
 npm run lint
 npm run build
 ```
-
-
-
-
-

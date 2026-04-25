@@ -10,6 +10,7 @@ export const DASHBOARD_COOKIE_NAME = "invest_dashboard_session";
 export const DASHBOARD_SLUG_PLACEHOLDER = "setup-required";
 
 export const DEFAULT_CURRENCY = "USD";
+export const PORTFOLIO_HIGH_RISK_SCORE = 62;
 
 export const CATEGORY_META: Record<
   AssetCategory,

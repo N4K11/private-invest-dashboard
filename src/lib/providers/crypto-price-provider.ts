@@ -102,6 +102,7 @@ export async function resolveCryptoPositions(rows: NormalizedCryptoRow[]) {
       unrealizedPnl: metrics.pnl,
       fees: 0,
       transactionCount: 0,
+      riskScore: 0,
       walletNote: row.walletNote ?? null,
       status: row.status ?? null,
       lastUpdated: row.lastUpdated ?? null,
@@ -113,6 +114,10 @@ export async function resolveCryptoPositions(rows: NormalizedCryptoRow[]) {
           : "entry_price_fallback",
       isLivePrice: quote?.isLive ?? false,
       rowRef: row.sheetRef,
+      portfolioWeight: 0,
+      recommendation: "hold",
+      riskSummary: "Portfolio risk будет рассчитан после сборки общего snapshot.",
+      riskFactors: [],
     };
   });
 
@@ -127,3 +132,4 @@ export async function resolveCryptoPositions(rows: NormalizedCryptoRow[]) {
     warnings,
   };
 }
+

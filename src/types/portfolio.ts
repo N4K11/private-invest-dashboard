@@ -14,6 +14,12 @@ export type TransactionAction = "buy" | "sell" | "transfer" | "price_update" | "
 export type PriceConfidence = "high" | "medium" | "low";
 export type Cs2PriceConfidence = PriceConfidence;
 export type TelegramPriceConfidence = PriceConfidence;
+export type PositionRecommendation =
+  | "hold"
+  | "watch"
+  | "consider_trimming"
+  | "needs_price_update"
+  | "illiquid";
 
 export interface SheetRowRef {
   sheetName: string;
@@ -87,6 +93,41 @@ export interface PortfolioPnlHistoryDatum {
   totalPnl: number;
 }
 
+export interface CategoryExposureDatum {
+  category: AssetCategory;
+  label: string;
+  value: number;
+  weight: number;
+  color: string;
+}
+
+export interface PortfolioRiskPosition {
+  id: string;
+  name: string;
+  category: AssetCategory;
+  quantity: number;
+  value: number;
+  weight: number;
+  riskScore: number;
+  recommendation: PositionRecommendation;
+  riskSummary: string;
+  riskFactors: string[];
+}
+
+export interface PortfolioRiskAnalytics {
+  portfolioRiskScore: number;
+  portfolioRiskSummary: string;
+  maxPositionWeight: number;
+  highRiskCount: number;
+  missingPriceCount: number;
+  stalePriceCount: number;
+  illiquidCount: number;
+  topByValue: PortfolioRiskPosition[];
+  topByQuantity: PortfolioRiskPosition[];
+  highRiskPositions: PortfolioRiskPosition[];
+  categoryExposure: CategoryExposureDatum[];
+}
+
 export interface SummaryCardDatum {
   id: string;
   label: string;
@@ -146,6 +187,10 @@ export interface Cs2Position {
   notes: string | null;
   rowRef: SheetRowRef | null;
   isPriceEstimated: boolean;
+  portfolioWeight: number;
+  recommendation: PositionRecommendation;
+  riskSummary: string;
+  riskFactors: string[];
 }
 
 export interface TelegramGiftPosition {
@@ -167,6 +212,7 @@ export interface TelegramGiftPosition {
   unrealizedPnl: number;
   fees: number;
   transactionCount: number;
+  riskScore: number;
   priceConfidence: TelegramPriceConfidence | null;
   priceSourceNote: string | null;
   priceLastCheckedAt: string | null;
@@ -178,6 +224,10 @@ export interface TelegramGiftPosition {
   notes: string | null;
   priceSource: string;
   rowRef: SheetRowRef | null;
+  portfolioWeight: number;
+  recommendation: PositionRecommendation;
+  riskSummary: string;
+  riskFactors: string[];
 }
 
 export interface CryptoPosition {
@@ -197,6 +247,7 @@ export interface CryptoPosition {
   unrealizedPnl: number;
   fees: number;
   transactionCount: number;
+  riskScore: number;
   walletNote: string | null;
   status: string | null;
   lastUpdated: string | null;
@@ -204,6 +255,10 @@ export interface CryptoPosition {
   priceSource: string;
   isLivePrice: boolean;
   rowRef: SheetRowRef | null;
+  portfolioWeight: number;
+  recommendation: PositionRecommendation;
+  riskSummary: string;
+  riskFactors: string[];
 }
 
 export interface TransactionRecord {
@@ -252,6 +307,7 @@ export interface PortfolioCharts {
 
 export interface PortfolioSnapshot {
   summary: PortfolioSummary;
+  risk: PortfolioRiskAnalytics;
   history: {
     items: PortfolioHistoryRecord[];
     hasHistory: boolean;

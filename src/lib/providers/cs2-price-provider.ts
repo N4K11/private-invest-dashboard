@@ -172,6 +172,10 @@ export async function resolveCs2Positions(rows: NormalizedCs2Row[]) {
       notes: item.row.notes,
       rowRef: item.row.sheetRef,
       isPriceEstimated: item.currentPrice === null,
+      portfolioWeight: 0,
+      recommendation: "hold",
+      riskSummary: "Portfolio risk будет рассчитан после сборки общего snapshot.",
+      riskFactors: [],
     };
   });
 
@@ -203,3 +207,4 @@ export async function resolveCs2Positions(rows: NormalizedCs2Row[]) {
     warnings,
   };
 }
+

@@ -1,5 +1,9 @@
 ﻿import { DEFAULT_CURRENCY } from "@/lib/constants";
-import { buildCategoryBreakdown, buildTopHoldings } from "@/lib/portfolio/metrics";
+import {
+  buildCategoryBreakdown,
+  buildPortfolioRiskAnalytics,
+  buildTopHoldings,
+} from "@/lib/portfolio/metrics";
 import {
   buildTransactionRecords,
   computeAssetAccounting,
@@ -410,7 +414,6 @@ function buildTelegramGiftAnalytics(
   };
 }
 
-
 export async function buildPortfolioSnapshotFromSource(
   source: SnapshotBuildSource,
 ): Promise<PortfolioSnapshot> {
@@ -426,16 +429,16 @@ export async function buildPortfolioSnapshotFromSource(
   const accountedTelegram = applyAccountingToTelegram(telegramResult.positions, rawTransactions);
   const accountedCrypto = applyAccountingToCrypto(cryptoResult.positions, rawTransactions);
 
-  const cs2Positions = accountedCs2.positions.sort((left, right) => right.totalValue - left.totalValue);
-  const telegramPositions = accountedTelegram.positions.sort(
+  const sortedCs2Positions = accountedCs2.positions.sort((left, right) => right.totalValue - left.totalValue);
+  const sortedTelegramPositions = accountedTelegram.positions.sort(
     (left, right) => right.totalValue - left.totalValue,
   );
-  const cryptoPositions = accountedCrypto.positions.sort((left, right) => right.totalValue - left.totalValue);
+  const sortedCryptoPositions = accountedCrypto.positions.sort((left, right) => right.totalValue - left.totalValue);
 
   const breakdown = buildCategoryBreakdown({
-    cs2Positions,
-    telegramPositions,
-    cryptoPositions,
+    cs2Positions: sortedCs2Positions,
+    telegramPositions: sortedTelegramPositions,
+    cryptoPositions: sortedCryptoPositions,
   });
 
   const totalValue = breakdown.reduce((sum, item) => sum + item.value, 0);
@@ -447,6 +450,19 @@ export async function buildPortfolioSnapshotFromSource(
   const totalInvestedCapital =
     accountedCs2.investedCapital + accountedTelegram.investedCapital + accountedCrypto.investedCapital;
   const totalRoi = totalInvestedCapital > 0 ? (totalPnl / totalInvestedCapital) * 100 : null;
+
+  const risk = buildPortfolioRiskAnalytics({
+    cs2Positions: sortedCs2Positions,
+    telegramPositions: sortedTelegramPositions,
+    cryptoPositions: sortedCryptoPositions,
+    breakdown,
+    totalValue,
+  });
+
+  const cs2Positions = risk.cs2Positions.sort((left, right) => right.totalValue - left.totalValue);
+  const telegramPositions = risk.telegramPositions.sort((left, right) => right.totalValue - left.totalValue);
+  const cryptoPositions = risk.cryptoPositions.sort((left, right) => right.totalValue - left.totalValue);
+
   const positionsCount = cs2Positions.length + telegramPositions.length + cryptoPositions.length;
   const itemsCount = breakdown.reduce((sum, item) => sum + item.items, 0);
   const topHoldings = buildTopHoldings({
@@ -491,6 +507,7 @@ export async function buildPortfolioSnapshotFromSource(
       ],
       availableSheets: source.workbook.availableSheets,
     },
+    risk: risk.analytics,
     history: {
       items: historyItems,
       hasHistory: historyItems.length > 0,
@@ -538,5 +555,3 @@ export async function getPortfolioSnapshot(): Promise<PortfolioSnapshot> {
   const source = await getPortfolioSource();
   return buildPortfolioSnapshotFromSource(source);
 }
-
-

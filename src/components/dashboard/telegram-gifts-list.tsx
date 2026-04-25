@@ -2,12 +2,19 @@
 
 import type { ReactNode } from "react";
 
+import { RecommendationBadge } from "@/components/dashboard/recommendation-badge";
+import { isPositionHighRisk } from "@/lib/portfolio/metrics";
 import {
   formatPriceConfidenceLabel,
   formatPriceSourceLabel,
   formatTransactionActionLabel,
 } from "@/lib/presentation";
-import { formatCurrency, formatNumber, formatRelativeTime } from "@/lib/utils";
+import {
+  formatCurrency,
+  formatNumber,
+  formatPercent,
+  formatRelativeTime,
+} from "@/lib/utils";
 import type { TelegramGiftAnalytics, TelegramGiftPosition } from "@/types/portfolio";
 
 type TelegramGiftsListProps = {
@@ -38,7 +45,11 @@ function ActionButton({
     <button
       type="button"
       onClick={onClick}
-      className={tone === "accent" ? "rounded-2xl border border-cyan-300/20 bg-cyan-300/10 px-3 py-2 text-xs font-medium text-cyan-100 transition hover:bg-cyan-300/16" : "rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-white transition hover:bg-white/8"}
+      className={
+        tone === "accent"
+          ? "rounded-2xl border border-cyan-300/20 bg-cyan-300/10 px-3 py-2 text-xs font-medium text-cyan-100 transition hover:bg-cyan-300/16"
+          : "rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-white transition hover:bg-white/8"
+      }
     >
       {label}
     </button>
@@ -89,7 +100,9 @@ function SmallList({
     <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
       <p className="text-xs uppercase tracking-[0.24em] text-slate-400">{title}</p>
       <p className="mt-2 text-sm leading-6 text-slate-400">{description}</p>
-      <div className="mt-4 space-y-3">{items.length > 0 ? items : <p className="text-sm text-slate-500">Пока пусто.</p>}</div>
+      <div className="mt-4 space-y-3">
+        {items.length > 0 ? items : <p className="text-sm text-slate-500">Пока пусто.</p>}
+      </div>
     </div>
   );
 }
@@ -102,6 +115,10 @@ export function TelegramGiftsList({
   onEditPosition,
   onQuickPriceUpdate,
 }: TelegramGiftsListProps) {
+  const highRiskCount = positions.filter((position) =>
+    isPositionHighRisk(position.riskScore, position.recommendation),
+  ).length;
+
   return (
     <div className="space-y-5">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -116,9 +133,9 @@ export function TelegramGiftsList({
           hint={`${positions.length.toLocaleString("ru-RU")} позиций в этом сегменте.`}
         />
         <AnalyticsCard
-          label="Низкая уверенность"
-          value={formatNumber(analytics.lowConfidencePricing.length, 0)}
-          hint="Подарки без уверенной оценки или с low confidence."
+          label="High-risk gifts"
+          value={formatNumber(highRiskCount, 0)}
+          hint="Позиции с stale/manual-risk сигналами или заметной концентрацией."
         />
         <AnalyticsCard
           label="Устаревшие цены"
@@ -150,7 +167,10 @@ export function TelegramGiftsList({
                 <p className="truncate font-medium text-white">{position.name}</p>
                 <p className="mt-1 text-xs text-slate-400">{position.collection ?? "Без коллекции"}</p>
               </div>
-              <p className="shrink-0 font-medium text-white">{formatCurrency(position.totalValue, currency, 2)}</p>
+              <div className="shrink-0 text-right">
+                <p className="font-medium text-white">{formatCurrency(position.totalValue, currency, 2)}</p>
+                <p className="mt-1 text-xs text-slate-400">{formatPercent(position.portfolioWeight)}</p>
+              </div>
             </div>
           ))}
         />
@@ -230,9 +250,9 @@ export function TelegramGiftsList({
                     {position.priceConfidence ? formatPriceConfidenceLabel(position.priceConfidence) : "Confidence не задан"} · проверено {formatCheckedAt(position.priceLastCheckedAt)}
                   </p>
                 </div>
-                <div className="text-right">
-                  <p className="font-medium text-white">{formatCurrency(position.totalValue, currency, 2)}</p>
-                  <p className="mt-1 text-xs text-slate-400">{formatNumber(position.quantity, 0)} шт.</p>
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                  <RecommendationBadge recommendation={position.recommendation} />
+                  <p className="text-xs text-slate-400">Риск {position.riskScore}</p>
                 </div>
               </div>
               <div className="mt-4 grid grid-cols-2 gap-3">
@@ -245,10 +265,11 @@ export function TelegramGiftsList({
                   </p>
                 </div>
                 <div className="rounded-2xl border border-white/8 bg-white/5 px-3 py-3">
-                  <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Коллекция</p>
-                  <p className="mt-2 text-white">{position.collection ?? "—"}</p>
+                  <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Вес в портфеле</p>
+                  <p className="mt-2 text-white">{formatPercent(position.portfolioWeight)}</p>
                 </div>
               </div>
+              <p className="mt-4 text-sm leading-6 text-slate-300/82">{position.riskSummary}</p>
               {position.priceWarning ? (
                 <p className="mt-4 rounded-2xl border border-amber-300/15 bg-amber-300/8 px-3 py-3 text-xs leading-5 text-amber-100/90">
                   {position.priceWarning}
@@ -282,12 +303,12 @@ export function TelegramGiftsList({
       </div>
 
       <div className="hidden overflow-hidden rounded-2xl border border-white/10 bg-slate-950/30 lg:block">
-        <div className="grid grid-cols-[1.35fr_0.7fr_0.9fr_1fr_1.15fr_0.95fr] gap-3 border-b border-white/10 px-4 py-3 text-xs uppercase tracking-[0.22em] text-slate-400">
+        <div className="grid grid-cols-[1.35fr_0.7fr_0.9fr_1fr_1.2fr_1fr] gap-3 border-b border-white/10 px-4 py-3 text-xs uppercase tracking-[0.22em] text-slate-400">
           <span>Название</span>
           <span>Кол-во</span>
           <span>Цена</span>
-          <span>Цена и check</span>
-          <span>Source note</span>
+          <span>Риск</span>
+          <span>Summary</span>
           <span>Действие</span>
         </div>
         <div className="max-h-[520px] overflow-y-auto">
@@ -299,10 +320,13 @@ export function TelegramGiftsList({
             positions.map((position) => (
               <div
                 key={position.id}
-                className="grid grid-cols-[1.35fr_0.7fr_0.9fr_1fr_1.15fr_0.95fr] gap-3 border-b border-white/6 px-4 py-4 text-sm text-slate-200 last:border-b-0"
+                className="grid grid-cols-[1.35fr_0.7fr_0.9fr_1fr_1.2fr_1fr] gap-3 border-b border-white/6 px-4 py-4 text-sm text-slate-200 last:border-b-0"
               >
                 <div>
-                  <p className="font-medium text-white">{position.name}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium text-white">{position.name}</p>
+                    <RecommendationBadge recommendation={position.recommendation} />
+                  </div>
                   <p className="mt-1 text-xs uppercase tracking-[0.18em] text-cyan-200/55">
                     {formatPriceSourceLabel(position.priceSource)}
                   </p>
@@ -312,23 +336,26 @@ export function TelegramGiftsList({
                   ) : null}
                 </div>
                 <span>{formatNumber(position.quantity, 0)}</span>
-                <span>
-                  {position.estimatedPrice !== null
-                    ? formatCurrency(position.estimatedPrice, currency, 2)
-                    : "—"}
-                </span>
                 <div>
-                  <p className="text-white">
+                  <p>
+                    {position.estimatedPrice !== null
+                      ? formatCurrency(position.estimatedPrice, currency, 2)
+                      : "—"}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-400">{formatPercent(position.portfolioWeight)}</p>
+                </div>
+                <div>
+                  <p className="text-white">Риск {position.riskScore}</p>
+                  <p className="mt-1 text-xs text-slate-400">
                     {position.priceConfidence ? formatPriceConfidenceLabel(position.priceConfidence) : "Confidence не задан"}
                   </p>
-                  <p className="mt-1 text-xs text-slate-400">Проверено {formatCheckedAt(position.priceLastCheckedAt)}</p>
                   <p className={position.isPriceStale ? "mt-2 text-xs text-rose-200/85" : "mt-2 text-xs text-emerald-200/80"}>
                     {position.isPriceStale ? "Нужен новый price check" : "Цена свежая"}
                   </p>
                 </div>
                 <div className="text-slate-400">
-                  <p>{position.priceSourceNote ?? "—"}</p>
-                  <p className="mt-2 text-xs text-slate-500">{position.notes ?? ""}</p>
+                  <p className="text-sm leading-6 text-slate-300/86">{position.riskSummary}</p>
+                  <p className="mt-2 text-xs text-slate-500">{position.priceSourceNote ?? position.notes ?? "—"}</p>
                 </div>
                 <div className="flex flex-col items-end gap-2">
                   <ActionButton
@@ -351,6 +378,4 @@ export function TelegramGiftsList({
     </div>
   );
 }
-
-
 

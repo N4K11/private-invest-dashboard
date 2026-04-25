@@ -10,6 +10,7 @@ import { Cs2Table } from "@/components/dashboard/cs2-table";
 import { Cs2TypeChart } from "@/components/dashboard/cs2-type-chart";
 import { PortfolioPnlHistoryChart } from "@/components/dashboard/portfolio-pnl-history-chart";
 import { PortfolioValueHistoryChart } from "@/components/dashboard/portfolio-value-history-chart";
+import { PortfolioRiskPanel } from "@/components/dashboard/portfolio-risk-panel";
 import {
   PositionEditorDrawer,
   type AdminEditorState,
@@ -695,6 +696,20 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
               <SummaryCard key={card.id} card={card} currency={currency} />
             ))}
           </section>
+
+          <SectionCard
+            title="Риск, концентрация и ликвидность"
+            eyebrow="Risk engine"
+            description="Единый слой аналитики по концентрации капитала, missing/stale pricing, ликвидности и manual confidence. Это сигналы для приоритизации внимания, а не автосовет на сделку."
+            aside={
+              <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200">
+                Score {currentSnapshot.risk.portfolioRiskScore}/100
+              </div>
+            }
+          >
+            <PortfolioRiskPanel risk={currentSnapshot.risk} currency={currency} />
+          </SectionCard>
+
           <section className="grid gap-6 xl:grid-cols-3">
             <SectionCard
               title="Стоимость портфеля по времени"
@@ -911,3 +926,6 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
     </>
   );
 }
+
+
+

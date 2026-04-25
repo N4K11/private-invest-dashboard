@@ -3,6 +3,7 @@ import type {
   AssetCategory,
   Cs2AssetType,
   Cs2Position,
+  PositionRecommendation,
   PriceConfidence,
   TransactionAction,
 } from "@/types/portfolio";
@@ -52,6 +53,14 @@ const confidenceLabels: Record<PriceConfidence, string> = {
   low: "Низкая",
 };
 
+const recommendationLabels: Record<PositionRecommendation, string> = {
+  hold: "Держать",
+  watch: "Наблюдать",
+  consider_trimming: "Сократить долю",
+  needs_price_update: "Обновить цену",
+  illiquid: "Неликвид",
+};
+
 export function formatCs2TypeLabel(type: string) {
   return cs2TypeLabels[type as Cs2AssetType] ?? type;
 }
@@ -78,5 +87,9 @@ export function formatTransactionActionLabel(action: string) {
 
 export function formatPriceConfidenceLabel(confidence: PriceConfidence) {
   return confidenceLabels[confidence] ?? confidence;
+}
+
+export function formatRecommendationLabel(recommendation: PositionRecommendation) {
+  return recommendationLabels[recommendation] ?? recommendation.replace(/_/g, " ");
 }
 

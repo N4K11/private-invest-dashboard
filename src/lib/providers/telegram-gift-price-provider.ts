@@ -239,6 +239,7 @@ export async function resolveTelegramGiftPositions(rows: NormalizedTelegramGiftR
       unrealizedPnl: metrics.pnl,
       fees: 0,
       transactionCount: 0,
+      riskScore: 0,
       priceConfidence,
       priceSourceNote,
       priceLastCheckedAt,
@@ -250,6 +251,10 @@ export async function resolveTelegramGiftPositions(rows: NormalizedTelegramGiftR
       notes: row.notes ?? null,
       priceSource: quote?.sourceId ?? row.priceSource ?? "missing",
       rowRef: row.sheetRef,
+      portfolioWeight: 0,
+      recommendation: "hold",
+      riskSummary: "Portfolio risk будет рассчитан после сборки общего snapshot.",
+      riskFactors: [],
     };
   });
 
@@ -279,3 +284,4 @@ export async function resolveTelegramGiftPositions(rows: NormalizedTelegramGiftR
     warnings,
   };
 }
+

@@ -2,7 +2,9 @@
 
 import { startTransition, useDeferredValue, useMemo, useState } from "react";
 
+import { RecommendationBadge } from "@/components/dashboard/recommendation-badge";
 import { CS2_TYPE_OPTIONS } from "@/lib/constants";
+import { isPositionHighRisk } from "@/lib/portfolio/metrics";
 import {
   formatCs2TypeLabel,
   formatLiquidityLabel,
@@ -19,6 +21,7 @@ import type { Cs2Position } from "@/types/portfolio";
 
 type SortKey = "value" | "quantity" | "pnl" | "risk" | "name";
 type SortDirection = "asc" | "desc";
+type RiskFilter = "all" | "high-risk";
 
 type Cs2TableProps = {
   positions: Cs2Position[];
@@ -103,25 +106,31 @@ export function Cs2Table({
   const [typeFilter, setTypeFilter] = useState<(typeof CS2_TYPE_OPTIONS)[number]["value"]>(
     "all",
   );
+  const [riskFilter, setRiskFilter] = useState<RiskFilter>("all");
   const [sortKey, setSortKey] = useState<SortKey>("value");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [page, setPage] = useState(1);
 
   const deferredQuery = useDeferredValue(query);
+  const highRiskCount = positions.filter((position) =>
+    isPositionHighRisk(position.riskScore, position.recommendation),
+  ).length;
 
   const filteredPositions = useMemo(() => {
     const normalizedQuery = deferredQuery.trim().toLowerCase();
 
     const next = positions.filter((position) => {
       const matchesType = typeFilter === "all" || position.type === typeFilter;
+      const matchesRisk =
+        riskFilter === "all" || isPositionHighRisk(position.riskScore, position.recommendation);
       const matchesQuery =
         normalizedQuery.length === 0 || position.name.toLowerCase().includes(normalizedQuery);
 
-      return matchesType && matchesQuery;
+      return matchesType && matchesRisk && matchesQuery;
     });
 
     return sortPositions(next, sortKey, sortDirection);
-  }, [deferredQuery, positions, sortDirection, sortKey, typeFilter]);
+  }, [deferredQuery, positions, riskFilter, sortDirection, sortKey, typeFilter]);
 
   const pageSize = 30;
   const pageCount = Math.max(1, Math.ceil(filteredPositions.length / pageSize));
@@ -134,7 +143,7 @@ export function Cs2Table({
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[1.5fr_0.85fr_0.85fr_0.72fr]">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[1.4fr_0.82fr_0.82fr_0.82fr_0.72fr]">
           <div className="space-y-2">
             <label className="text-xs uppercase tracking-[0.24em] text-slate-400">Поиск</label>
             <input
@@ -164,6 +173,26 @@ export function Cs2Table({
                   {option.label}
                 </option>
               ))}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs uppercase tracking-[0.24em] text-slate-400">
+              Риск-фильтр
+            </label>
+            <select
+              value={riskFilter}
+              onChange={(event) => {
+                setRiskFilter(event.target.value as RiskFilter);
+                startTransition(() => setPage(1));
+              }}
+              className="w-full rounded-2xl border border-white/12 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/50"
+            >
+              <option value="all" className="bg-slate-950">
+                Все позиции
+              </option>
+              <option value="high-risk" className="bg-slate-950">
+                Только high-risk
+              </option>
             </select>
           </div>
           <div className="space-y-2">
@@ -216,6 +245,9 @@ export function Cs2Table({
           <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
             {filteredPositions.length.toLocaleString("ru-RU")} совпадений
           </span>
+          <span className="rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1.5 text-amber-100">
+            {highRiskCount.toLocaleString("ru-RU")} high-risk
+          </span>
           <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
             Страница {safePage}/{pageCount}
           </span>
@@ -237,18 +269,26 @@ export function Cs2Table({
                 <div className="min-w-0">
                   <p className="font-medium text-white">{position.name}</p>
                   <p className="mt-1 text-xs uppercase tracking-[0.18em] text-cyan-200/55">
-                    {formatPriceSourceLabel(position.priceSource)} · {formatPriceConfidenceLabel(position.priceConfidence)} confidence
+                    {formatPriceSourceLabel(position.priceSource)}
                   </p>
-                  {position.priceWarning ? (
-                    <p className="mt-2 text-xs text-amber-200/90">{position.priceWarning}</p>
-                  ) : null}
                 </div>
-                <span
-                  className={`shrink-0 rounded-full border px-2.5 py-1 text-xs ${liquidityTone[position.liquidityLabel]}`}
-                >
-                  {formatLiquidityLabel(position.liquidityLabel)}
-                </span>
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                  <span
+                    className={`rounded-full border px-2.5 py-1 text-xs ${liquidityTone[position.liquidityLabel]}`}
+                  >
+                    {formatLiquidityLabel(position.liquidityLabel)}
+                  </span>
+                  <RecommendationBadge recommendation={position.recommendation} />
+                </div>
               </div>
+
+              {position.priceWarning ? (
+                <p className="mt-3 rounded-2xl border border-amber-300/15 bg-amber-300/8 px-3 py-3 text-xs leading-5 text-amber-200/90">
+                  {position.priceWarning}
+                </p>
+              ) : null}
+
+              <p className="mt-3 text-sm leading-6 text-slate-300/82">{position.riskSummary}</p>
 
               <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
                 <div className="rounded-2xl border border-white/8 bg-white/5 px-3 py-3">
@@ -273,6 +313,7 @@ export function Cs2Table({
                 <div className="rounded-2xl border border-white/8 bg-white/5 px-3 py-3">
                   <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Стоимость</p>
                   <p className="mt-2 text-white">{formatCurrency(position.totalValue, currency, 2)}</p>
+                  <p className="mt-2 text-xs text-slate-400">{formatPercent(position.portfolioWeight)}</p>
                 </div>
               </div>
 
@@ -286,7 +327,7 @@ export function Cs2Table({
                 </div>
                 <div className="text-right text-xs text-slate-400">
                   <p>Риск {position.riskScore}</p>
-                  <p className="mt-1">{position.market ?? "Источник: таблица"}</p>
+                  <p className="mt-1">{formatPriceConfidenceLabel(position.priceConfidence)} confidence</p>
                 </div>
               </div>
 
@@ -306,15 +347,15 @@ export function Cs2Table({
       </div>
 
       <div className="hidden overflow-hidden rounded-2xl border border-white/10 bg-slate-950/35 lg:block">
-        <div className="grid grid-cols-[1.75fr_0.75fr_0.8fr_1.1fr_1fr_1fr_0.95fr_0.9fr_0.9fr] gap-3 border-b border-white/10 px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">
+        <div className="grid grid-cols-[1.95fr_0.7fr_0.8fr_1.05fr_0.9fr_1fr_0.95fr_1.15fr_0.9fr] gap-3 border-b border-white/10 px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">
           <span>Позиция</span>
           <span>Тип</span>
           <span>Кол-во</span>
-          <span>Ценовой статус</span>
-          <span>Текущая</span>
+          <span>Цена</span>
           <span>Стоимость</span>
           <span>PnL</span>
           <span>Ликвидность</span>
+          <span>Сигнал</span>
           <span>Действие</span>
         </div>
         <div className="max-h-[720px] overflow-y-auto">
@@ -326,13 +367,17 @@ export function Cs2Table({
             visiblePositions.map((position) => (
               <div
                 key={position.id}
-                className="grid grid-cols-[1.75fr_0.75fr_0.8fr_1.1fr_1fr_1fr_0.95fr_0.9fr_0.9fr] gap-3 border-b border-white/6 px-4 py-4 text-sm text-slate-200 last:border-b-0"
+                className="grid grid-cols-[1.95fr_0.7fr_0.8fr_1.05fr_0.9fr_1fr_0.95fr_1.15fr_0.9fr] gap-3 border-b border-white/6 px-4 py-4 text-sm text-slate-200 last:border-b-0"
               >
                 <div>
-                  <p className="font-medium text-white">{position.name}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium text-white">{position.name}</p>
+                    <RecommendationBadge recommendation={position.recommendation} />
+                  </div>
                   <p className="mt-1 text-xs uppercase tracking-[0.18em] text-cyan-200/55">
                     {formatPriceSourceLabel(position.priceSource)}
                   </p>
+                  <p className="mt-2 text-xs leading-5 text-slate-400">{position.riskSummary}</p>
                   {position.priceWarning ? (
                     <p className="mt-2 text-xs text-amber-200/90">{position.priceWarning}</p>
                   ) : null}
@@ -340,17 +385,22 @@ export function Cs2Table({
                 <span className="text-slate-300">{formatCs2TypeLabel(position.type)}</span>
                 <span>{formatNumber(position.quantity, 0)}</span>
                 <div>
-                  <p className="text-white">{formatPriceConfidenceLabel(position.priceConfidence)} confidence</p>
+                  <p className="text-white">
+                    {position.currentPrice !== null
+                      ? formatCurrency(position.currentPrice, currency, 2)
+                      : "—"}
+                  </p>
                   <p className="mt-1 text-xs text-slate-400">
+                    {formatPriceConfidenceLabel(position.priceConfidence)} confidence
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
                     {formatPriceAge(position.priceLastUpdated) ?? "Нет timestamp"}
                   </p>
                 </div>
-                <span>
-                  {position.currentPrice !== null
-                    ? formatCurrency(position.currentPrice, currency, 2)
-                    : "—"}
-                </span>
-                <span>{formatCurrency(position.totalValue, currency, 2)}</span>
+                <div>
+                  <p className="text-white">{formatCurrency(position.totalValue, currency, 2)}</p>
+                  <p className="mt-1 text-xs text-slate-400">{formatPercent(position.portfolioWeight)}</p>
+                </div>
                 <span className={position.pnl >= 0 ? "text-emerald-300" : "text-rose-300"}>
                   <span>{formatCurrency(position.pnl, currency, 2)}</span>
                   <span className="mt-1 block text-xs opacity-80">
@@ -365,6 +415,10 @@ export function Cs2Table({
                   </span>
                   <span className="mt-2 block text-xs text-slate-400">Риск {position.riskScore}</span>
                 </span>
+                <div>
+                  <p className="text-white">{position.market ?? "Sheet / fallback"}</p>
+                  <p className="mt-1 text-xs text-slate-400">Статус: {position.status ?? "—"}</p>
+                </div>
                 <div className="flex justify-end">
                   <EditButton
                     visible={adminEnabled && Boolean(onEditPosition)}
@@ -398,3 +452,4 @@ export function Cs2Table({
     </div>
   );
 }
+
