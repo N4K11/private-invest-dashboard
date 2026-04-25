@@ -5,7 +5,8 @@ Private Next.js dashboard for tracking CS2 / Steam items, Telegram Gifts and cry
 Additional docs:
 - `PROJECT_OVERVIEW.md` for a short architecture overview
 - `DEPLOYMENT.md` for deployment notes
-
+- `docs/SAAS_ARCHITECTURE.md` for the target SaaS domain model
+- `docs/MIGRATION_PRIVATE_TO_SAAS.md` for the staged migration plan
 ## Current status
 Implemented right now:
 - hidden dashboard route: `/invest-dashboard/[PRIVATE_DASHBOARD_SLUG]`
@@ -378,8 +379,3 @@ npm run typecheck
 npm run lint
 npm run build
 ```
-
-
-
-
-
