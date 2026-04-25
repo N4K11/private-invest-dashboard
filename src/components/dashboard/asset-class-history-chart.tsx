@@ -29,6 +29,7 @@ type AssetClassHistoryChartProps = {
 
 export function AssetClassHistoryChart({ data, currency }: AssetClassHistoryChartProps) {
   const isMounted = useSyncExternalStore(subscribe, () => true, () => false);
+  const hasOtherSeries = data.some((entry) => (entry.otherValue ?? 0) > 0);
 
   if (!isMounted) {
     return <ChartSurfaceSkeleton />;
@@ -38,7 +39,7 @@ export function AssetClassHistoryChart({ data, currency }: AssetClassHistoryChar
     return (
       <HistoryEmptyState
         title="Нет данных по классам активов"
-        description="После первого snapshot график покажет, как CS2, Telegram Gifts и крипта меняют долю в портфеле по времени."
+        description="Как только в системе появятся исторические snapshots или текущая точка оценки, график покажет, как классы активов меняют долю во времени."
       />
     );
   }
@@ -59,6 +60,10 @@ export function AssetClassHistoryChart({ data, currency }: AssetClassHistoryChar
             <linearGradient id="history-crypto" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#f3b23a" stopOpacity={0.45} />
               <stop offset="95%" stopColor="#f3b23a" stopOpacity={0.06} />
+            </linearGradient>
+            <linearGradient id="history-other" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#94a3b8" stopOpacity={0.4} />
+              <stop offset="95%" stopColor="#94a3b8" stopOpacity={0.05} />
             </linearGradient>
           </defs>
           <CartesianGrid stroke="rgba(148,163,184,0.1)" vertical={false} />
@@ -84,6 +89,9 @@ export function AssetClassHistoryChart({ data, currency }: AssetClassHistoryChar
           <Area type="monotone" dataKey="cs2Value" name="CS2" stroke="#3d8bff" fill="url(#history-cs2)" strokeWidth={2.5} />
           <Area type="monotone" dataKey="telegramValue" name="Telegram" stroke="#00d1a0" fill="url(#history-telegram)" strokeWidth={2.5} />
           <Area type="monotone" dataKey="cryptoValue" name="Crypto" stroke="#f3b23a" fill="url(#history-crypto)" strokeWidth={2.5} />
+          {hasOtherSeries ? (
+            <Area type="monotone" dataKey="otherValue" name="Other" stroke="#94a3b8" fill="url(#history-other)" strokeWidth={2.5} />
+          ) : null}
         </AreaChart>
       </ResponsiveContainer>
     </div>

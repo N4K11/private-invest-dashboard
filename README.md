@@ -45,6 +45,7 @@ Implemented right now:
 - unified SaaS price engine for `/app`, `/app/portfolios` and `/app/portfolios/[portfolioId]` with provider-based valuation, snapshot storage and normalized price confidence states
 - SaaS CS2 coverage now reuses the real shared provider chain (`steam -> buff_proxy -> manual`) with canonical name matching, stale warnings and optional FX fallback conversion
 - SaaS Telegram Gifts now have a dedicated OTC price workflow with `PRICE_UPDATE` history, review reminders and outlier detection inside `/app/portfolios/[portfolioId]`
+- SaaS portfolio detail pages now include analytics v1: historical value/PnL charts, asset-class drift, top positions, concentration risk and explainability based on positions + transactions + price snapshots
 - `robots.txt` and `noindex/nofollow` protection for the private surface
 
 ## Stack
@@ -324,6 +325,7 @@ Manual flow:
 10. Open `/app/portfolios/[portfolioId]` to inspect imported DB-backed positions and recent activity state.
 11. Use the Manual Asset Manager on the same page to add, edit or delete manual holdings and verify auto-generated buy/sell transactions.
 12. For Telegram Gifts, use the dedicated OTC pricing block to save reviewed quotes, keep `PRICE_UPDATE` history and monitor outlier warnings.
+13. Use the analytics section on `/app/portfolios/[portfolioId]` to inspect value history, allocation drift, concentration risk, realized/unrealized PnL and valuation quality.
 
 ## Manual Asset Manager
 Current SaaS portfolio detail pages now support direct database-backed position CRUD without Google Sheets. The manager is designed for owner/admin roles and writes through protected `/api/app` routes with rate limiting, audit log entries and automatic buy/sell transaction generation. See [docs/MANUAL_ASSETS.md](docs/MANUAL_ASSETS.md) for the exact flow and test cases.
@@ -489,6 +491,7 @@ npm run typecheck
 npm run lint
 npm run build
 ```
+
 
 
 

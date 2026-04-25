@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { ManualAssetManager } from "@/components/app/manual-asset-manager";
+import { PortfolioAnalyticsPanel } from "@/components/app/portfolio-analytics-panel";
 import { TelegramGiftPricingPanel } from "@/components/app/telegram-gift-pricing-panel";
 import { AllocationChart } from "@/components/dashboard/allocation-chart";
 import { CategoryPerformanceChart } from "@/components/dashboard/category-performance-chart";
@@ -162,6 +163,14 @@ export default async function PortfolioDetailPage({
           />
         </SectionCard>
       </section>
+
+      <SectionCard
+        eyebrow="Analytics v1"
+        title="Portfolio analytics"
+        description="DB-backed analytics layer поверх positions, transactions и price snapshots: история стоимости, allocation drift, concentration risk и explainability по valuation quality."
+      >
+        <PortfolioAnalyticsPanel analytics={portfolio.analytics} currency={portfolio.baseCurrency} />
+      </SectionCard>
 
       <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
         <SectionCard
@@ -325,3 +334,4 @@ export default async function PortfolioDetailPage({
     </main>
   );
 }
+

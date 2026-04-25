@@ -13,6 +13,7 @@ import {
 } from "@/lib/auth/workspace";
 import { CATEGORY_META } from "@/lib/constants";
 import { getPrismaClient } from "@/lib/db/client";
+import { buildSaasPortfolioAnalytics } from "@/lib/saas/portfolio-analytics";
 import { getManualStaleAfterMs, isTimestampStale } from "@/lib/saas/price-engine/utils";
 import type {
   PortfolioCreateInput,
@@ -373,6 +374,46 @@ export async function getPortfolioDetailForUser(
   const totalPnl = pricedPortfolio.totalPnl;
   const roi = totalCost > 0 ? (totalPnl / totalCost) * 100 : null;
 
+  const [analyticsTransactions, analyticsSnapshots] = await Promise.all([
+    prisma.transaction.findMany({
+      where: {
+        portfolioId: portfolio.id,
+      },
+      orderBy: [{ occurredAt: "asc" }],
+      select: {
+        assetId: true,
+        action: true,
+        occurredAt: true,
+        quantity: true,
+        unitPrice: true,
+        fees: true,
+      },
+    }),
+    prisma.priceSnapshot.findMany({
+      where: {
+        portfolioId: portfolio.id,
+      },
+      orderBy: [{ capturedAt: "asc" }],
+      select: {
+        assetId: true,
+        capturedAt: true,
+        price: true,
+        asset: {
+          select: {
+            category: true,
+          },
+        },
+      },
+    }),
+  ]);
+
+  const analytics = buildSaasPortfolioAnalytics({
+    baseCurrency: portfolio.baseCurrency,
+    positions,
+    transactions: analyticsTransactions,
+    snapshots: analyticsSnapshots,
+  });
+
   const telegramAssetIds = portfolio.positions
     .filter((position) => position.asset.category === "TELEGRAM")
     .map((position) => position.assetId);
@@ -479,6 +520,10 @@ export async function getPortfolioDetailForUser(
   }
 
   for (const warning of pricedPortfolio.warnings) {
+    warnings.add(warning);
+  }
+
+  for (const warning of analytics.warnings) {
     warnings.add(warning);
   }
 
@@ -612,6 +657,7 @@ export async function getPortfolioDetailForUser(
     positions,
     recentTransactions,
     warnings: [...warnings],
+    analytics,
     telegramPricing,
     integrationSummary: portfolio.integrations.map((integration) => ({
       id: integration.id,
@@ -664,3 +710,4 @@ export async function listPortfoliosForWorkspace(
 
   return Promise.all(portfolios.map((portfolio) => computePortfolioListItem(portfolio)));
 }
+

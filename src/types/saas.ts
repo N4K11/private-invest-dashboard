@@ -1,6 +1,9 @@
 ﻿import type {
   AllocationDatum,
+  AssetClassHistoryDatum,
   CategoryPerformanceDatum,
+  PortfolioPnlHistoryDatum,
+  PortfolioValueHistoryDatum,
   SummaryCardDatum,
 } from "@/types/portfolio";
 
@@ -23,6 +26,13 @@ export type SaasPriceConfidenceStatus =
   | "manual_low"
   | "stale"
   | "unknown";
+export type SaasAnalyticsRiskFlag =
+  | "concentration"
+  | "stale_price"
+  | "low_confidence"
+  | "missing_price"
+  | "negative_pnl"
+  | "low_liquidity";
 
 export type SaasWorkspaceMembership = {
   workspaceId: string;
@@ -151,6 +161,45 @@ export type SaasTelegramGiftPricingRow = {
   history: SaasTelegramGiftPriceHistoryRow[];
 };
 
+export type SaasPortfolioAnalyticsPosition = {
+  positionId: string;
+  assetId: string;
+  assetName: string;
+  category: SaasAssetCategory;
+  value: number;
+  weight: number;
+  totalPnl: number;
+  realizedPnl: number;
+  unrealizedPnl: number;
+  roi: number | null;
+  priceConfidenceStatus: SaasPriceConfidenceStatus;
+  liquidity: SaasManualAssetLiquidity | null;
+  riskFlags: SaasAnalyticsRiskFlag[];
+  explainability: string[];
+};
+
+export type SaasPortfolioAnalytics = {
+  cards: SummaryCardDatum[];
+  realizedPnl: number;
+  unrealizedPnl: number;
+  totalRoi: number | null;
+  winPositions: number;
+  lossPositions: number;
+  stalePriceCount: number;
+  lowConfidenceValuationCount: number;
+  concentrationRisk: {
+    maxPositionWeight: number;
+    topThreeWeight: number;
+    summary: string;
+  };
+  topPositions: SaasPortfolioAnalyticsPosition[];
+  riskWatchlist: SaasPortfolioAnalyticsPosition[];
+  totalValueHistory: PortfolioValueHistoryDatum[];
+  assetClassHistory: AssetClassHistoryDatum[];
+  totalPnlHistory: PortfolioPnlHistoryDatum[];
+  warnings: string[];
+};
+
 export type SaasPortfolioDetail = {
   id: string;
   workspaceId: string;
@@ -179,6 +228,7 @@ export type SaasPortfolioDetail = {
   positions: SaasPortfolioPositionRow[];
   recentTransactions: SaasPortfolioTransactionRow[];
   warnings: string[];
+  analytics: SaasPortfolioAnalytics;
   telegramPricing: {
     positionCount: number;
     totalValue: number;

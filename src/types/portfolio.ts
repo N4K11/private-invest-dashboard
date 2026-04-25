@@ -86,6 +86,7 @@ export interface AssetClassHistoryDatum {
   cs2Value: number;
   telegramValue: number;
   cryptoValue: number;
+  otherValue?: number;
 }
 
 export interface PortfolioPnlHistoryDatum {
@@ -331,3 +332,4 @@ export interface PortfolioSnapshot {
   charts: PortfolioCharts;
   settings: Record<string, string>;
 }
+

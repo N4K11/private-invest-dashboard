@@ -57,6 +57,7 @@ The next architecture phase treats the current private dashboard as a legacy-com
 - Stage 19 adds a unified SaaS price engine with provider contracts, confidence states, snapshot persistence and category-specific TTL handling.
 - Stage 20 connects SaaS CS2 valuation to the shared provider chain with canonical name matching, stale warnings and optional FX fallback conversion for proxy quotes.
 - Stage 21 adds a dedicated Telegram Gifts OTC pricing workflow with price history, review reminders and outlier detection on `/app/portfolios/[portfolioId]`.
+- Stage 22 adds portfolio analytics v1 on the same SaaS detail page: history series, concentration analysis, top positions, realized/unrealized PnL and valuation explainability over positions + transactions + price snapshots.
 - The Prisma schema already models users, workspaces, portfolios, assets, positions, transactions, integrations, subscriptions and audit logs for upcoming stages.
 
 ## Operational Notes
@@ -76,6 +77,7 @@ The next architecture phase treats the current private dashboard as a legacy-com
 - `docs/IMPORTS.md`: supported import sources, deduplication and manual test flow.
 - `docs/PRICE_ENGINE.md`: unified SaaS valuation engine, providers, TTL rules and snapshot behavior.
 - `docs/TELEGRAM_GIFTS_PRICING.md`: SaaS Telegram Gifts OTC pricing workflow and review rules.
+
 
 
 
