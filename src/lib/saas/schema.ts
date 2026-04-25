@@ -1,4 +1,6 @@
-﻿import { z } from "zod";
+import { z } from "zod";
+
+import { PASSWORD_MIN_LENGTH } from "@/lib/auth/password";
 
 const currencySchema = z
   .string()
@@ -267,6 +269,49 @@ export const alertRuleCreateSchema = z
 
 export const alertRuleUpdateSchema = alertRuleCreateSchema;
 
+const optionalFutureIsoDateTimeSchema = z
+  .string()
+  .trim()
+  .optional()
+  .or(z.literal(""))
+  .refine((value) => !value || Number.isFinite(Date.parse(value)), {
+    message: "Provide a valid expiration date.",
+  })
+  .refine((value) => !value || new Date(value).getTime() > Date.now(), {
+    message: "Expiration date must be in the future.",
+  })
+  .transform((value) => (value ? new Date(value).toISOString() : undefined));
+
+const optionalSharePasswordSchema = z
+  .string()
+  .trim()
+  .optional()
+  .or(z.literal(""))
+  .refine((value) => !value || value.length >= PASSWORD_MIN_LENGTH, {
+    message: `Password must be at least ${PASSWORD_MIN_LENGTH} characters long.`,
+  })
+  .refine((value) => !value || value.length <= 128, {
+    message: "Password is too long.",
+  })
+  .transform((value) => value || undefined);
+
+export const shareLinkCreateSchema = z.object({
+  label: z
+    .string()
+    .trim()
+    .min(2, "Share link label is too short.")
+    .max(80, "Share link label is too long.")
+    .optional()
+    .or(z.literal(""))
+    .transform((value) => value || undefined),
+  password: optionalSharePasswordSchema,
+  expiresAt: optionalFutureIsoDateTimeSchema,
+  hideValues: z.boolean().default(false),
+  hideQuantities: z.boolean().default(false),
+  hidePnl: z.boolean().default(false),
+  allocationOnly: z.boolean().default(false),
+});
+
 export const alertEvaluationSchema = z.object({
   workspaceId: z.string().trim().min(1, "Workspace id is required."),
 });
@@ -281,3 +326,4 @@ export type TelegramGiftPriceUpdateInput = z.infer<typeof telegramGiftPriceUpdat
 export type AlertRuleCreateInput = z.infer<typeof alertRuleCreateSchema>;
 export type AlertRuleUpdateInput = z.infer<typeof alertRuleUpdateSchema>;
 export type AlertEvaluationInput = z.infer<typeof alertEvaluationSchema>;
+export type ShareLinkCreateInput = z.infer<typeof shareLinkCreateSchema>;

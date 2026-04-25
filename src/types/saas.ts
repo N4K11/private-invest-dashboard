@@ -361,6 +361,69 @@ export type SaasPortfolioDetail = {
   }[];
 };
 
+
+export type SaasPortfolioShareScope = {
+  hideValues: boolean;
+  hideQuantities: boolean;
+  hidePnl: boolean;
+  allocationOnly: boolean;
+};
+
+export type SaasPortfolioShareLink = {
+  id: string;
+  label: string | null;
+  sharePath: string;
+  shareUrl: string;
+  requiresPassword: boolean;
+  expiresAt: string | null;
+  revokedAt: string | null;
+  lastAccessedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  status: "active" | "expired" | "revoked";
+  scope: SaasPortfolioShareScope;
+};
+
+export type SaasSharedPortfolioPositionRow = {
+  id: string;
+  assetId: string;
+  assetName: string;
+  symbol: string | null;
+  category: SaasAssetCategory;
+  quantity: number | null;
+  currentPrice: number | null;
+  totalValue: number | null;
+  pnl: number | null;
+  priceSource: string | null;
+  priceUpdatedAt: string | null;
+  priceWarning: string | null;
+};
+
+export type SaasSharedAllocationRow = {
+  category: SaasAssetCategory;
+  label: string;
+  weight: number;
+  color: string;
+  value: number | null;
+};
+
+export type SaasSharedPortfolioView = {
+  shareToken: string;
+  shareLabel: string | null;
+  portfolioName: string;
+  workspaceName: string;
+  baseCurrency: string;
+  updatedAt: string;
+  expiresAt: string | null;
+  scope: SaasPortfolioShareScope;
+  summaryCards: SummaryCardDatum[];
+  allocation: SaasSharedAllocationRow[];
+  positions: SaasSharedPortfolioPositionRow[];
+  positionCount: number;
+  valueVisibility: "visible" | "hidden";
+  quantityVisibility: "visible" | "hidden";
+  pnlVisibility: "visible" | "hidden";
+};
 export type SaasPortfolioInsightCategory =
   | "summary"
   | "risk"

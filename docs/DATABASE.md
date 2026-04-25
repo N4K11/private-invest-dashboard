@@ -97,8 +97,17 @@ Workspace billing state.
 ### AuditLog
 Append-only event history for privileged changes, syncs and system actions.
 
+### ShareLink
+Public read-only sharing envelope for a portfolio.
+- unique share token
+- optional password hash
+- hide values / quantities / PnL flags
+- allocation-only mode
+- expiration, revocation and last access timestamps
+
 ## Current Schema Notes
 - table names are mapped to plural SQL tables such as `users`, `workspaces`, `transactions`
+- `share_links` stores public read-only share tokens per portfolio with masking and expiry metadata
 - the schema is intentionally SaaS-first, even though runtime routes are still legacy-first today
 - Google Sheets is modeled as an integration type, not as the permanent persistence layer
 - no automatic migration from legacy spreadsheet rows is performed in this stage

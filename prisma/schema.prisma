@@ -193,6 +193,7 @@ model Workspace {
   auditLogs       AuditLog[]
   alertRules      AlertRule[]
   alertEvents     AlertEvent[]
+  shareLinks      ShareLink[]
 
   @@index([ownerId])
   @@map("workspaces")
@@ -236,6 +237,7 @@ model Portfolio {
   auditLogs           AuditLog[]
   alertRules          AlertRule[]
   alertEvents         AlertEvent[]
+  shareLinks          ShareLink[]
 
   @@unique([workspaceId, slug])
   @@index([workspaceId, visibility])
@@ -394,6 +396,30 @@ model Subscription {
 
   @@index([plan, status])
   @@map("subscriptions")
+}
+
+model ShareLink {
+  id             String    @id @default(cuid())
+  workspaceId    String
+  portfolioId    String
+  label          String?
+  token          String    @unique
+  passwordHash   String?
+  hideValues     Boolean   @default(false)
+  hideQuantities Boolean   @default(false)
+  hidePnl        Boolean   @default(false)
+  allocationOnly Boolean   @default(false)
+  expiresAt      DateTime?
+  revokedAt      DateTime?
+  lastAccessedAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  portfolio      Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, portfolioId])
+  @@index([portfolioId, revokedAt, expiresAt])
+  @@map("share_links")
 }
 
 model AlertRule {

@@ -15,6 +15,7 @@ Additional docs:
 - `docs/ALERTS.md` for the SaaS alerts, email and cron workflow
 - `docs/AI_INSIGHTS.md` for the SaaS deterministic insights layer
 - `docs/BILLING.md` for Stripe Checkout, Customer Portal and webhook sync
+- `docs/SHARING.md` for SaaS shareable read-only links, scopes and password-protected access
 
 ## Current status
 Implemented right now:
@@ -53,6 +54,7 @@ Implemented right now:
 - SaaS portfolio detail pages now include a deterministic AI Insights layer with summary, risk, liquidity, concentration, snapshot-change and valuation-quality commentary plus a clear non-advice disclaimer
 - SaaS billing now includes `/app/billing`, Stripe Checkout, Stripe Customer Portal, webhook signature verification and subscription sync back into PostgreSQL
 - Stage 26 adds a centralized workspace limit service with hard gates for portfolio creation, manual positions, import-created positions and alert rules, plus plan-based price refresh and history retention
+- Stage 27 adds shareable read-only portfolio links with optional password, expiration, revoke flow and server-side data masking for values, quantities, PnL or allocation-only views
 - `robots.txt` and `noindex/nofollow` protection for the private surface
 
 ## Stack
@@ -68,6 +70,18 @@ Implemented right now:
 - `xlsx` for workbook parsing and write-back
 - `zod` for env and admin payload validation
 - Stripe Billing API via server-side REST + webhook HMAC verification
+
+## Shareable read-only links
+SaaS portfolios now support public read-only sharing at `/share/[shareToken]` without exposing the private API surface.
+
+Each link can be configured with:
+- optional password unlock
+- expiration date
+- revoke at any time
+- `hideValues`, `hideQuantities`, `hidePnl`
+- `allocationOnly` for allocation breakdown without holdings rows
+
+The shared route is returned with `noindex, nofollow`, is disallowed in `robots.txt`, and performs server-side masking before data reaches the client. See [docs/SHARING.md](docs/SHARING.md).
 
 ## Current scope
 This release is read/write-capable if the Google service account has `Editor` access to the spreadsheet or Drive workbook.
@@ -91,6 +105,9 @@ src/
     api/private/admin/transactions
     api/private/admin/snapshots
     api/app/billing
+    api/app/portfolios
+    api/app/workspaces
+    api/share-links/[shareToken]/unlock
     api/webhooks/stripe
     app
     app/billing
@@ -100,10 +117,14 @@ src/
     invest-dashboard/[dashboardSlug]/settings
     login
     register
+    share/[shareToken]
   components/app/
     billing-center.tsx
     manual-asset-manager.tsx
+    portfolio-share-links-panel.tsx
     saas-app-shell.tsx
+    shared-allocation-breakdown.tsx
+    shared-portfolio-unlock.tsx
   components/auth/
     auth-shell.tsx
     login-form.tsx
@@ -126,6 +147,7 @@ src/
     saas/
       billing/
       billing.ts
+      sharing.ts
     auth/
     cache/
     client/
@@ -150,8 +172,10 @@ src/
   types/
     health.ts
     portfolio.ts
+    saas.ts
 docs/
   DATABASE.md
+  SHARING.md
   google-sheets-template.md
   MIGRATION_PRIVATE_TO_SAAS.md
   SAAS_ARCHITECTURE.md
@@ -207,6 +231,7 @@ Copy `.env.example` to `.env.local` and fill in:
 - `ALERT_EMAIL_REPLY_TO`: optional reply-to for alert emails
 - `RESEND_API_KEY`: API key for Resend delivery
 - `ALERTS_CRON_SECRET`: bearer secret for `/api/cron/alerts`
+
 - `STRIPE_SECRET_KEY`: Stripe secret key for hosted SaaS billing
 - `STRIPE_WEBHOOK_SECRET`: Stripe webhook signing secret for `/api/webhooks/stripe`
 - `STRIPE_PRO_PRICE_ID`: recurring Stripe price id for the Pro plan
