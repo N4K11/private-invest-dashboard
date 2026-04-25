@@ -17,17 +17,18 @@ import type {
   PortfolioCreateInput,
   PortfolioUpdateInput,
 } from "@/lib/saas/schema";
-import { extractManualAssetProfile } from "@/lib/saas/manual-assets";
+import {
+  pricePortfolioPositions,
+  type PortfolioPositionForPricing,
+} from "@/lib/saas/portfolio-pricing";
 import {
   decimalToNumber,
   mapVisibilityToPrisma,
-  normalizeAssetCategory,
   normalizePortfolioVisibility,
 } from "@/lib/saas/utils";
 import type {
   SaasPortfolioDetail,
   SaasPortfolioListItem,
-  SaasPortfolioPositionRow,
   SaasPortfolioTransactionRow,
 } from "@/types/saas";
 import { toSlugFragment } from "@/lib/utils";
@@ -43,72 +44,7 @@ const EXTRA_CATEGORY_META: Record<"custom" | "nft", { label: string; color: stri
   },
 };
 
-function buildPortfolioSlug(base: string, attempt: number) {
-  return attempt === 0 ? base : `${base}-${attempt + 1}`;
-}
-
-function getCategoryMeta(category: ReturnType<typeof normalizeAssetCategory>) {
-  if (category === "custom" || category === "nft") {
-    return EXTRA_CATEGORY_META[category];
-  }
-
-  return CATEGORY_META[category];
-}
-
-function computePositionMetrics(position: {
-  id: string;
-  assetId: string;
-  quantity: Prisma.Decimal;
-  averageEntryPrice: Prisma.Decimal | null;
-  currentPrice: Prisma.Decimal | null;
-  manualCurrentPrice: Prisma.Decimal | null;
-  priceSource: string | null;
-  status: string;
-  notes: string | null;
-  metadata: Prisma.JsonValue | null;
-  updatedAt: Date;
-  integration: { name: string } | null;
-  asset: {
-    name: string;
-    symbol: string | null;
-    category: "CS2" | "TELEGRAM" | "CRYPTO" | "CUSTOM" | "NFT";
-  };
-}): SaasPortfolioPositionRow {
-  const quantity = decimalToNumber(position.quantity) ?? 0;
-  const averageEntryPrice = decimalToNumber(position.averageEntryPrice);
-  const manualCurrentPrice = decimalToNumber(position.manualCurrentPrice);
-  const currentPrice = decimalToNumber(position.currentPrice);
-  const manualProfile = extractManualAssetProfile(position.metadata);
-  const effectiveCurrentPrice = manualCurrentPrice ?? currentPrice ?? averageEntryPrice ?? 0;
-  const totalValue = quantity * effectiveCurrentPrice;
-  const totalCost = quantity * (averageEntryPrice ?? 0);
-
-  return {
-    id: position.id,
-    assetId: position.assetId,
-    assetName: position.asset.name,
-    symbol: position.asset.symbol,
-    category: normalizeAssetCategory(position.asset.category),
-    quantity,
-    averageEntryPrice,
-    currentPrice,
-    manualCurrentPrice,
-    currency: manualProfile.currency,
-    tags: manualProfile.tags,
-    liquidity: manualProfile.liquidity,
-    confidence: manualProfile.confidence,
-    totalValue,
-    totalCost,
-    pnl: totalValue - totalCost,
-    priceSource: position.priceSource ? position.priceSource.toLowerCase() : null,
-    status: position.status.toLowerCase(),
-    integrationName: position.integration?.name ?? null,
-    updatedAt: position.updatedAt.toISOString(),
-    notes: position.notes,
-  };
-}
-
-function computePortfolioListItem(portfolio: {
+type PortfolioWithMetrics = {
   id: string;
   workspaceId: string;
   name: string;
@@ -118,17 +54,37 @@ function computePortfolioListItem(portfolio: {
   riskProfile: string | null;
   createdAt: Date;
   updatedAt: Date;
-  positions: Parameters<typeof computePositionMetrics>[0][];
+  positions: PortfolioPositionForPricing[];
   _count: {
     positions: number;
     transactions: number;
     integrations: number;
   };
-}): SaasPortfolioListItem {
-  const positionRows = portfolio.positions.map(computePositionMetrics);
-  const categories = Array.from(new Set(positionRows.map((position) => position.category)));
-  const totalValue = positionRows.reduce((sum, position) => sum + position.totalValue, 0);
-  const totalCost = positionRows.reduce((sum, position) => sum + position.totalCost, 0);
+};
+
+function buildPortfolioSlug(base: string, attempt: number) {
+  return attempt === 0 ? base : `${base}-${attempt + 1}`;
+}
+
+function getCategoryMeta(category: "cs2" | "telegram" | "crypto" | "custom" | "nft") {
+  if (category === "custom" || category === "nft") {
+    return EXTRA_CATEGORY_META[category];
+  }
+
+  return CATEGORY_META[category];
+}
+
+async function computePortfolioListItem(
+  portfolio: PortfolioWithMetrics,
+): Promise<SaasPortfolioListItem> {
+  const pricedPortfolio = await pricePortfolioPositions({
+    portfolioId: portfolio.id,
+    baseCurrency: portfolio.baseCurrency,
+    positions: portfolio.positions,
+  });
+  const categories = Array.from(
+    new Set(pricedPortfolio.positions.map((position) => position.category)),
+  );
 
   return {
     id: portfolio.id,
@@ -143,9 +99,9 @@ function computePortfolioListItem(portfolio: {
     positionCount: portfolio._count.positions,
     transactionCount: portfolio._count.transactions,
     integrationCount: portfolio._count.integrations,
-    totalValue,
-    totalCost,
-    totalPnl: totalValue - totalCost,
+    totalValue: pricedPortfolio.totalValue,
+    totalCost: pricedPortfolio.totalCost,
+    totalPnl: pricedPortfolio.totalPnl,
     categories,
   };
 }
@@ -401,34 +357,48 @@ export async function getPortfolioDetailForUser(
 
   const role = normalizeWorkspaceRole(membership.role);
   const canManage = canManagePortfolio(role);
-  const positions = portfolio.positions.map(computePositionMetrics).sort((left, right) => {
-    return right.totalValue - left.totalValue;
+  const pricedPortfolio = await pricePortfolioPositions({
+    portfolioId: portfolio.id,
+    baseCurrency: portfolio.baseCurrency,
+    positions: portfolio.positions,
   });
-
-  const totalValue = positions.reduce((sum, position) => sum + position.totalValue, 0);
-  const totalCost = positions.reduce((sum, position) => sum + position.totalCost, 0);
-  const totalPnl = totalValue - totalCost;
+  const positions = pricedPortfolio.positions;
+  const totalValue = pricedPortfolio.totalValue;
+  const totalCost = pricedPortfolio.totalCost;
+  const totalPnl = pricedPortfolio.totalPnl;
   const roi = totalCost > 0 ? (totalPnl / totalCost) * 100 : null;
 
-  const warnings: string[] = [];
+  const warnings = new Set<string>();
   if (positions.length === 0) {
-    warnings.push("В портфеле пока нет позиций. Добавьте импорт или создайте активы вручную на следующих этапах.");
+    warnings.add("В портфеле пока нет позиций. Добавьте импорт или создайте активы вручную на следующих этапах.");
   }
   if (portfolio._count.transactions === 0) {
-    warnings.push("История транзакций пуста. PnL пока считается по состоянию позиций.");
+    warnings.add("История транзакций пуста. PnL пока считается по состоянию позиций.");
   }
   if (portfolio._count.integrations === 0) {
-    warnings.push("Интеграции еще не подключены. Импорт и live sync будут добавлены на следующих этапах.");
+    warnings.add("Интеграции еще не подключены. Import Center и live sync будут расширяться на следующих этапах.");
   }
-  if (
-    positions.some(
-      (position) =>
-        position.currentPrice === null &&
-        position.manualCurrentPrice === null &&
-        position.averageEntryPrice === null,
-    )
-  ) {
-    warnings.push("Часть позиций пока без текущей оценки, поэтому общая стоимость может быть неполной.");
+
+  const unknownPriceCount = positions.filter(
+    (position) => position.priceConfidenceStatus === "unknown",
+  ).length;
+  if (unknownPriceCount > 0) {
+    warnings.add(
+      `Unified price engine не смог оценить ${unknownPriceCount} поз. Общая стоимость пока неполная.`,
+    );
+  }
+
+  const stalePriceCount = positions.filter(
+    (position) => position.priceConfidenceStatus === "stale",
+  ).length;
+  if (stalePriceCount > 0) {
+    warnings.add(
+      `У ${stalePriceCount} позиций устаревшая ручная цена. Обновите quotes или импорт.`,
+    );
+  }
+
+  for (const warning of pricedPortfolio.warnings) {
+    warnings.add(warning);
   }
 
   const byCategory = new Map<
@@ -472,7 +442,7 @@ export async function getPortfolioDetailForUser(
       id: "total-value",
       label: "Стоимость",
       value: totalValue,
-      hint: "Текущая оценка всех позиций портфеля.",
+      hint: "Текущая оценка всех позиций через unified price engine.",
       format: "currency" as const,
       tone: "neutral" as const,
     },
@@ -524,7 +494,7 @@ export async function getPortfolioDetailForUser(
       action: transaction.action.toLowerCase(),
       occurredAt: transaction.occurredAt.toISOString(),
       assetName: transaction.asset.name,
-      category: normalizeAssetCategory(transaction.asset.category),
+      category: transaction.asset.category.toLowerCase() as SaasPortfolioTransactionRow["category"],
       quantity: decimalToNumber(transaction.quantity),
       unitPrice: decimalToNumber(transaction.unitPrice),
       fees: decimalToNumber(transaction.fees),
@@ -560,7 +530,7 @@ export async function getPortfolioDetailForUser(
     categoryPerformance,
     positions,
     recentTransactions,
-    warnings,
+    warnings: [...warnings],
     integrationSummary: portfolio.integrations.map((integration) => ({
       id: integration.id,
       name: integration.name,
@@ -610,6 +580,6 @@ export async function listPortfoliosForWorkspace(
     },
   });
 
-  return portfolios.map(computePortfolioListItem);
+  return Promise.all(portfolios.map((portfolio) => computePortfolioListItem(portfolio)));
 }
 

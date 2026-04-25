@@ -10,6 +10,7 @@ Additional docs:
 - `docs/DATABASE.md` for the Prisma/PostgreSQL foundation
 - `docs/IMPORTS.md` for the SaaS Import Center workflow
 - `docs/MANUAL_ASSETS.md` for the SaaS Manual Asset Manager workflow
+- `docs/PRICE_ENGINE.md` for the unified SaaS price engine
 
 ## Current status
 Implemented right now:
@@ -40,6 +41,7 @@ Implemented right now:
 - Prisma/PostgreSQL SaaS database foundation with schema, seed script, auth bootstrap and migration docs
 - Auth.js credentials login/registration for `/login`, `/register` and protected SaaS routes `/app`, `/app/portfolios`, `/app/portfolios/[portfolioId]`, `/app/import`, `/app/settings`
 - Manual Asset Manager on `/app/portfolios/[portfolioId]` with add/edit/delete, tags, liquidity, confidence and auto-generated buy/sell transactions
+- unified SaaS price engine for `/app`, `/app/portfolios` and `/app/portfolios/[portfolioId]` with provider-based valuation, snapshot storage and normalized price confidence states
 - `robots.txt` and `noindex/nofollow` protection for the private surface
 
 ## Stack
@@ -480,6 +482,8 @@ npm run typecheck
 npm run lint
 npm run build
 ```
+
+
 
 
 

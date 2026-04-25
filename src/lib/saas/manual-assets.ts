@@ -43,6 +43,7 @@ export type ManualAssetProfile = {
   tags: string[];
   liquidity: SaasManualAssetLiquidity | null;
   confidence: SaasManualAssetConfidence | null;
+  lastEditedAt: string | null;
 };
 
 const MANUAL_SOURCE = "manual_asset_manager";
@@ -204,12 +205,14 @@ export function extractManualAssetProfile(
     manualAsset.confidence === "low"
       ? manualAsset.confidence
       : null;
+  const lastEditedAt = typeof manualAsset.lastEditedAt === "string" ? manualAsset.lastEditedAt : null;
 
   return {
     currency,
     tags,
     liquidity,
     confidence,
+    lastEditedAt,
   };
 }
 

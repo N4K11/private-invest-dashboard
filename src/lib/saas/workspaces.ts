@@ -8,66 +8,47 @@ import type {
   PortfolioCreateInput,
   WorkspaceCreateInput,
 } from "@/lib/saas/schema";
+import { pricePortfolioPositions } from "@/lib/saas/portfolio-pricing";
 import {
-  decimalToNumber,
   mapVisibilityToPrisma,
-  normalizeAssetCategory,
   normalizePortfolioVisibility,
 } from "@/lib/saas/utils";
 import type { SaasPortfolioListItem, SaasWorkspaceOverview } from "@/types/saas";
 import { toSlugFragment } from "@/lib/utils";
 
+type WorkspacePortfolioWithMetrics = {
+  id: string;
+  workspaceId: string;
+  name: string;
+  slug: string;
+  visibility: "PRIVATE" | "SHARED_LINK" | "WORKSPACE";
+  baseCurrency: string;
+  riskProfile: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  positions: Parameters<typeof pricePortfolioPositions>[0]["positions"];
+  _count: {
+    positions: number;
+    transactions: number;
+    integrations: number;
+  };
+};
+
 function buildWorkspaceSlug(base: string, attempt: number) {
   return attempt === 0 ? base : `${base}-${attempt + 1}`;
 }
 
-function computePortfolioMetrics(
-  portfolio: {
-    id: string;
-    workspaceId: string;
-    name: string;
-    slug: string;
-    visibility: "PRIVATE" | "SHARED_LINK" | "WORKSPACE";
-    baseCurrency: string;
-    riskProfile: string | null;
-    createdAt: Date;
-    updatedAt: Date;
-    positions: {
-      quantity: Prisma.Decimal;
-      averageEntryPrice: Prisma.Decimal | null;
-      currentPrice: Prisma.Decimal | null;
-      manualCurrentPrice: Prisma.Decimal | null;
-      asset: {
-        category: "CS2" | "TELEGRAM" | "CRYPTO" | "CUSTOM" | "NFT";
-      };
-    }[];
-    _count: {
-      positions: number;
-      transactions: number;
-      integrations: number;
-    };
-  },
-): SaasPortfolioListItem {
-  let totalValue = 0;
-  let totalCost = 0;
-
+async function computePortfolioMetrics(
+  portfolio: WorkspacePortfolioWithMetrics,
+): Promise<SaasPortfolioListItem> {
+  const pricedPortfolio = await pricePortfolioPositions({
+    portfolioId: portfolio.id,
+    baseCurrency: portfolio.baseCurrency,
+    positions: portfolio.positions,
+  });
   const categories = Array.from(
-    new Set(
-      portfolio.positions.map((position) => normalizeAssetCategory(position.asset.category)),
-    ),
+    new Set(pricedPortfolio.positions.map((position) => position.category)),
   );
-
-  for (const position of portfolio.positions) {
-    const quantity = decimalToNumber(position.quantity) ?? 0;
-    const averageEntryPrice = decimalToNumber(position.averageEntryPrice) ?? 0;
-    const currentPrice =
-      decimalToNumber(position.manualCurrentPrice) ??
-      decimalToNumber(position.currentPrice) ??
-      averageEntryPrice;
-
-    totalValue += quantity * currentPrice;
-    totalCost += quantity * averageEntryPrice;
-  }
 
   return {
     id: portfolio.id,
@@ -82,9 +63,9 @@ function computePortfolioMetrics(
     positionCount: portfolio._count.positions,
     transactionCount: portfolio._count.transactions,
     integrationCount: portfolio._count.integrations,
-    totalValue,
-    totalCost,
-    totalPnl: totalValue - totalCost,
+    totalValue: pricedPortfolio.totalValue,
+    totalCost: pricedPortfolio.totalCost,
+    totalPnl: pricedPortfolio.totalPnl,
     categories,
   };
 }
@@ -216,9 +197,10 @@ export async function getWorkspaceOverview(
         include: {
           positions: {
             include: {
-              asset: {
+              asset: true,
+              integration: {
                 select: {
-                  category: true,
+                  name: true,
                 },
               },
             },
@@ -246,7 +228,9 @@ export async function getWorkspaceOverview(
     return null;
   }
 
-  const portfolioItems = workspace.portfolios.map(computePortfolioMetrics);
+  const portfolioItems = await Promise.all(
+    workspace.portfolios.map((portfolio) => computePortfolioMetrics(portfolio)),
+  );
   const totalValue = portfolioItems.reduce((sum, item) => sum + item.totalValue, 0);
   const totalCost = portfolioItems.reduce((sum, item) => sum + item.totalCost, 0);
   const positionCount = portfolioItems.reduce((sum, item) => sum + item.positionCount, 0);
@@ -297,9 +281,10 @@ export async function listWorkspacePortfoliosForUser(
     include: {
       positions: {
         include: {
-          asset: {
+          asset: true,
+          integration: {
             select: {
-              category: true,
+              name: true,
             },
           },
         },
@@ -314,5 +299,6 @@ export async function listWorkspacePortfoliosForUser(
     },
   });
 
-  return portfolios.map(computePortfolioMetrics);
+  return Promise.all(portfolios.map((portfolio) => computePortfolioMetrics(portfolio)));
 }
+

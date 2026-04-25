@@ -10,7 +10,7 @@ This project started as a private investment terminal for tracking CS2 items, Te
 - `src/lib/db`: typed database configuration helpers and Prisma 7 lazy client for the SaaS runtime.
 - `src/lib/imports`: import preview, deduplication, parsing and commit services for the SaaS Import Center.
 - `src/lib/auth`: Auth.js credentials config, password helpers, registration bootstrap and workspace context access.
-- `src/lib/saas`: DB-backed workspace, portfolio and manual asset services for the SaaS runtime.
+- `src/lib/saas`: DB-backed workspace, portfolio, manual asset services and unified price-engine helpers for the SaaS runtime.
 - `src/lib/portfolio`: portfolio assembly, transaction accounting, metrics and risk analytics.
 - `src/lib/providers`: external price providers for crypto, CS2 and Telegram gifts.
 - `src/lib/cache`: in-memory cache with optional Redis REST shared cache.
@@ -35,7 +35,8 @@ This project started as a private investment terminal for tracking CS2 items, Te
 5. SaaS routes `/app` are protected by Auth.js JWT sessions and middleware redirects to `/login` when the session is missing.
 6. Active workspace selection is stored in an `httpOnly` cookie and scopes `/app` portfolio management pages.
 7. Workspace and portfolio CRUD now flows through protected `/api/app/*` routes with auth, permissions and validation.
-8. Secrets stay server-side in env variables and are never returned to the client bundle.
+8. SaaS portfolio valuation now flows through a unified price engine that resolves quotes by asset class and persists `PriceSnapshot` rows.
+9. Secrets stay server-side in env variables and are never returned to the client bundle.
 
 ## Current Persistence Model
 - Read path: Google Sheets API or Google Drive API + workbook parsing.
@@ -53,6 +54,7 @@ The next architecture phase treats the current private dashboard as a legacy-com
 - Stage 16 adds workspace switching, portfolio management UI and DB-backed detail pages at `/app/portfolios/[portfolioId]`.
 - Stage 17 adds `/app/import` with preview, mapping, deduplication and snapshot imports into PostgreSQL portfolios.
 - Stage 18 adds a Manual Asset Manager on `/app/portfolios/[portfolioId]` with CRUD, audit logging and auto-generated buy/sell transactions.
+- Stage 19 adds a unified SaaS price engine with provider contracts, confidence states, snapshot persistence and category-specific TTL handling.
 - The Prisma schema already models users, workspaces, portfolios, assets, positions, transactions, integrations, subscriptions and audit logs for upcoming stages.
 
 ## Operational Notes
@@ -70,6 +72,9 @@ The next architecture phase treats the current private dashboard as a legacy-com
 - `docs/MIGRATION_PRIVATE_TO_SAAS.md`: staged migration path from legacy private mode to SaaS.
 - `docs/DATABASE.md`: Prisma/PostgreSQL models, commands and migration notes.
 - `docs/IMPORTS.md`: supported import sources, deduplication and manual test flow.
+- `docs/PRICE_ENGINE.md`: unified SaaS valuation engine, providers, TTL rules and snapshot behavior.
+
+
 
 
 

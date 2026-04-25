@@ -7,6 +7,7 @@ import type {
   PriceConfidence,
   TransactionAction,
 } from "@/types/portfolio";
+import type { SaasPriceConfidenceStatus } from "@/types/saas";
 
 const cs2TypeLabels: Record<Cs2AssetType, string> = {
   stickers: "Наклейки",
@@ -29,6 +30,8 @@ const priceSourceLabels: Record<string, string> = {
   manual_sheet: "Ручная цена из таблицы",
   entry_price_fallback: "Резерв по цене входа",
   coingecko: "CoinGecko",
+  coingecko_live: "CoinGecko live",
+  binance_live: "Binance live",
   sheet_fallback: "Резерв из таблицы",
   ton_sheet_x_coingecko: "TON по live-курсу",
   ton_sheet_nominal: "TON из таблицы",
@@ -36,6 +39,15 @@ const priceSourceLabels: Record<string, string> = {
   buff_proxy_live: "Buff proxy",
   csfloat_live: "CSFloat",
   pricempire_live: "PriceEmpire",
+  cs2_manual: "Ручная цена CS2",
+  telegram_manual_otc: "Ручная OTC-цена Telegram",
+  custom_manual: "Ручная цена custom-актива",
+  manual_crypto: "Ручная цена crypto",
+  imported_price: "Импортированная цена",
+  crypto_missing: "Цена crypto отсутствует",
+  cs2_missing: "Цена CS2 отсутствует",
+  telegram_missing: "Цена Telegram Gift отсутствует",
+  custom_missing: "Цена custom-актива отсутствует",
   missing: "Цена отсутствует",
 };
 
@@ -59,6 +71,15 @@ const recommendationLabels: Record<PositionRecommendation, string> = {
   consider_trimming: "Сократить долю",
   needs_price_update: "Обновить цену",
   illiquid: "Неликвид",
+};
+
+const saasPriceConfidenceLabels: Record<SaasPriceConfidenceStatus, string> = {
+  live_high: "Live high",
+  live_medium: "Live medium",
+  manual_high: "Manual high",
+  manual_low: "Manual low",
+  stale: "Устарела",
+  unknown: "Нет цены",
 };
 
 export function formatCs2TypeLabel(type: string) {
@@ -92,4 +113,9 @@ export function formatPriceConfidenceLabel(confidence: PriceConfidence) {
 export function formatRecommendationLabel(recommendation: PositionRecommendation) {
   return recommendationLabels[recommendation] ?? recommendation.replace(/_/g, " ");
 }
+
+export function formatSaasPriceConfidenceLabel(status: SaasPriceConfidenceStatus) {
+  return saasPriceConfidenceLabels[status] ?? status.replace(/_/g, " ");
+}
+
 

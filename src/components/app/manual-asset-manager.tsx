@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useTransition } from "react";
 import type { FormEvent } from "react";
@@ -6,63 +6,76 @@ import type { FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import { DashboardStatePanel } from "@/components/dashboard/dashboard-state-panel";
-import { formatPriceSourceLabel } from "@/lib/presentation";
-import { cn, formatCurrency, formatNumber, formatPercent, formatRelativeTime } from "@/lib/utils";
+import {
+  formatPriceSourceLabel,
+  formatSaasPriceConfidenceLabel,
+} from "@/lib/presentation";
+import {
+  cn,
+  formatCurrency,
+  formatNumber,
+  formatPercent,
+  formatRelativeTime,
+} from "@/lib/utils";
 import type {
   SaasManualAssetCategory,
   SaasManualAssetConfidence,
   SaasManualAssetLiquidity,
   SaasManualTransactionMode,
   SaasPortfolioPositionRow,
+  SaasPriceConfidenceStatus,
 } from "@/types/saas";
 
 const TEXT = {
-  addAsset: "\u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u0430\u043a\u0442\u0438\u0432",
-  createFirst: "\u0421\u043e\u0437\u0434\u0430\u0442\u044c \u043f\u0435\u0440\u0432\u0443\u044e \u043f\u043e\u0437\u0438\u0446\u0438\u044e",
+  addAsset: "Добавить актив",
+  createFirst: "Создать первую позицию",
   noPositionsEyebrow: "Manual Asset Manager",
-  noPositionsTitle: "\u0412 \u043f\u043e\u0440\u0442\u0444\u0435\u043b\u0435 \u043f\u043e\u043a\u0430 \u043d\u0435\u0442 \u043f\u043e\u0437\u0438\u0446\u0438\u0439",
+  noPositionsTitle: "В портфеле пока нет позиций",
   noPositionsDescription:
-    "\u0414\u043e\u0431\u0430\u0432\u044c\u0442\u0435 \u0430\u043a\u0442\u0438\u0432 \u0432\u0440\u0443\u0447\u043d\u0443\u044e \u0438\u043b\u0438 \u0438\u043c\u043f\u043e\u0440\u0442\u0438\u0440\u0443\u0439\u0442\u0435 holdings, \u0447\u0442\u043e\u0431\u044b \u0442\u0435\u0440\u043c\u0438\u043d\u0430\u043b \u043d\u0430\u0447\u0430\u043b \u0441\u0447\u0438\u0442\u0430\u0442\u044c PnL \u0438 \u0438\u0441\u0442\u043e\u0440\u0438\u044e.",
-  viewOnly: "\u0423 \u0432\u0430\u0441 \u0442\u043e\u043b\u044c\u043a\u043e \u043f\u0440\u043e\u0441\u043c\u043e\u0442\u0440",
-  newPosition: "\u041d\u043e\u0432\u0430\u044f \u043f\u043e\u0437\u0438\u0446\u0438\u044f",
-  editPosition: "\u0420\u0435\u0434\u0430\u043a\u0442\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435 \u043f\u043e\u0437\u0438\u0446\u0438\u0438",
-  close: "\u0417\u0430\u043a\u0440\u044b\u0442\u044c",
-  save: "\u0421\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c",
-  saving: "\u0421\u043e\u0445\u0440\u0430\u043d\u044f\u044e...",
-  cancel: "\u041e\u0442\u043c\u0435\u043d\u0430",
-  edit: "\u0420\u0435\u0434\u0430\u043a\u0442\u0438\u0440\u043e\u0432\u0430\u0442\u044c",
-  delete: "\u0423\u0434\u0430\u043b\u0438\u0442\u044c",
-  created: "\u041f\u043e\u0437\u0438\u0446\u0438\u044f \u0441\u043e\u0437\u0434\u0430\u043d\u0430.",
-  updated: "\u041f\u043e\u0437\u0438\u0446\u0438\u044f \u043e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u0430.",
-  deleted: "\u041f\u043e\u0437\u0438\u0446\u0438\u044f \u0443\u0434\u0430\u043b\u0435\u043d\u0430.",
-  deleteConfirm: "\u0423\u0434\u0430\u043b\u0438\u0442\u044c \u043f\u043e\u0437\u0438\u0446\u0438\u044e?",
-  assetType: "\u0422\u0438\u043f \u0430\u043a\u0442\u0438\u0432\u0430",
-  name: "\u041d\u0430\u0437\u0432\u0430\u043d\u0438\u0435",
-  quantity: "\u041a\u043e\u043b\u0438\u0447\u0435\u0441\u0442\u0432\u043e",
-  entryPrice: "\u0426\u0435\u043d\u0430 \u0432\u0445\u043e\u0434\u0430",
-  manualPrice: "\u0422\u0435\u043a\u0443\u0449\u0430\u044f \u0440\u0443\u0447\u043d\u0430\u044f \u0446\u0435\u043d\u0430",
-  currency: "\u0412\u0430\u043b\u044e\u0442\u0430",
-  tags: "\u0422\u0435\u0433\u0438",
-  liquidity: "\u041b\u0438\u043a\u0432\u0438\u0434\u043d\u043e\u0441\u0442\u044c",
-  confidence: "\u0423\u0432\u0435\u0440\u0435\u043d\u043d\u043e\u0441\u0442\u044c",
-  notes: "\u0417\u0430\u043c\u0435\u0442\u043a\u0438",
-  mode: "\u0420\u0435\u0436\u0438\u043c \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0438\u044f",
-  value: "\u0421\u0442\u043e\u0438\u043c\u043e\u0441\u0442\u044c",
+    "Добавьте актив вручную или импортируйте holdings, чтобы терминал начал считать PnL и историю.",
+  viewOnly: "У вас только просмотр",
+  newPosition: "Новая позиция",
+  editPosition: "Редактирование позиции",
+  close: "Закрыть",
+  save: "Сохранить",
+  saving: "Сохраняю...",
+  cancel: "Отмена",
+  edit: "Редактировать",
+  delete: "Удалить",
+  created: "Позиция создана.",
+  updated: "Позиция обновлена.",
+  deleted: "Позиция удалена.",
+  deleteConfirm: "Удалить позицию?",
+  assetType: "Тип актива",
+  name: "Название",
+  quantity: "Количество",
+  entryPrice: "Цена входа",
+  manualPrice: "Текущая цена",
+  currency: "Валюта",
+  tags: "Теги",
+  liquidity: "Ликвидность",
+  confidence: "Уверенность",
+  notes: "Заметки",
+  mode: "Режим сохранения",
+  value: "Стоимость",
   pnl: "PnL",
-  source: "\u0418\u0441\u0442\u043e\u0447\u043d\u0438\u043a",
+  source: "Источник",
   roi: "ROI",
-  updatedAt: "\u041e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u043e",
-  info: "\u0414\u0430\u043d\u043d\u044b\u0435",
+  updatedAt: "Обновлено",
+  priceQuality: "Качество цены",
+  priceUpdated: "Цена обновлена",
+  priceWarning: "Риск по цене",
+  info: "Данные",
   tagsPlaceholder: "skin, longterm, otc",
-  notesPlaceholder: "\u041a\u043e\u0440\u043e\u0442\u043a\u0438\u0439 \u043a\u043e\u043d\u0442\u0435\u043a\u0441\u0442 \u043f\u043e \u043f\u043e\u0437\u0438\u0446\u0438\u0438",
-  quantityHintBuy: "\u0414\u043b\u044f buy \u0438\u0442\u043e\u0433\u043e\u0432\u043e\u0435 \u043a\u043e\u043b\u0438\u0447\u0435\u0441\u0442\u0432\u043e \u0434\u043e\u043b\u0436\u043d\u043e \u0431\u044b\u0442\u044c \u0432\u044b\u0448\u0435 \u0442\u0435\u043a\u0443\u0449\u0435\u0433\u043e.",
-  quantityHintSell: "\u0414\u043b\u044f sell \u0438\u0442\u043e\u0433\u043e\u0432\u043e\u0435 \u043a\u043e\u043b\u0438\u0447\u0435\u0441\u0442\u0432\u043e \u0434\u043e\u043b\u0436\u043d\u043e \u0431\u044b\u0442\u044c \u043d\u0438\u0436\u0435 \u0442\u0435\u043a\u0443\u0449\u0435\u0433\u043e.",
+  notesPlaceholder: "Короткий контекст по позиции",
+  quantityHintBuy: "Для buy итоговое количество должно быть выше текущего.",
+  quantityHintSell: "Для sell итоговое количество должно быть ниже текущего.",
 };
 
 const CATEGORY_OPTIONS: { value: SaasManualAssetCategory; label: string }[] = [
   { value: "cs2", label: "CS2" },
   { value: "telegram", label: "Telegram Gift" },
-  { value: "crypto", label: "\u041a\u0440\u0438\u043f\u0442\u043e" },
+  { value: "crypto", label: "Крипто" },
   { value: "custom", label: "Custom collectible" },
 ];
 
@@ -80,14 +93,14 @@ const CONFIDENCE_OPTIONS: { value: SaasManualAssetConfidence; label: string }[] 
 ];
 
 const CREATE_MODE_OPTIONS: { value: Extract<SaasManualTransactionMode, "buy" | "adjustment">; label: string }[] = [
-  { value: "buy", label: "\u041f\u043e\u043a\u0443\u043f\u043a\u0430 + trade log" },
-  { value: "adjustment", label: "\u041f\u0440\u043e\u0441\u0442\u043e \u0441\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c \u043f\u043e\u0437\u0438\u0446\u0438\u044e" },
+  { value: "buy", label: "Покупка + trade log" },
+  { value: "adjustment", label: "Просто сохранить позицию" },
 ];
 
 const EDIT_MODE_OPTIONS: { value: SaasManualTransactionMode; label: string }[] = [
-  { value: "adjustment", label: "\u041f\u0440\u043e\u0441\u0442\u043e \u043e\u0431\u043d\u043e\u0432\u0438\u0442\u044c \u043f\u043e\u0437\u0438\u0446\u0438\u044e" },
-  { value: "buy", label: "\u041f\u043e\u043a\u0443\u043f\u043a\u0430 + trade log" },
-  { value: "sell", label: "\u041f\u0440\u043e\u0434\u0430\u0436\u0430 + trade log" },
+  { value: "adjustment", label: "Просто обновить позицию" },
+  { value: "buy", label: "Покупка + trade log" },
+  { value: "sell", label: "Продажа + trade log" },
 ];
 
 type ManualAssetManagerProps = {
@@ -177,6 +190,40 @@ function parseNullableNumber(value: string) {
 
 function parseTags(value: string) {
   return [...new Set(value.split(",").map((tag) => tag.trim()).filter(Boolean))];
+}
+
+function getPriceConfidenceTone(status: SaasPriceConfidenceStatus) {
+  switch (status) {
+    case "live_high":
+      return "border-emerald-400/25 bg-emerald-400/10 text-emerald-100";
+    case "live_medium":
+      return "border-cyan-300/25 bg-cyan-300/10 text-cyan-100";
+    case "manual_high":
+      return "border-violet-300/25 bg-violet-300/10 text-violet-100";
+    case "manual_low":
+      return "border-amber-300/25 bg-amber-300/10 text-amber-100";
+    case "stale":
+      return "border-orange-300/25 bg-orange-300/10 text-orange-100";
+    default:
+      return "border-rose-400/25 bg-rose-400/10 text-rose-100";
+  }
+}
+
+function getPriceConfidenceHint(status: SaasPriceConfidenceStatus) {
+  switch (status) {
+    case "live_high":
+      return "Live quote из основного провайдера.";
+    case "live_medium":
+      return "Live quote из fallback-провайдера.";
+    case "manual_high":
+      return "Ручная цена выглядит свежей и достаточно надежной.";
+    case "manual_low":
+      return "Цена ручная, нужна дополнительная проверка.";
+    case "stale":
+      return "Цена устарела и влияет на точность оценки.";
+    default:
+      return "Для позиции еще нет пригодной цены.";
+  }
 }
 
 export function ManualAssetManager({
@@ -377,10 +424,18 @@ export function ManualAssetManager({
                           {position.symbol}
                         </span>
                       ) : null}
+                      <span
+                        className={cn(
+                          "rounded-full border px-3 py-1 text-[0.7rem] uppercase tracking-[0.18em]",
+                          getPriceConfidenceTone(position.priceConfidenceStatus),
+                        )}
+                      >
+                        {formatSaasPriceConfidenceLabel(position.priceConfidenceStatus)}
+                      </span>
                     </div>
                     <p className="mt-2 text-sm text-slate-400">
-                      qty: {formatNumber(position.quantity, 6)} · status: {position.status}
-                      {position.currency ? ` · ${position.currency}` : ""}
+                      qty: {formatNumber(position.quantity, 6)} | status: {position.status}
+                      {position.currency ? ` | ${position.currency}` : ""}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -425,9 +480,12 @@ export function ManualAssetManager({
                     </p>
                   </div>
                   <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">{TEXT.roi}</p>
+                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">{TEXT.priceQuality}</p>
                     <p className="mt-2 text-sm text-white">
-                      {roi !== null ? formatPercent(roi, 1) : "-"}
+                      {formatSaasPriceConfidenceLabel(position.priceConfidenceStatus)}
+                    </p>
+                    <p className="mt-2 text-xs leading-6 text-slate-400">
+                      {getPriceConfidenceHint(position.priceConfidenceStatus)}
                     </p>
                   </div>
                 </div>
@@ -454,8 +512,10 @@ export function ManualAssetManager({
                     <p className="mt-2 text-sm text-white">{position.liquidity ?? "unknown"}</p>
                   </div>
                   <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">{TEXT.confidence}</p>
-                    <p className="mt-2 text-sm text-white">{position.confidence ?? "medium"}</p>
+                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">{TEXT.roi}</p>
+                    <p className="mt-2 text-sm text-white">
+                      {roi !== null ? formatPercent(roi, 1) : "-"}
+                    </p>
                   </div>
                 </div>
 
@@ -463,6 +523,11 @@ export function ManualAssetManager({
                   <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
                     {TEXT.updatedAt}: {formatRelativeTime(position.updatedAt)}
                   </span>
+                  {position.priceUpdatedAt ? (
+                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                      {TEXT.priceUpdated}: {formatRelativeTime(position.priceUpdatedAt)}
+                    </span>
+                  ) : null}
                   {position.tags.map((tag) => (
                     <span
                       key={`${position.id}-${tag}`}
@@ -472,6 +537,13 @@ export function ManualAssetManager({
                     </span>
                   ))}
                 </div>
+
+                {position.priceWarning ? (
+                  <div className="mt-4 rounded-2xl border border-amber-300/20 bg-amber-300/10 px-4 py-4 text-sm leading-7 text-amber-50/90">
+                    <span className="font-semibold">{TEXT.priceWarning}: </span>
+                    {position.priceWarning}
+                  </div>
+                ) : null}
 
                 {position.notes ? (
                   <p className="mt-4 text-sm leading-7 text-slate-300/75">{position.notes}</p>

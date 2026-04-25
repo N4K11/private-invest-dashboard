@@ -11,6 +11,13 @@ export type SaasManualAssetCategory = "cs2" | "telegram" | "crypto" | "custom";
 export type SaasManualAssetLiquidity = "high" | "medium" | "low" | "unknown";
 export type SaasManualAssetConfidence = "high" | "medium" | "low";
 export type SaasManualTransactionMode = "buy" | "sell" | "adjustment";
+export type SaasPriceConfidenceStatus =
+  | "live_high"
+  | "live_medium"
+  | "manual_high"
+  | "manual_low"
+  | "stale"
+  | "unknown";
 
 export type SaasWorkspaceMembership = {
   workspaceId: string;
@@ -77,6 +84,9 @@ export type SaasPortfolioPositionRow = {
   tags: string[];
   liquidity: SaasManualAssetLiquidity | null;
   confidence: SaasManualAssetConfidence | null;
+  priceConfidenceStatus: SaasPriceConfidenceStatus;
+  priceUpdatedAt: string | null;
+  priceWarning: string | null;
   totalValue: number;
   totalCost: number;
   pnl: number;
