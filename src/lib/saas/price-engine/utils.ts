@@ -1,4 +1,4 @@
-import type { PriceSourceType, Prisma } from "@prisma/client";
+﻿import type { PriceSourceType, Prisma } from "@prisma/client";
 
 import { getEnv } from "@/lib/env";
 import { extractManualAssetProfile } from "@/lib/saas/manual-assets";
@@ -119,6 +119,14 @@ export function normalizePriceSourceLabel(sourceId: string) {
       return "CoinGecko";
     case "binance_live":
       return "Binance";
+    case "steam_market_live":
+      return "Steam Market";
+    case "buff_proxy_live":
+      return "Buff proxy";
+    case "csfloat_live":
+      return "CSFloat";
+    case "pricempire_live":
+      return "PriceEmpire";
     case "cs2_manual":
       return "Manual CS2";
     case "telegram_manual_otc":
@@ -143,16 +151,20 @@ export function mapSourceIdToSnapshotSource(sourceId: string, fallback: PriceSou
     return "TELEGRAM_TON_CONVERSION";
   }
 
-  if (sourceId === "cs2_steam_adapter") {
+  if (sourceId === "steam_market_live") {
     return "STEAM_MARKET";
   }
 
-  if (sourceId === "cs2_csfloat_adapter") {
+  if (sourceId === "csfloat_live") {
     return "CSFLOAT";
   }
 
-  if (sourceId === "cs2_pricempire_adapter") {
+  if (sourceId === "pricempire_live") {
     return "PRICEEMPIRE";
+  }
+
+  if (sourceId === "buff_proxy_live") {
+    return "IMPORTED";
   }
 
   return fallback;

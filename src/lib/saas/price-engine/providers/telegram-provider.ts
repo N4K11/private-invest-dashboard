@@ -1,4 +1,4 @@
-import type {
+﻿import type {
   SaasPriceEnginePositionInput,
   SaasPriceProvider,
   SaasPriceProviderResult,
@@ -48,6 +48,7 @@ function buildTelegramQuote(input: SaasPriceEnginePositionInput): SaasResolvedPr
     isLive: false,
     ttlSeconds: getSaasTelegramTtlSeconds(),
     capturedAt: buildSnapshotCapturedAt(getSaasTelegramTtlSeconds()),
+    lastUpdated: input.updatedAt,
     warning: price === null ? "Telegram gift has no OTC/manual price." : null,
     details: price === null ? buildUnknownDetails(input.assetName) : ["Manual/OTC Telegram price used."],
   };

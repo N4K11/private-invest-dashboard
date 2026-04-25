@@ -1,4 +1,4 @@
-import type { PriceSourceType, Prisma } from "@prisma/client";
+﻿import type { PriceSourceType, Prisma } from "@prisma/client";
 
 import type { SaasAssetCategory, SaasPriceConfidenceStatus } from "@/types/saas";
 
@@ -31,8 +31,10 @@ export type SaasResolvedPriceQuote = {
   isLive: boolean;
   ttlSeconds: number;
   capturedAt: string | null;
+  lastUpdated: string | null;
   warning: string | null;
   details: string[];
+  liquidityEstimate?: "high" | "medium" | "low" | "unknown" | null;
   metadata?: Record<string, unknown>;
 };
 

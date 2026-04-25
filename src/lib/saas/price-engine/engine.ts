@@ -1,4 +1,4 @@
-import "server-only";
+﻿import "server-only";
 
 import { Prisma } from "@prisma/client";
 
@@ -38,12 +38,14 @@ async function persistPriceSnapshots(
       source: quote.snapshotSource,
       confidence: quote.confidenceStatus,
       metadata: {
+        ...(quote.metadata ?? {}),
         sourceId: quote.sourceId,
         sourceLabel: quote.sourceLabel,
         isLive: quote.isLive,
         warning: quote.warning,
         details: quote.details,
         providerTtlSeconds: quote.ttlSeconds,
+        lastUpdated: quote.lastUpdated,
       },
     }));
 

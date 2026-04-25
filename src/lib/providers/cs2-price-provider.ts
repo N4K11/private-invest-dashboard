@@ -63,8 +63,11 @@ function buildPriceWarning(quote: Cs2ResolvedPriceQuote | null, row: NormalizedC
     return quote.warning;
   }
 
-  if (!quote.isLive && isTimestampStale(quote.lastUpdated ?? row.lastUpdated ?? null)) {
-    return "Цена устарела и требует ручного обновления в Google Sheets.";
+  const quoteTimestamp = quote.lastUpdated ?? row.lastUpdated ?? null;
+  if (isTimestampStale(quoteTimestamp)) {
+    return quote.isLive
+      ? "Provider quote устарела и требует проверки источника или fallback-прайса."
+      : "Цена устарела и требует ручного обновления в Google Sheets.";
   }
 
   return null;
@@ -161,12 +164,17 @@ export async function resolveCs2Positions(rows: NormalizedCs2Row[]) {
       fees: 0,
       transactionCount: 0,
       riskScore,
-      liquidityLabel: normalizeLiquidityLabel(item.row.liquidityLabel, fallbackLiquidity),
+      liquidityLabel: normalizeLiquidityLabel(
+        item.resolvedQuote?.liquidityLabel ?? item.row.liquidityLabel,
+        fallbackLiquidity,
+      ),
       priceSource: mapQuoteSourceToPriceSource(item.resolvedQuote, item.row),
       priceConfidence: item.resolvedQuote?.confidence ?? (priceWarning ? "low" : "medium"),
       priceLastUpdated,
       priceWarning,
-      market: item.resolvedQuote?.sourceName ?? item.row.market,
+      market: item.resolvedQuote?.currency
+        ? `${item.resolvedQuote.sourceName} (${item.resolvedQuote.currency})`
+        : item.resolvedQuote?.sourceName ?? item.row.market,
       status: item.row.status ?? null,
       lastUpdated: item.row.lastUpdated ?? null,
       notes: item.row.notes,
@@ -207,4 +215,3 @@ export async function resolveCs2Positions(rows: NormalizedCs2Row[]) {
     warnings,
   };
 }
-

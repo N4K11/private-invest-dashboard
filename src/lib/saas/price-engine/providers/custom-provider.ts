@@ -1,4 +1,4 @@
-import type {
+﻿import type {
   SaasPriceEnginePositionInput,
   SaasPriceProvider,
   SaasPriceProviderResult,
@@ -48,6 +48,7 @@ function buildCustomQuote(input: SaasPriceEnginePositionInput): SaasResolvedPric
     isLive: false,
     ttlSeconds: getSaasCustomTtlSeconds(),
     capturedAt: buildSnapshotCapturedAt(getSaasCustomTtlSeconds()),
+    lastUpdated: input.updatedAt,
     warning: price === null ? "Custom asset has no manual price." : null,
     details: price === null ? buildUnknownDetails(input.assetName) : ["Manual custom price used."],
   };

@@ -42,6 +42,7 @@ Implemented right now:
 - Auth.js credentials login/registration for `/login`, `/register` and protected SaaS routes `/app`, `/app/portfolios`, `/app/portfolios/[portfolioId]`, `/app/import`, `/app/settings`
 - Manual Asset Manager on `/app/portfolios/[portfolioId]` with add/edit/delete, tags, liquidity, confidence and auto-generated buy/sell transactions
 - unified SaaS price engine for `/app`, `/app/portfolios` and `/app/portfolios/[portfolioId]` with provider-based valuation, snapshot storage and normalized price confidence states
+- SaaS CS2 coverage now reuses the real shared provider chain (`steam -> buff_proxy -> manual`) with canonical name matching, stale warnings and optional FX fallback conversion
 - `robots.txt` and `noindex/nofollow` protection for the private surface
 
 ## Stack
@@ -410,7 +411,7 @@ Examples:
 - `buff_proxy,steam,manual`
 - `manual`
 
-The dashboard also marks stale CS2 prices when `lastUpdated` in the sheet is older than `CS2_PRICE_STALE_HOURS`.
+The dashboard also marks stale CS2 prices when provider/manual `lastUpdated` becomes older than `CS2_PRICE_STALE_HOURS`. This now applies to both the legacy private dashboard and the SaaS `/app` pricing layer.
 
 Expected `CS2_BUFF_PROXY_URL` response shape:
 ```json
@@ -482,6 +483,8 @@ npm run typecheck
 npm run lint
 npm run build
 ```
+
+
 
 
 

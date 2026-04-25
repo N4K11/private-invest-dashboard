@@ -3,6 +3,7 @@ import type { Cs2PriceProvider } from "@/lib/providers/cs2/types";
 import {
   buildCs2QueryVariants,
   buildSteamTargetName,
+  inferCs2LiquidityFromDepth,
   mapWithConcurrency,
   scoreSteamCandidate,
 } from "@/lib/providers/cs2/utils";
@@ -12,6 +13,7 @@ type SteamMarketSearchResult = {
   hash_name?: string;
   sell_price?: number;
   sale_price?: number;
+  sell_listings?: number;
 };
 
 type SteamSearchPayload = {
@@ -100,6 +102,7 @@ export function createSteamMarketCs2PriceProvider(): Cs2PriceProvider {
               price: number | null;
               matchedName: string | null;
               score: number;
+              sellListings: number | null;
             }
           | null = null;
 
@@ -121,6 +124,8 @@ export function createSteamMarketCs2PriceProvider(): Cs2PriceProvider {
                 price,
                 matchedName: candidate.name ?? null,
                 score,
+                sellListings:
+                  typeof candidate.sell_listings === "number" ? candidate.sell_listings : null,
               };
             }
           }
@@ -134,13 +139,17 @@ export function createSteamMarketCs2PriceProvider(): Cs2PriceProvider {
           assetId: input.assetId,
           assetName: input.assetName,
           price: bestMatch.price,
+          currency: "USD",
           sourceId: "steam",
           sourceName: "Steam Community Market",
           matchedName: bestMatch.matchedName,
+          canonicalName: targetName,
           lastUpdated: new Date().toISOString(),
           confidence: bestMatch.score >= 10_000 ? "high" : bestMatch.score >= 2000 ? "medium" : "low",
           isLive: true,
           warning: null,
+          liquidityLabel: inferCs2LiquidityFromDepth(bestMatch.sellListings),
+          liquidityDepth: bestMatch.sellListings,
         });
       }
 

@@ -1,4 +1,4 @@
-import { remember } from "@/lib/cache/ttl-store";
+﻿import { remember } from "@/lib/cache/ttl-store";
 import { COINGECKO_SYMBOL_MAP } from "@/lib/constants";
 import { getEnv } from "@/lib/env";
 import type {
@@ -172,6 +172,7 @@ function buildManualQuote(input: SaasPriceEnginePositionInput): SaasResolvedPric
     isLive: false,
     ttlSeconds: getSaasCryptoTtlSeconds(),
     capturedAt: buildSnapshotCapturedAt(getSaasCryptoTtlSeconds()),
+    lastUpdated: input.updatedAt,
     warning: manualPrice === null ? "Crypto position has no live or manual price." : null,
     details:
       manualPrice === null ? buildUnknownDetails(input.assetName) : ["Manual/imported fallback used."],
@@ -210,6 +211,7 @@ export function createSaasCryptoPriceProvider(): SaasPriceProvider {
             isLive: true,
             ttlSeconds: getSaasCryptoTtlSeconds(),
             capturedAt,
+            lastUpdated: capturedAt,
             warning: null,
             details: [liveQuote.sourceId === "coingecko_live" ? "Live price from CoinGecko." : "Live fallback price from Binance."],
           });

@@ -1,9 +1,76 @@
 ﻿import { getEnv } from "@/lib/env";
 import type { NormalizedCs2Row } from "@/lib/sheets/normalizers";
 import type { Cs2PriceConfidence } from "@/types/portfolio";
+import type { Cs2MarketLiquidity } from "@/lib/providers/cs2/types";
+
+const WEAR_ALIAS_MAP: Record<string, string> = {
+  fn: "Factory New",
+  "factory new": "Factory New",
+  "factory-new": "Factory New",
+  mw: "Minimal Wear",
+  "minimal wear": "Minimal Wear",
+  "minimal-wear": "Minimal Wear",
+  ft: "Field-Tested",
+  "field tested": "Field-Tested",
+  "field-tested": "Field-Tested",
+  ww: "Well-Worn",
+  "well worn": "Well-Worn",
+  "well-worn": "Well-Worn",
+  bs: "Battle-Scarred",
+  "battle scarred": "Battle-Scarred",
+  "battle-scarred": "Battle-Scarred",
+};
+
+function normalizeCs2Spacing(value: string) {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function normalizeCs2Prefixes(value: string) {
+  return normalizeCs2Spacing(
+    value
+      .replace(/\bstat\s*trak(?:™)?\b/gi, "StatTrak™")
+      .replace(/\bsouvenir\b/gi, "Souvenir")
+      .replace(/[™®]/g, (token) => (token === "™" ? "™" : "")),
+  );
+}
+
+function stripTrailingWear(value: string) {
+  return normalizeCs2Spacing(value.replace(/\(([^)]+)\)\s*$/u, ""));
+}
+
+export function normalizeCs2Wear(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const normalized = value
+    .toLowerCase()
+    .replace(/[()]/g, " ")
+    .replace(/[-–—]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return WEAR_ALIAS_MAP[normalized] ?? null;
+}
+
+export function extractCs2WearFromName(value: string) {
+  const match = value.match(/\(([^)]+)\)\s*$/u);
+  return normalizeCs2Wear(match?.[1] ?? null);
+}
+
+export function canonicalizeCs2AssetName(name: string, explicitWear?: string | null) {
+  const canonicalWear = normalizeCs2Wear(explicitWear ?? extractCs2WearFromName(name));
+  const canonicalBase = normalizeCs2Prefixes(stripTrailingWear(name));
+
+  if (!canonicalBase) {
+    return canonicalWear ? `(${canonicalWear})` : "";
+  }
+
+  return canonicalWear ? `${canonicalBase} (${canonicalWear})` : canonicalBase;
+}
 
 export function normalizeCs2MarketText(value: string) {
-  return value
+  return canonicalizeCs2AssetName(value)
     .toLowerCase()
     .replace(/ё/g, "е")
     .replace(/[™®]/g, "")
@@ -15,22 +82,28 @@ export function normalizeCs2MarketText(value: string) {
 }
 
 export function buildSteamTargetName(row: NormalizedCs2Row) {
-  return row.wear ? `${row.name} (${row.wear})` : row.name;
+  return canonicalizeCs2AssetName(row.name, row.wear);
 }
 
 export function buildCs2QueryVariants(row: NormalizedCs2Row) {
   const variants = new Set<string>();
-  const baseName = row.name.replace(/\s+/g, " ").trim();
+  const canonicalTarget = buildSteamTargetName(row);
+  const canonicalBase = stripTrailingWear(canonicalTarget);
+  const canonicalWear = normalizeCs2Wear(row.wear ?? extractCs2WearFromName(row.name));
+  const rawBaseName = normalizeCs2Prefixes(normalizeCs2Spacing(row.name));
 
-  if (baseName) {
-    variants.add(baseName);
-    variants.add(baseName.replace(/[™®]/g, "").replace(/\s+/g, " ").trim());
-    variants.add(baseName.replace(/\|/g, " ").replace(/\s+/g, " ").trim());
+  for (const value of [canonicalTarget, canonicalBase, rawBaseName]) {
+    if (value) {
+      variants.add(value);
+      variants.add(value.replace(/[™®]/g, "").trim());
+      variants.add(value.replace(/\|/g, " ").replace(/\s+/g, " ").trim());
+    }
   }
 
-  if (row.wear) {
-    variants.add(`${baseName} ${row.wear}`.replace(/\s+/g, " ").trim());
-    variants.add(buildSteamTargetName(row));
+  if (canonicalBase && canonicalWear) {
+    variants.add(`${canonicalBase} ${canonicalWear}`.replace(/\s+/g, " ").trim());
+    variants.add(`${canonicalBase} (${canonicalWear})`);
+    variants.add(`${canonicalBase} ${canonicalWear.replace(/-/g, " ")}`);
   }
 
   return [...variants].filter((value) => value.length > 0);
@@ -65,6 +138,44 @@ export function scoreSteamCandidate(targetName: string, candidateName: string) {
   score -= Math.abs(targetTokens.length - candidateTokens.size) * 20;
 
   return score;
+}
+
+export function normalizeCs2LiquidityLabel(value: string | null | undefined): Cs2MarketLiquidity | null {
+  const normalized = value?.trim().toLowerCase();
+
+  if (normalized === "high" || normalized === "высокая") {
+    return "high";
+  }
+
+  if (normalized === "medium" || normalized === "средняя") {
+    return "medium";
+  }
+
+  if (normalized === "low" || normalized === "низкая") {
+    return "low";
+  }
+
+  if (normalized === "unknown" || normalized === "неизвестно") {
+    return "unknown";
+  }
+
+  return null;
+}
+
+export function inferCs2LiquidityFromDepth(depth: number | null | undefined): Cs2MarketLiquidity {
+  if (typeof depth !== "number" || !Number.isFinite(depth) || depth <= 0) {
+    return "unknown";
+  }
+
+  if (depth >= 100) {
+    return "high";
+  }
+
+  if (depth >= 20) {
+    return "medium";
+  }
+
+  return "low";
 }
 
 export function getCs2PriceStaleThresholdMs() {

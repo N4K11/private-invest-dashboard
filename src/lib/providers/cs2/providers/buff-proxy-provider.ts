@@ -4,12 +4,22 @@ import type {
   Cs2PriceProvider,
   Cs2ResolvedPriceQuote,
 } from "@/lib/providers/cs2/types";
+import {
+  canonicalizeCs2AssetName,
+  inferCs2LiquidityFromDepth,
+  normalizeCs2LiquidityLabel,
+} from "@/lib/providers/cs2/utils";
 
 type ProxyPriceEntry = {
   assetName?: string;
   matchedName?: string;
+  canonicalName?: string;
   price?: number;
+  currency?: string;
   confidence?: string;
+  liquidityLabel?: string;
+  liquidityDepth?: number;
+  depth?: number;
   lastUpdated?: string;
   warning?: string;
 };
@@ -57,6 +67,11 @@ export function createBuffProxyCs2PriceProvider(): Cs2PriceProvider {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
+              ...(env.CS2_BUFF_PROXY_TOKEN
+                ? {
+                    Authorization: `Bearer ${env.CS2_BUFF_PROXY_TOKEN}`,
+                  }
+                : {}),
             },
             body: JSON.stringify({
               assetNames: inputs.map((item) => item.assetName),
@@ -85,17 +100,31 @@ export function createBuffProxyCs2PriceProvider(): Cs2PriceProvider {
           continue;
         }
 
+        const liquidityDepth =
+          typeof match.liquidityDepth === "number"
+            ? match.liquidityDepth
+            : typeof match.depth === "number"
+              ? match.depth
+              : null;
+
         quotes.set(input.assetId, {
           assetId: input.assetId,
           assetName: input.assetName,
           price: match.price,
+          currency: match.currency?.trim().toUpperCase() ?? null,
           sourceId: "buff_proxy",
           sourceName: "Custom Buff Proxy",
           matchedName: match.matchedName ?? input.assetName,
+          canonicalName:
+            match.canonicalName ?? canonicalizeCs2AssetName(match.matchedName ?? input.assetName),
           lastUpdated: match.lastUpdated ?? new Date().toISOString(),
           confidence: normalizeConfidence(match.confidence),
           isLive: true,
           warning: match.warning ?? null,
+          liquidityLabel:
+            normalizeCs2LiquidityLabel(match.liquidityLabel) ??
+            inferCs2LiquidityFromDepth(liquidityDepth),
+          liquidityDepth,
         } satisfies Cs2ResolvedPriceQuote);
       }
 

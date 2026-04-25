@@ -107,11 +107,12 @@ function buildPositionRow(
     manualCurrentPrice,
     currency: resolvedQuote?.currency ?? manualProfile.currency ?? baseCurrency,
     tags: manualProfile.tags,
-    liquidity: manualProfile.liquidity,
+    liquidity: manualProfile.liquidity ?? resolvedQuote?.liquidityEstimate ?? null,
     confidence: manualProfile.confidence,
     priceConfidenceStatus:
       resolvedQuote?.confidenceStatus ?? ("unknown" as SaasPriceConfidenceStatus),
     priceUpdatedAt:
+      resolvedQuote?.lastUpdated ??
       resolvedQuote?.capturedAt ??
       manualProfile.lastEditedAt ??
       position.updatedAt.toISOString(),
@@ -183,4 +184,6 @@ export async function pricePortfolioPositions(options: {
     persistedSnapshots: priceEngineResult.persistedSnapshots,
   };
 }
+
+
 

@@ -1,4 +1,4 @@
-import "server-only";
+﻿import "server-only";
 
 import { z } from "zod";
 
@@ -27,6 +27,8 @@ const envSchema = z
     CS2_PROVIDER_ORDER: z.string().trim().default("steam,manual"),
     CS2_PRICE_STALE_HOURS: z.coerce.number().int().min(1).default(72),
     CS2_BUFF_PROXY_URL: z.string().trim().url().optional(),
+    CS2_BUFF_PROXY_TOKEN: z.string().trim().optional(),
+    CS2_FX_FALLBACK_RATES_JSON: z.string().trim().optional(),
     CSFLOAT_API_KEY: z.string().trim().optional(),
     PRICEMPIRE_API_KEY: z.string().trim().optional(),
     TELEGRAM_PRICE_STALE_DAYS: z.coerce.number().int().min(1).default(14),
@@ -61,7 +63,7 @@ const envSchema = z
         code: z.ZodIssueCode.custom,
         path: ["GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY"],
         message:
-          "GOOGLE_SERVICE_ACCOUNT_EMAIL и GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY должны задаваться вместе, если не используется GOOGLE_SERVICE_ACCOUNT_JSON.",
+          "GOOGLE_SERVICE_ACCOUNT_EMAIL Рё GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY РґРѕР»Р¶РЅС‹ Р·Р°РґР°РІР°С‚СЊСЃСЏ РІРјРµСЃС‚Рµ, РµСЃР»Рё РЅРµ РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ GOOGLE_SERVICE_ACCOUNT_JSON.",
       });
     }
 
@@ -73,7 +75,7 @@ const envSchema = z
         code: z.ZodIssueCode.custom,
         path: ["CACHE_DRIVER"],
         message:
-          "Для CACHE_DRIVER=redis_rest нужны CACHE_REDIS_REST_URL и CACHE_REDIS_REST_TOKEN.",
+          "Р”Р»СЏ CACHE_DRIVER=redis_rest РЅСѓР¶РЅС‹ CACHE_REDIS_REST_URL Рё CACHE_REDIS_REST_TOKEN.",
       });
     }
 
@@ -86,7 +88,7 @@ const envSchema = z
         code: z.ZodIssueCode.custom,
         path: ["GOOGLE_SHEETS_SPREADSHEET_ID"],
         message:
-          "Для live Google Sheets source нужен GOOGLE_SERVICE_ACCOUNT_JSON или пара GOOGLE_SERVICE_ACCOUNT_EMAIL / GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY.",
+          "Р”Р»СЏ live Google Sheets source РЅСѓР¶РµРЅ GOOGLE_SERVICE_ACCOUNT_JSON РёР»Рё РїР°СЂР° GOOGLE_SERVICE_ACCOUNT_EMAIL / GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY.",
       });
     }
   });
@@ -125,6 +127,8 @@ function parseEnvironment() {
     CS2_PROVIDER_ORDER: process.env.CS2_PROVIDER_ORDER,
     CS2_PRICE_STALE_HOURS: process.env.CS2_PRICE_STALE_HOURS,
     CS2_BUFF_PROXY_URL: process.env.CS2_BUFF_PROXY_URL,
+    CS2_BUFF_PROXY_TOKEN: process.env.CS2_BUFF_PROXY_TOKEN,
+    CS2_FX_FALLBACK_RATES_JSON: process.env.CS2_FX_FALLBACK_RATES_JSON,
     CSFLOAT_API_KEY: process.env.CSFLOAT_API_KEY,
     PRICEMPIRE_API_KEY: process.env.PRICEMPIRE_API_KEY,
     TELEGRAM_PRICE_STALE_DAYS: process.env.TELEGRAM_PRICE_STALE_DAYS,
@@ -203,3 +207,5 @@ export function isExternalCacheConfigured() {
 export function isSaasAuthConfigured() {
   return Boolean(isDatabaseConfigured() && getAuthSecret());
 }
+
+

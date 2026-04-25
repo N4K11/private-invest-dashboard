@@ -55,6 +55,7 @@ The next architecture phase treats the current private dashboard as a legacy-com
 - Stage 17 adds `/app/import` with preview, mapping, deduplication and snapshot imports into PostgreSQL portfolios.
 - Stage 18 adds a Manual Asset Manager on `/app/portfolios/[portfolioId]` with CRUD, audit logging and auto-generated buy/sell transactions.
 - Stage 19 adds a unified SaaS price engine with provider contracts, confidence states, snapshot persistence and category-specific TTL handling.
+- Stage 20 connects SaaS CS2 valuation to the shared provider chain with canonical name matching, stale warnings and optional FX fallback conversion for proxy quotes.
 - The Prisma schema already models users, workspaces, portfolios, assets, positions, transactions, integrations, subscriptions and audit logs for upcoming stages.
 
 ## Operational Notes
@@ -73,6 +74,7 @@ The next architecture phase treats the current private dashboard as a legacy-com
 - `docs/DATABASE.md`: Prisma/PostgreSQL models, commands and migration notes.
 - `docs/IMPORTS.md`: supported import sources, deduplication and manual test flow.
 - `docs/PRICE_ENGINE.md`: unified SaaS valuation engine, providers, TTL rules and snapshot behavior.
+
 
 
 
