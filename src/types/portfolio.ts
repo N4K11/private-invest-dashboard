@@ -70,6 +70,23 @@ export interface TelegramCollectionBreakdownDatum {
   positions: number;
 }
 
+export interface PortfolioValueHistoryDatum {
+  date: string;
+  totalValue: number;
+}
+
+export interface AssetClassHistoryDatum {
+  date: string;
+  cs2Value: number;
+  telegramValue: number;
+  cryptoValue: number;
+}
+
+export interface PortfolioPnlHistoryDatum {
+  date: string;
+  totalPnl: number;
+}
+
 export interface SummaryCardDatum {
   id: string;
   label: string;
@@ -203,6 +220,17 @@ export interface TransactionRecord {
   rowRef: SheetRowRef | null;
 }
 
+export interface PortfolioHistoryRecord {
+  date: string;
+  totalValue: number;
+  cs2Value: number;
+  telegramValue: number;
+  cryptoValue: number;
+  totalPnl: number;
+  notes: string | null;
+  rowRef: SheetRowRef | null;
+}
+
 export interface TelegramGiftAnalytics {
   totalValue: number;
   totalItems: number;
@@ -217,10 +245,18 @@ export interface PortfolioCharts {
   allocation: AllocationDatum[];
   categoryPerformance: CategoryPerformanceDatum[];
   cs2ByType: Cs2TypeBreakdownDatum[];
+  portfolioValueHistory: PortfolioValueHistoryDatum[];
+  assetClassHistory: AssetClassHistoryDatum[];
+  portfolioPnlHistory: PortfolioPnlHistoryDatum[];
 }
 
 export interface PortfolioSnapshot {
   summary: PortfolioSummary;
+  history: {
+    items: PortfolioHistoryRecord[];
+    hasHistory: boolean;
+    lastSnapshotDate: string | null;
+  };
   cs2: {
     positions: Cs2Position[];
     topPositions: Cs2Position[];

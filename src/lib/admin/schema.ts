@@ -33,6 +33,11 @@ const nullableLongTextSchema = z.preprocess(
   z.union([z.string().trim().max(2000), z.null()]),
 );
 
+const nullableTimestampSchema = z.preprocess(
+  emptyToNull,
+  z.union([z.string().trim().min(1).max(80), z.null()]),
+);
+
 const requiredTextSchema = z.string().trim().min(1).max(200);
 const quantitySchema = z.coerce.number().finite().min(0);
 const statusSchema = z.string().trim().min(1).max(40).transform((value) => value.toLowerCase());
@@ -68,7 +73,9 @@ export const telegramAdminDataSchema = z.object({
     emptyToNull,
     z.union([z.enum(["low", "medium", "high"]), z.null()]),
   ),
+  sourceNote: nullableLongTextSchema,
   liquidityNote: nullableShortTextSchema,
+  lastCheckedAt: nullableTimestampSchema,
   status: statusSchema,
   notes: nullableLongTextSchema,
 });
@@ -182,7 +189,23 @@ export const adminTransactionMutationSchema = z.object({
   data: adminTransactionDataSchema,
 });
 
+export const adminPortfolioSnapshotDataSchema = z.object({
+  date: nullableTimestampSchema,
+  notes: nullableLongTextSchema,
+  replaceExisting: z.coerce.boolean().default(false),
+  source: z.preprocess(
+    emptyToNull,
+    z.union([z.enum(["manual", "cron"]), z.null()]).transform((value) => value ?? "manual"),
+  ),
+});
+
+export const adminPortfolioSnapshotMutationSchema = z.object({
+  operation: z.literal("capture"),
+  entityType: z.literal("portfolio_snapshot"),
+  data: adminPortfolioSnapshotDataSchema,
+});
+
 export type AdminMutationInput = z.infer<typeof adminMutationSchema>;
 export type AdminRowRefInput = z.infer<typeof adminRowRefSchema>;
 export type AdminTransactionMutationInput = z.infer<typeof adminTransactionMutationSchema>;
-
+export type AdminPortfolioSnapshotMutationInput = z.infer<typeof adminPortfolioSnapshotMutationSchema>;

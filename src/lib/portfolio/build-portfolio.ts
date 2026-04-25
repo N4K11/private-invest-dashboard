@@ -9,10 +9,16 @@ import { resolveCs2Positions } from "@/lib/providers/cs2-price-provider";
 import { resolveTelegramGiftPositions } from "@/lib/providers/telegram-gift-price-provider";
 import { getPortfolioSource } from "@/lib/sheets/reader";
 import type {
+  NormalizedPortfolioHistoryRow,
+  NormalizedTransactionRow,
+} from "@/lib/sheets/normalizers";
+import type {
   CategoryPerformanceDatum,
   CryptoPosition,
   Cs2Position,
   Cs2TypeBreakdownDatum,
+  DataSourceMode,
+  PortfolioHistoryRecord,
   PortfolioSnapshot,
   SummaryCardDatum,
   TelegramCollectionBreakdownDatum,
@@ -20,6 +26,14 @@ import type {
   TelegramGiftPosition,
   TransactionRecord,
 } from "@/types/portfolio";
+
+interface SnapshotBuildSource {
+  workbook: Awaited<ReturnType<typeof getPortfolioSource>>["workbook"];
+  sourceMode: DataSourceMode;
+  sourceLabel: string;
+  warnings: string[];
+  lastUpdatedAt: string;
+}
 
 function buildSummaryCards(params: {
   totalValue: number;
@@ -111,6 +125,72 @@ function buildCategoryPerformanceData(
   }));
 }
 
+function normalizeHistoryDate(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  const directMatch = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (directMatch) {
+    return directMatch[1];
+  }
+
+  const parsed = Date.parse(trimmed);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+
+  return new Date(parsed).toISOString().slice(0, 10);
+}
+
+function buildPortfolioHistoryRecords(rows: NormalizedPortfolioHistoryRow[]) {
+  const deduped = new Map<string, PortfolioHistoryRecord>();
+
+  for (const row of rows) {
+    const dateKey = normalizeHistoryDate(row.date);
+    if (!dateKey) {
+      continue;
+    }
+
+    deduped.set(dateKey, {
+      date: dateKey,
+      totalValue: row.totalValue ?? 0,
+      cs2Value: row.cs2Value ?? 0,
+      telegramValue: row.telegramValue ?? 0,
+      cryptoValue: row.cryptoValue ?? 0,
+      totalPnl: row.totalPnl ?? 0,
+      notes: row.notes ?? null,
+      rowRef: row.sheetRef ?? null,
+    });
+  }
+
+  return Array.from(deduped.values()).sort((left, right) => left.date.localeCompare(right.date));
+}
+
+function buildPortfolioValueHistoryData(history: PortfolioHistoryRecord[]) {
+  return history.map((item) => ({
+    date: item.date,
+    totalValue: item.totalValue,
+  }));
+}
+
+function buildAssetClassHistoryData(history: PortfolioHistoryRecord[]) {
+  return history.map((item) => ({
+    date: item.date,
+    cs2Value: item.cs2Value,
+    telegramValue: item.telegramValue,
+    cryptoValue: item.cryptoValue,
+  }));
+}
+
+function buildPortfolioPnlHistoryData(history: PortfolioHistoryRecord[]) {
+  return history.map((item) => ({
+    date: item.date,
+    totalPnl: item.totalPnl,
+  }));
+}
+
 function isDateAfter(left: string | null, right: string | null) {
   if (!left) {
     return false;
@@ -133,10 +213,7 @@ function isDateAfter(left: string | null, right: string | null) {
   return leftTimestamp >= rightTimestamp;
 }
 
-function applyAccountingToCs2(
-  positions: Cs2Position[],
-  transactions: import("@/lib/sheets/normalizers").NormalizedTransactionRow[],
-) {
+function applyAccountingToCs2(positions: Cs2Position[], transactions: NormalizedTransactionRow[]) {
   let totalInvestedCapital = 0;
 
   const nextPositions = positions.map((position) => {
@@ -188,7 +265,7 @@ function applyAccountingToCs2(
 
 function applyAccountingToTelegram(
   positions: TelegramGiftPosition[],
-  transactions: import("@/lib/sheets/normalizers").NormalizedTransactionRow[],
+  transactions: NormalizedTransactionRow[],
 ) {
   let totalInvestedCapital = 0;
 
@@ -245,10 +322,7 @@ function applyAccountingToTelegram(
   };
 }
 
-function applyAccountingToCrypto(
-  positions: CryptoPosition[],
-  transactions: import("@/lib/sheets/normalizers").NormalizedTransactionRow[],
-) {
+function applyAccountingToCrypto(positions: CryptoPosition[], transactions: NormalizedTransactionRow[]) {
   let totalInvestedCapital = 0;
 
   const nextPositions = positions.map((position) => {
@@ -336,8 +410,10 @@ function buildTelegramGiftAnalytics(
   };
 }
 
-export async function getPortfolioSnapshot(): Promise<PortfolioSnapshot> {
-  const source = await getPortfolioSource();
+
+export async function buildPortfolioSnapshotFromSource(
+  source: SnapshotBuildSource,
+): Promise<PortfolioSnapshot> {
   const [cs2Result, telegramResult, cryptoResult] = await Promise.all([
     resolveCs2Positions(source.workbook.cs2Rows),
     resolveTelegramGiftPositions(source.workbook.telegramRows),
@@ -371,8 +447,7 @@ export async function getPortfolioSnapshot(): Promise<PortfolioSnapshot> {
   const totalInvestedCapital =
     accountedCs2.investedCapital + accountedTelegram.investedCapital + accountedCrypto.investedCapital;
   const totalRoi = totalInvestedCapital > 0 ? (totalPnl / totalInvestedCapital) * 100 : null;
-  const positionsCount =
-    cs2Positions.length + telegramPositions.length + cryptoPositions.length;
+  const positionsCount = cs2Positions.length + telegramPositions.length + cryptoPositions.length;
   const itemsCount = breakdown.reduce((sum, item) => sum + item.items, 0);
   const topHoldings = buildTopHoldings({
     cs2Positions,
@@ -380,6 +455,7 @@ export async function getPortfolioSnapshot(): Promise<PortfolioSnapshot> {
     cryptoPositions,
     totalValue,
   });
+  const historyItems = buildPortfolioHistoryRecords(source.workbook.portfolioHistoryRows);
 
   return {
     summary: {
@@ -415,6 +491,11 @@ export async function getPortfolioSnapshot(): Promise<PortfolioSnapshot> {
       ],
       availableSheets: source.workbook.availableSheets,
     },
+    history: {
+      items: historyItems,
+      hasHistory: historyItems.length > 0,
+      lastSnapshotDate: historyItems.at(-1)?.date ?? null,
+    },
     cs2: {
       positions: cs2Positions,
       topPositions: cs2Positions.slice(0, 10),
@@ -442,11 +523,20 @@ export async function getPortfolioSnapshot(): Promise<PortfolioSnapshot> {
         })),
       categoryPerformance: buildCategoryPerformanceData(breakdown),
       cs2ByType: buildCs2TypeChartData(cs2Positions),
+      portfolioValueHistory: buildPortfolioValueHistoryData(historyItems),
+      assetClassHistory: buildAssetClassHistoryData(historyItems),
+      portfolioPnlHistory: buildPortfolioPnlHistoryData(historyItems),
     },
     settings: {
-      currency:
-        source.workbook.settings.currency?.toUpperCase() ?? DEFAULT_CURRENCY,
+      currency: source.workbook.settings.currency?.toUpperCase() ?? DEFAULT_CURRENCY,
       ...source.workbook.settings,
     },
   };
 }
+
+export async function getPortfolioSnapshot(): Promise<PortfolioSnapshot> {
+  const source = await getPortfolioSource();
+  return buildPortfolioSnapshotFromSource(source);
+}
+
+

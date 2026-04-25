@@ -3,15 +3,21 @@
 import { google } from "googleapis";
 import * as XLSX from "xlsx";
 
-import { forgetRemembered, forgetRememberedByPrefix } from "@/lib/cache/ttl-store";
-import { isGoogleSheetsConfigured } from "@/lib/env";
 import {
   adminEntityTypeSchema,
   type AdminEntityType,
   type AdminMutationInput,
+  type AdminPortfolioSnapshotMutationInput,
   type AdminTransactionMutationInput,
 } from "@/lib/admin/schema";
-import type { RawSpreadsheetWorkbook, SheetCellValue } from "@/lib/sheets/normalizers";
+import { forgetRemembered, forgetRememberedByPrefix } from "@/lib/cache/ttl-store";
+import { isGoogleSheetsConfigured } from "@/lib/env";
+import { buildPortfolioSnapshotFromSource } from "@/lib/portfolio/build-portfolio";
+import {
+  normalizeWorkbook,
+  type RawSpreadsheetWorkbook,
+  type SheetCellValue,
+} from "@/lib/sheets/normalizers";
 import {
   findMatchedSheetName,
   getFieldAliases,
@@ -44,6 +50,15 @@ export interface AdminMutationResult {
   rowNumber: number;
 }
 
+export interface PortfolioSnapshotMutationResult {
+  entityId: string;
+  entityType: "portfolio_snapshot";
+  operation: "create" | "update";
+  sheetName: string;
+  rowNumber: number;
+  date: string;
+}
+
 type HeaderMap = Record<string, number>;
 type CanonicalRecord = Record<string, SheetCellValue>;
 
@@ -58,6 +73,20 @@ const ENTITY_SHEET_MAP: Record<AdminEntityType, CanonicalSheetName> = {
   telegram: "Telegram_Gifts",
   crypto: "Crypto",
 };
+
+export class SnapshotConflictError extends Error {
+  readonly date: string;
+  readonly rowNumber: number;
+  readonly sheetName: string;
+
+  constructor(params: { date: string; rowNumber: number; sheetName: string }) {
+    super(`Snapshot за ${params.date} уже существует. Подтверди обновление текущей записи.`);
+    this.name = "SnapshotConflictError";
+    this.date = params.date;
+    this.rowNumber = params.rowNumber;
+    this.sheetName = params.sheetName;
+  }
+}
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) {
@@ -217,7 +246,7 @@ function appendAuditLog(
   workbook: MutableWorkbook,
   params: {
     action: string;
-    entityType: AdminEntityType | "transaction";
+    entityType: AdminEntityType | "transaction" | "portfolio_snapshot";
     entityId: string;
     before: CanonicalRecord | null;
     after: CanonicalRecord;
@@ -258,6 +287,10 @@ function getTransactionsSheetName(workbook: MutableWorkbook) {
   return findMatchedSheetName(workbook.availableSheets, "Transactions") ?? "Transactions";
 }
 
+function getPortfolioHistorySheetName(workbook: MutableWorkbook) {
+  return findMatchedSheetName(workbook.availableSheets, "Portfolio_History") ?? "Portfolio_History";
+}
+
 function buildNextPositionRecord(
   input: AdminMutationInput,
   existingRecord: CanonicalRecord | null,
@@ -290,6 +323,8 @@ function buildNextPositionRecord(
   }
 
   if (input.entityType === "telegram") {
+    const lastCheckedAt = input.data.lastCheckedAt ?? timestamp;
+
     return {
       id: existingRecord?.id ?? generateEntityId("telegram", input.data.name),
       giftName: input.data.name,
@@ -302,11 +337,12 @@ function buildNextPositionRecord(
       liquidityNote: input.data.liquidityNote ?? "",
       status: input.data.status,
       notes: input.data.notes ?? "",
-      lastUpdated: timestamp,
+      lastUpdated: lastCheckedAt,
       priceSource:
         input.data.manualCurrentPrice !== null
           ? "manual_sheet"
           : existingRecord?.priceSource ?? "",
+      sourceNote: input.data.sourceNote ?? "",
       priceTon: existingRecord?.priceTon ?? "",
       totalTon: existingRecord?.totalTon ?? "",
     } satisfies CanonicalRecord;
@@ -346,6 +382,64 @@ function buildNextTransactionRecord(
     fees: input.data.fees ?? (input.data.action === "fee" ? input.data.price ?? 0 : 0),
     currency: input.data.currency ?? "USD",
     notes: input.data.notes ?? `Создано через admin mode ${timestamp}`,
+  } satisfies CanonicalRecord;
+}
+
+function formatSnapshotDateKey(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  const directMatch = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (directMatch) {
+    return directMatch[1];
+  }
+
+  const parsed = Date.parse(trimmed);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+
+  return new Date(parsed).toISOString().slice(0, 10);
+}
+
+function findHistoryRowNumber(values: SheetCellValue[][], dateKey: string) {
+  for (let rowNumber = 2; rowNumber <= values.length; rowNumber += 1) {
+    const record = buildCanonicalRecord(values, rowNumber, "Portfolio_History");
+    if (formatSnapshotDateKey(String(record.date ?? "")) === dateKey) {
+      return rowNumber;
+    }
+  }
+
+  return null;
+}
+
+function buildSnapshotRecord(
+  snapshot: Awaited<ReturnType<typeof buildPortfolioSnapshotFromSource>>,
+  input: AdminPortfolioSnapshotMutationInput,
+  existingRecord: CanonicalRecord | null,
+  timestamp: string,
+  dateKey: string,
+) {
+  const cs2Value = snapshot.summary.breakdown.find((item) => item.category === "cs2")?.value ?? 0;
+  const telegramValue =
+    snapshot.summary.breakdown.find((item) => item.category === "telegram")?.value ?? 0;
+  const cryptoValue = snapshot.summary.breakdown.find((item) => item.category === "crypto")?.value ?? 0;
+  const existingNotes = typeof existingRecord?.notes === "string" ? existingRecord.notes : null;
+  const defaultNotes =
+    input.data.source === "cron"
+      ? `Автоматический daily snapshot ${timestamp}`
+      : `Ручной snapshot из dashboard ${timestamp}`;
+
+  return {
+    date: dateKey,
+    totalValue: snapshot.summary.totalValue,
+    cs2Value,
+    telegramValue,
+    cryptoValue,
+    totalPnl: snapshot.summary.totalPnl,
+    notes: input.data.notes ?? existingNotes ?? defaultNotes,
   } satisfies CanonicalRecord;
 }
 
@@ -614,4 +708,66 @@ export async function applyTransactionMutation(
   };
 }
 
+export async function applyPortfolioSnapshotMutation(
+  input: AdminPortfolioSnapshotMutationInput,
+): Promise<PortfolioSnapshotMutationResult> {
+  const document = await loadWritableDocument();
+  const workbook = cloneWorkbook(document.workbook);
+  const timestamp = new Date().toISOString();
+  const sheetName = getPortfolioHistorySheetName(workbook);
+  const { values, headerMap } = getCanonicalHeaderMap(workbook, sheetName, "Portfolio_History");
+  const dateKey = formatSnapshotDateKey(input.data.date) ?? timestamp.slice(0, 10);
+  const existingRowNumber = findHistoryRowNumber(values, dateKey);
 
+  if (existingRowNumber !== null && !input.data.replaceExisting) {
+    throw new SnapshotConflictError({
+      date: dateKey,
+      rowNumber: existingRowNumber,
+      sheetName,
+    });
+  }
+
+  const normalizedWorkbook = normalizeWorkbook(document.workbook);
+  const snapshot = await buildPortfolioSnapshotFromSource({
+    workbook: normalizedWorkbook,
+    sourceMode: "live",
+    sourceLabel: "Google Sheets + live-оценка",
+    warnings: normalizedWorkbook.warnings,
+    lastUpdatedAt: timestamp,
+  });
+
+  const rowNumber = existingRowNumber ?? values.length + 1;
+  const beforeRecord = existingRowNumber
+    ? buildCanonicalRecord(values, existingRowNumber, "Portfolio_History")
+    : null;
+  const nextRecord = buildSnapshotRecord(snapshot, input, beforeRecord, timestamp, dateKey);
+
+  setRecordValues(values, rowNumber, headerMap, nextRecord);
+  appendAuditLog(workbook, {
+    action: existingRowNumber ? "update_portfolio_snapshot" : "create_portfolio_snapshot",
+    entityType: "portfolio_snapshot",
+    entityId: dateKey,
+    before: beforeRecord,
+    after: nextRecord,
+    notes: existingRowNumber
+      ? `Обновление daily snapshot (${sheetName}:${rowNumber})`
+      : `Создание daily snapshot (${sheetName}:${rowNumber})`,
+  });
+
+  const touchedSheets = [
+    sheetName,
+    findMatchedSheetName(workbook.availableSheets, "Audit_Log") ?? "Audit_Log",
+  ];
+
+  await persistWorkbook(document, workbook, touchedSheets);
+  invalidatePortfolioCaches();
+
+  return {
+    entityId: dateKey,
+    entityType: "portfolio_snapshot",
+    operation: existingRowNumber ? "update" : "create",
+    sheetName,
+    rowNumber,
+    date: dateKey,
+  };
+}

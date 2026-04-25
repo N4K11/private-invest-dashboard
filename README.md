@@ -10,7 +10,7 @@ Implemented right now:
 - Google Sheets read layer with canonical schema support and legacy workbook compatibility
 - automatic Drive-hosted Excel workbook fallback via `Google Drive API + xlsx`
 - canonical Google Sheets validator for tabs and required columns
-- summary cards, allocation charts and category charts
+- summary cards, allocation charts, category charts and portfolio history performance charts
 - full CS2 table with search, filters, sorting, pagination and mobile cards
 - Telegram Gifts pricing workflow with manual price notes, stale warnings, analytics and quick price-update actions
 - crypto panel with CoinGecko live pricing and sheet fallback
@@ -20,7 +20,7 @@ Implemented right now:
 - transaction history table with filters by category, date, name and action
 - transaction form for buy / sell / transfer / price_update / fee
 - write-back to native Google Sheets and Drive-hosted Excel workbooks
-- Audit_Log append on every admin create/update action, including transactions
+- Audit_Log append on every admin create/update action, including transactions and portfolio snapshots
 - simple in-memory cache and rate limiting
 - `robots.txt` and `noindex/nofollow` protection for the private surface
 
@@ -49,11 +49,15 @@ src/
     api/private/admin/meta
     api/private/admin/positions
     api/private/admin/transactions
+    api/private/admin/snapshots
     invest-dashboard/[dashboardSlug]
   components/dashboard/
     position-editor-drawer.tsx
     transaction-editor-drawer.tsx
     transaction-history-table.tsx
+    portfolio-value-history-chart.tsx
+    asset-class-history-chart.tsx
+    portfolio-pnl-history-chart.tsx
   lib/
     admin/
     auth/
@@ -143,7 +147,8 @@ Current capabilities:
 - edit notes
 - edit `priceConfidence`, `sourceNote`, `liquidityNote` and last checked date for Telegram Gifts
 - add new CS2 / Telegram / Crypto positions
-- add transaction rows for `buy`, `sell`, `transfer`, `price_update`, `fee`
+- add transaction rows for uy, sell, 	ransfer, price_update, ee`r
+- create a daily portfolio snapshot in Portfolio_History with duplicate-day protection
 - transaction history filters by category, date, action and asset name
 - append every mutation to `Audit_Log`
 - support both canonical sheets and legacy alias tabs such as `CS2 Assets` / `Telegram Gifts`
@@ -153,6 +158,7 @@ Current safety behavior:
 - all admin payloads are validated on the server
 - rate limiting is applied to admin routes too
 - positions are not physically deleted by the UI
+- a second snapshot on the same date requires explicit confirmation and updates the existing row instead of creating silent duplicates
 - use `archived` or `dead` to retire a position without removing history
 
 ## Local development
@@ -264,6 +270,23 @@ Future provider path:
 - today it uses manual sheet pricing first and TON sheet conversion as a secondary provider
 - later you can plug an external OTC / marketplace source without rewriting the dashboard shell
 
+## Portfolio history snapshots
+Portfolio history is now based on the `Portfolio_History` sheet and the private route `POST /api/private/admin/snapshots`.
+
+Current behavior:
+- admin mode has a `Create snapshot now` action
+- the API prevents silent duplicate snapshots for the same day
+- after confirmation, the current day row is updated instead of appended again
+- the endpoint is cron-ready and can be triggered later with the same bearer token / dashboard token
+
+Example future cron call:
+```bash
+curl -X POST https://your-domain.com/api/private/admin/snapshots \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"operation":"capture","entityType":"portfolio_snapshot","data":{"source":"cron","date":"2026-04-25"}}'
+```
+
 ## Add new price providers
 1. Create a provider in `src/lib/providers`.
 2. Keep the provider focused on one asset class.
@@ -273,7 +296,7 @@ Future provider path:
 6. If the provider depends on extra sheet columns, update `src/lib/sheets/schema.json`, the normalizer and `scripts/validate-google-sheet.mjs`.
 
 ## What still needs to be done for full portfolio operations
-- portfolio history snapshots and performance-over-time charts
+- scheduled cron trigger or automation for daily snapshot creation
 - explicit delete flow with hard confirmation if physical row removal is ever needed
 - external Telegram Gifts market/OTC provider if you decide to automate more than manual + TON-based pricing
 - direct CSFloat / PriceEmpire adapters if you decide to operate through official paid APIs
@@ -286,6 +309,7 @@ npm run typecheck
 npm run lint
 npm run build
 ```
+
 
 
 

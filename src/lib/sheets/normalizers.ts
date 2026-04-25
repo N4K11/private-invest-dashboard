@@ -99,6 +99,7 @@ export interface NormalizedPortfolioHistoryRow {
   cryptoValue: number | null;
   totalPnl: number | null;
   notes: string | null;
+  sheetRef: SheetRowRef;
 }
 
 export interface NormalizedAuditLogRow {
@@ -445,8 +446,12 @@ function normalizeTransactions(
   }));
 }
 
-function normalizePortfolioHistory(values?: SheetCellValue[][]) {
-  return sheetToRows(values).map((row) => ({
+function normalizePortfolioHistory(
+  values: SheetCellValue[][] | undefined,
+  sheetName: string,
+  isCanonical: boolean,
+) {
+  return sheetToRows(values).map((row, index) => ({
     date: getString(row, getFieldAliases("Portfolio_History", "date")),
     totalValue: getNumber(row, getFieldAliases("Portfolio_History", "totalValue")),
     cs2Value: getNumber(row, getFieldAliases("Portfolio_History", "cs2Value")),
@@ -454,6 +459,7 @@ function normalizePortfolioHistory(values?: SheetCellValue[][]) {
     cryptoValue: getNumber(row, getFieldAliases("Portfolio_History", "cryptoValue")),
     totalPnl: getNumber(row, getFieldAliases("Portfolio_History", "totalPnl")),
     notes: getString(row, getFieldAliases("Portfolio_History", "notes")),
+    sheetRef: buildSheetRef(sheetName, index, isCanonical),
   }));
 }
 
@@ -553,10 +559,12 @@ export function normalizeWorkbook(workbook: RawSpreadsheetWorkbook): NormalizedW
       transactionsSheet.matchedName ?? "Transactions",
       transactionsSheet.isCanonical,
     ),
-    portfolioHistoryRows: normalizePortfolioHistory(historySheet.values),
+    portfolioHistoryRows: normalizePortfolioHistory(
+      historySheet.values,
+      historySheet.matchedName ?? "Portfolio_History",
+      historySheet.isCanonical,
+    ),
     auditLogRows: normalizeAuditLog(auditSheet.values),
     settings: normalizeSettings(settingsSheet.values),
   };
 }
-
-

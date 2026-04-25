@@ -3,10 +3,13 @@
 import { useEffect, useState } from "react";
 
 import { AllocationChart } from "@/components/dashboard/allocation-chart";
+import { AssetClassHistoryChart } from "@/components/dashboard/asset-class-history-chart";
 import { CategoryPerformanceChart } from "@/components/dashboard/category-performance-chart";
 import { CryptoPanel } from "@/components/dashboard/crypto-panel";
 import { Cs2Table } from "@/components/dashboard/cs2-table";
 import { Cs2TypeChart } from "@/components/dashboard/cs2-type-chart";
+import { PortfolioPnlHistoryChart } from "@/components/dashboard/portfolio-pnl-history-chart";
+import { PortfolioValueHistoryChart } from "@/components/dashboard/portfolio-value-history-chart";
 import {
   PositionEditorDrawer,
   type AdminEditorState,
@@ -51,6 +54,16 @@ type AdminMeta = {
 type ValidationError = {
   path: string;
   message: string;
+};
+
+type SnapshotConflictBody = {
+  error?: string;
+  code?: string;
+  conflict?: {
+    date: string;
+    rowNumber: number;
+    sheetName: string;
+  };
 };
 
 type TransactionDrawerPrefill = {
@@ -169,6 +182,29 @@ function buildDefaultDateValue() {
   return new Date(now.getTime() - timezoneOffsetMs).toISOString().slice(0, 16);
 }
 
+function getLocalDateKey() {
+  const now = new Date();
+  const timezoneOffsetMs = now.getTimezoneOffset() * 60_000;
+  return new Date(now.getTime() - timezoneOffsetMs).toISOString().slice(0, 10);
+}
+
+function formatSnapshotDate(value: string | null) {
+  if (!value) {
+    return "Snapshot еще не записан";
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(parsed);
+}
+
 function buildTelegramPriceUpdatePrefill(
   position: TelegramGiftPosition,
   currency: string,
@@ -192,6 +228,7 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSavingPosition, setIsSavingPosition] = useState(false);
   const [isSavingTransaction, setIsSavingTransaction] = useState(false);
+  const [isCreatingSnapshot, setIsCreatingSnapshot] = useState(false);
   const [isAdminLoading, setIsAdminLoading] = useState(false);
   const [adminMeta, setAdminMeta] = useState<AdminMeta | null>(null);
   const [editorState, setEditorState] = useState<AdminEditorState | null>(null);
@@ -206,6 +243,7 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
 
   const currency = currentSnapshot.settings.currency ?? "USD";
   const adminReady = isAdminMode && Boolean(adminMeta?.canWrite);
+  const lastSnapshotLabel = formatSnapshotDate(currentSnapshot.history.lastSnapshotDate);
 
   useEffect(() => {
     if (!toast) {
@@ -314,7 +352,6 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
     setTransactionDrawerRevision((current) => current + 1);
     toggleTransactionDrawer(true);
   }
-
   async function handleEditorSubmit(payload: AdminMutationInput) {
     if (!window.confirm(payload.operation === "create" ? "Создать новую позицию в Google Sheets?" : "Сохранить изменения в Google Sheets?")) {
       return;
@@ -424,6 +461,80 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
     }
   }
 
+  async function handleCreateSnapshot() {
+    if (!window.confirm("Создать daily snapshot и записать его в Portfolio_History?")) {
+      return;
+    }
+
+    setIsCreatingSnapshot(true);
+
+    async function submitSnapshot(replaceExisting: boolean): Promise<boolean> {
+      const response = await dashboardFetch("/api/private/admin/snapshots", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          operation: "capture",
+          entityType: "portfolio_snapshot",
+          data: {
+            date: getLocalDateKey(),
+            notes: null,
+            replaceExisting,
+            source: "manual",
+          },
+        }),
+      });
+
+      const body = (await response.json().catch(() => null)) as
+        | {
+            ok?: boolean;
+            result?: { operation: "create" | "update"; date: string };
+            error?: string;
+          }
+        | SnapshotConflictBody
+        | null;
+
+      if (response.status === 409 && body && "code" in body && body.code === "snapshot_exists") {
+        const conflictDate = body.conflict?.date ?? getLocalDateKey();
+        const confirmed = window.confirm(
+          `Snapshot за ${conflictDate} уже существует. Обновить его текущими значениями?`,
+        );
+
+        if (!confirmed) {
+          return false;
+        }
+
+        return submitSnapshot(true);
+      }
+
+      if (!response.ok || !body || !("ok" in body) || !body.ok || !body.result) {
+        throw new Error((body && "error" in body ? body.error : undefined) ?? "Не удалось сохранить daily snapshot.");
+      }
+
+      await refreshSnapshot();
+      setToast({
+        tone: "success",
+        message:
+          body.result.operation === "update"
+            ? "Сегодняшний snapshot обновлен в Portfolio_History."
+            : "Daily snapshot сохранен в Portfolio_History.",
+      });
+      return true;
+    }
+
+    try {
+      await submitSnapshot(false);
+    } catch (error) {
+      setToast({
+        tone: "error",
+        message: error instanceof Error ? error.message : "Не удалось записать daily snapshot.",
+      });
+    } finally {
+      setIsCreatingSnapshot(false);
+    }
+  }
+
   return (
     <>
       <main className="relative overflow-hidden pb-16">
@@ -466,6 +577,9 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
                   <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
                     {currentSnapshot.transactions.items.length.toLocaleString("ru-RU")} транзакций
                   </span>
+                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+                    {currentSnapshot.history.items.length.toLocaleString("ru-RU")} snapshot
+                  </span>
                 </div>
               </div>
 
@@ -506,9 +620,9 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                   <p className="text-xs uppercase tracking-[0.24em] text-cyan-200/70">Admin mode</p>
-                  <h2 className="mt-2 text-xl font-semibold text-white">Позиции и Transactions под token-gate</h2>
+                  <h2 className="mt-2 text-xl font-semibold text-white">Позиции, transactions и daily snapshots под token-gate</h2>
                   <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300/82">
-                    Меняй позиции, добавляй сделки, price updates и комиссии прямо из dashboard. Все изменения пишутся обратно в Google Sheets и логируются в Audit_Log.
+                    Меняй позиции, добавляй сделки, price updates и комиссии прямо из dashboard. Сюда же добавлен ручной daily snapshot в Portfolio_History, чтобы строить графики роста и PnL по времени.
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-3">
@@ -543,6 +657,9 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
                         {adminMeta.fileName}
                       </span>
                     ) : null}
+                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-slate-300">
+                      Последний snapshot: {lastSnapshotLabel}
+                    </span>
                   </div>
 
                   {adminMeta?.message ? (
@@ -564,6 +681,9 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
                     <button type="button" onClick={() => openTransactionDrawer()} disabled={!adminMeta?.canWrite} className="rounded-2xl border border-cyan-300/20 bg-cyan-300/10 px-4 py-3 text-sm font-medium text-cyan-100 transition hover:bg-cyan-300/16 disabled:cursor-not-allowed disabled:opacity-40">
                       + Добавить транзакцию
                     </button>
+                    <button type="button" onClick={() => handleCreateSnapshot().catch(() => undefined)} disabled={!adminMeta?.canWrite || isCreatingSnapshot} className="rounded-2xl border border-emerald-300/20 bg-emerald-300/10 px-4 py-3 text-sm font-medium text-emerald-100 transition hover:bg-emerald-300/16 disabled:cursor-not-allowed disabled:opacity-40">
+                      {isCreatingSnapshot ? "Создаю snapshot..." : "Создать snapshot сейчас"}
+                    </button>
                   </div>
                 </div>
               ) : null}
@@ -574,6 +694,37 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
             {currentSnapshot.summary.cards.map((card) => (
               <SummaryCard key={card.id} card={card} currency={currency} />
             ))}
+          </section>
+          <section className="grid gap-6 xl:grid-cols-3">
+            <SectionCard
+              title="Стоимость портфеля по времени"
+              eyebrow="Portfolio History"
+              description="Кривая общей оценки на основе сохраненных daily snapshots. Если в один день snapshot обновлялся, показывается актуальная версия за эту дату."
+              aside={
+                <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs uppercase tracking-[0.18em] text-slate-300">
+                  {lastSnapshotLabel}
+                </div>
+              }
+            >
+              <PortfolioValueHistoryChart
+                data={currentSnapshot.charts.portfolioValueHistory}
+                currency={currency}
+              />
+            </SectionCard>
+            <SectionCard
+              title="Рост по классам активов"
+              eyebrow="CS2 / Telegram / Crypto"
+              description="Позволяет быстро увидеть, какой блок тянет общий рост портфеля, а какой, наоборот, стагнирует или сжимается."
+            >
+              <AssetClassHistoryChart data={currentSnapshot.charts.assetClassHistory} currency={currency} />
+            </SectionCard>
+            <SectionCard
+              title="PnL по истории snapshots"
+              eyebrow="Performance"
+              description="Daily snapshots сохраняют total PnL на дату, поэтому можно отслеживать не только стоимость, но и траекторию доходности во времени."
+            >
+              <PortfolioPnlHistoryChart data={currentSnapshot.charts.portfolioPnlHistory} currency={currency} />
+            </SectionCard>
           </section>
 
           <section className="grid gap-6 xl:grid-cols-3">
@@ -703,7 +854,6 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
           </SectionCard>
         </div>
       </main>
-
       {editorState ? (
         <PositionEditorDrawer
           key={`${editorState.entityType}:${editorState.operation}:${editorState.operation === "update" ? editorState.position.id : "create"}`}
@@ -761,7 +911,3 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
     </>
   );
 }
-
-
-
-
