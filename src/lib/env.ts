@@ -1,11 +1,9 @@
-﻿import "server-only";
+import "server-only";
 
 import { z } from "zod";
 
-import {
-  DASHBOARD_SLUG_PLACEHOLDER,
-  DEFAULT_CURRENCY,
-} from "@/lib/constants";
+import { DASHBOARD_SLUG_PLACEHOLDER, DEFAULT_CURRENCY } from "@/lib/constants";
+import { isDatabaseConfigured } from "@/lib/db/config";
 
 const envSchema = z
   .object({
@@ -18,6 +16,9 @@ const envSchema = z
       .min(1)
       .default(DASHBOARD_SLUG_PLACEHOLDER),
     DASHBOARD_SECRET_TOKEN: z.string().trim().default(""),
+    AUTH_SECRET: z.string().trim().optional(),
+    NEXTAUTH_SECRET: z.string().trim().optional(),
+    NEXTAUTH_URL: z.string().trim().url().optional(),
     GOOGLE_SHEETS_SPREADSHEET_ID: z.string().trim().optional(),
     GOOGLE_SERVICE_ACCOUNT_EMAIL: z.string().trim().optional(),
     GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: z.string().trim().optional(),
@@ -34,6 +35,8 @@ const envSchema = z
     PRICE_CACHE_TTL_SECONDS: z.coerce.number().int().min(30).default(120),
     RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().min(10).default(60),
     RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().min(1).default(25),
+    AUTH_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().min(10).default(60),
+    AUTH_RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().min(1).default(10),
     CACHE_DRIVER: z.enum(["memory", "redis_rest"]).default("memory"),
     CACHE_REDIS_REST_URL: z.string().trim().url().optional(),
     CACHE_REDIS_REST_TOKEN: z.string().trim().optional(),
@@ -103,6 +106,9 @@ function parseEnvironment() {
     NODE_ENV: process.env.NODE_ENV,
     PRIVATE_DASHBOARD_SLUG: process.env.PRIVATE_DASHBOARD_SLUG,
     DASHBOARD_SECRET_TOKEN: process.env.DASHBOARD_SECRET_TOKEN,
+    AUTH_SECRET: process.env.AUTH_SECRET,
+    NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
+    NEXTAUTH_URL: process.env.NEXTAUTH_URL,
     GOOGLE_SHEETS_SPREADSHEET_ID: normalizeSpreadsheetId(
       process.env.GOOGLE_SHEETS_SPREADSHEET_ID,
     ),
@@ -122,6 +128,8 @@ function parseEnvironment() {
     PRICE_CACHE_TTL_SECONDS: process.env.PRICE_CACHE_TTL_SECONDS,
     RATE_LIMIT_WINDOW_SECONDS: process.env.RATE_LIMIT_WINDOW_SECONDS,
     RATE_LIMIT_MAX_REQUESTS: process.env.RATE_LIMIT_MAX_REQUESTS,
+    AUTH_RATE_LIMIT_WINDOW_SECONDS: process.env.AUTH_RATE_LIMIT_WINDOW_SECONDS,
+    AUTH_RATE_LIMIT_MAX_REQUESTS: process.env.AUTH_RATE_LIMIT_MAX_REQUESTS,
     CACHE_DRIVER: process.env.CACHE_DRIVER,
     CACHE_REDIS_REST_URL: process.env.CACHE_REDIS_REST_URL,
     CACHE_REDIS_REST_TOKEN: process.env.CACHE_REDIS_REST_TOKEN,
@@ -160,6 +168,11 @@ export function isDashboardConfigured() {
   return isDashboardConfiguredFromEnv(getEnv());
 }
 
+export function getAuthSecret() {
+  const env = getEnv();
+  return env.AUTH_SECRET ?? env.NEXTAUTH_SECRET ?? null;
+}
+
 export function isGoogleSheetsConfigured() {
   const env = getEnv();
   const hasJson = Boolean(env.GOOGLE_SERVICE_ACCOUNT_JSON);
@@ -175,4 +188,8 @@ export function isGoogleSheetsConfigured() {
 export function isExternalCacheConfigured() {
   const env = getEnv();
   return env.CACHE_DRIVER === "redis_rest";
+}
+
+export function isSaasAuthConfigured() {
+  return Boolean(isDatabaseConfigured() && getAuthSecret());
 }

@@ -35,7 +35,8 @@ Implemented right now:
 - premium loading skeletons, reusable empty states and route-level error boundary for the private dashboard
 - protected health actions for cache refresh, Google Sheet validation, snapshot creation and provider diagnostics
 - memory cache with optional Redis REST shared cache fallback plus rate limiting
-- Prisma/PostgreSQL SaaS database foundation with schema, seed script and migration docs
+- Prisma/PostgreSQL SaaS database foundation with schema, seed script, auth bootstrap and migration docs
+- Auth.js credentials login/registration for `/login`, `/register` and protected SaaS routes `/app`, `/app/portfolios`, `/app/settings`
 - `robots.txt` and `noindex/nofollow` protection for the private surface
 
 ## Stack
@@ -46,12 +47,14 @@ Implemented right now:
 - Recharts
 - Google Sheets API (`googleapis`)
 - Google Drive API fallback for uploaded Excel workbooks
-- PostgreSQL + Prisma schema foundation for future SaaS mode
+- PostgreSQL + Prisma 7 + `@prisma/adapter-pg` for SaaS auth/workspace mode
 - `xlsx` for workbook parsing and write-back
 - `zod` for env and admin payload validation
 
 ## Current scope
 This release is read/write-capable if the Google service account has `Editor` access to the spreadsheet or Drive workbook.
+
+SaaS auth mode is available when `DATABASE_URL` and `AUTH_SECRET` are configured. It adds credentials-based registration/login for `/app`, while the existing private slug+token dashboard remains untouched.
 
 If the service account only has `Viewer`, the dashboard stays fully usable in read-only mode, but admin mode shows a clear write-permission error and does not save changes.
 
@@ -59,6 +62,8 @@ If the service account only has `Viewer`, the dashboard stays fully usable in re
 ```text
 src/
   app/
+    api/auth/[...nextauth]
+    api/auth/register
     api/private/auth
     api/private/portfolio
     api/private/health
@@ -67,8 +72,20 @@ src/
     api/private/admin/positions
     api/private/admin/transactions
     api/private/admin/snapshots
+    app
+    app/portfolios
+    app/settings
     invest-dashboard/[dashboardSlug]
     invest-dashboard/[dashboardSlug]/settings
+    login
+    register
+  components/app/
+    saas-app-shell.tsx
+  components/auth/
+    auth-shell.tsx
+    login-form.tsx
+    register-form.tsx
+    saas-disabled-state.tsx
   components/dashboard/
     dashboard-locked-state.tsx
     private-dashboard-nav.tsx
@@ -119,6 +136,7 @@ prisma.config.ts
 scripts/
   validate-google-sheet.mjs
   verify-client-bundle.mjs
+middleware.ts
 .env.example
 PROJECT_OVERVIEW.md
 README.md
@@ -130,8 +148,12 @@ Copy `.env.example` to `.env.local` and fill in:
 - `PRIVATE_DASHBOARD_SLUG`: long private route fragment
 - `DASHBOARD_SECRET_TOKEN`: token/password for the dashboard and API
 - `NEXT_PUBLIC_SITE_URL`: canonical domain for deployment
-- `DATABASE_URL`: PostgreSQL connection string for future SaaS/database-backed mode
+- `DATABASE_URL`: PostgreSQL connection string for SaaS auth/workspace mode
 - `DIRECT_URL`: optional direct PostgreSQL connection string reserved for future split-connection tooling
+- `AUTH_SECRET`: secret for Auth.js JWT sessions
+- `NEXTAUTH_URL`: canonical SaaS auth URL
+- `AUTH_RATE_LIMIT_WINDOW_SECONDS`: auth rate-limit window
+- `AUTH_RATE_LIMIT_MAX_REQUESTS`: max auth attempts per window
 - `GOOGLE_SHEETS_SPREADSHEET_ID`: spreadsheet id or full Sheets URL
 - `GOOGLE_SERVICE_ACCOUNT_EMAIL`: Google service-account email
 - `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY`: service-account private key with `\n` escapes
@@ -163,6 +185,7 @@ npm run db:format
 npm run db:validate
 npm run db:generate
 npm run db:migrate:dev -- --name init_saas_foundation
+npm run db:migrate:dev -- --name add_auth_credentials
 npm run db:seed
 ```
 
@@ -256,6 +279,24 @@ Current capabilities:
 
 The page never shows env secrets; it only shows operational health and user-facing error messages.
 
+## SaaS auth beta
+Protected SaaS routes:
+- `/app`
+- `/app/portfolios`
+- `/app/settings`
+
+Public auth routes:
+- `/login`
+- `/register`
+
+Manual flow:
+1. Set `DATABASE_URL` and `AUTH_SECRET` in `.env.local`.
+2. Run `npm run db:generate`.
+3. Run `npm run db:migrate:dev -- --name add_auth_credentials`.
+4. Open `/register` and create the first account.
+5. After registration, the app bootstraps owner-user, workspace, main portfolio and free subscription.
+6. Login redirects to `/app`.
+
 ## Local development
 ```bash
 npm install
@@ -272,6 +313,8 @@ Authenticate either by:
 - entering the token in the login form
 - opening the URL with `?token=YOUR_TOKEN`
 - calling the API with `Authorization: Bearer YOUR_TOKEN`
+
+SaaS auth uses a separate credentials flow at `/login` and `/register`.
 
 ## Deploy
 See also [DEPLOYMENT.md](DEPLOYMENT.md) for the production checklist, proxy examples and troubleshooting.

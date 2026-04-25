@@ -7,7 +7,8 @@ Important: the current production private dashboard still runs on the legacy Goo
 
 ## Stack Choice
 - Database: PostgreSQL
-- ORM: Prisma
+- ORM: Prisma 7
+- Driver adapter: `@prisma/adapter-pg` + `pg`
 - Seed runner: `node prisma/seed.mjs`
 
 Prisma was chosen because it gives fast schema iteration, strong generated types and a clear migration workflow for the next SaaS stages.
@@ -24,8 +25,14 @@ Prisma was chosen because it gives fast schema iteration, strong generated types
 ### User
 SaaS identity root.
 - unique email
+- `passwordHash`, `emailVerifiedAt`, `lastLoginAt` for credentials auth bootstrap
 - display name, locale, timezone
 - owner/member relations to workspaces
+
+### Account
+Auth provider binding layer.
+- credentials bootstrap support today
+- future OAuth / magic-link expansion without changing `User` semantics
 
 ### Workspace
 Top-level tenant boundary.
@@ -144,7 +151,8 @@ npm run db:studio
 ## Seed Behavior
 `prisma/seed.mjs` is idempotent enough for a local demo bootstrap.
 It creates:
-- a demo owner user
+- a demo owner user with credentials password `DemoPass123!`
+- a credentials `Account` record
 - a demo workspace
 - a demo portfolio
 - a demo Google Sheets integration
@@ -164,6 +172,12 @@ npm run db:generate
 npm run db:migrate:deploy
 ```
 
+For local Stage 15 auth bootstrap you will typically run:
+
+```bash
+npm run db:migrate:dev -- --name add_auth_credentials
+```
+
 Optional only for sandbox/demo environments:
 
 ```bash
@@ -173,5 +187,6 @@ npm run db:seed
 ## What This Stage Does Not Do
 - it does not switch the dashboard from Google Sheets to PostgreSQL
 - it does not migrate current user spreadsheet data into the database automatically
-- it does not introduce auth, sessions or workspace UI yet
+- it now supports credentials auth, account bootstrap and workspace binding for SaaS routes
+- it still does not replace the legacy Google Sheets dashboard runtime
 - it does not require `DATABASE_URL` for the current legacy private dashboard runtime

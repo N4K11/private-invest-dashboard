@@ -1,3 +1,6 @@
+import { PrismaPg } from "@prisma/adapter-pg";
+import { hash } from "bcryptjs";
+
 async function loadPrismaClient() {
   try {
     const clientModule = await import("@prisma/client");
@@ -11,7 +14,15 @@ async function loadPrismaClient() {
 
 async function main() {
   const PrismaClient = await loadPrismaClient();
-  const prisma = new PrismaClient();
+  const databaseUrl = process.env.DATABASE_URL;
+
+  if (!databaseUrl) {
+    throw new Error("DATABASE_URL is required for prisma seed.");
+  }
+
+  const adapter = new PrismaPg(databaseUrl);
+  const prisma = new PrismaClient({ adapter });
+  const passwordHash = await hash("DemoPass123!", 12);
 
   try {
     const user = await prisma.user.upsert({
@@ -19,12 +30,35 @@ async function main() {
       update: {
         displayName: "Demo Owner",
         timezone: "Europe/Saratov",
+        passwordHash,
       },
       create: {
         email: "demo-owner@subairfall.local",
+        passwordHash,
         displayName: "Demo Owner",
         timezone: "Europe/Saratov",
         locale: "ru-RU",
+      },
+    });
+
+    await prisma.account.upsert({
+      where: {
+        provider_providerAccountId: {
+          provider: "CREDENTIALS",
+          providerAccountId: user.email,
+        },
+      },
+      update: {
+        email: user.email,
+      },
+      create: {
+        userId: user.id,
+        provider: "CREDENTIALS",
+        providerAccountId: user.email,
+        email: user.email,
+        metadata: {
+          seeded: true,
+        },
       },
     });
 
@@ -261,17 +295,16 @@ async function main() {
         payload: {
           workspaceSlug: workspace.slug,
           portfolioSlug: portfolio.slug,
+          credentialsEmail: user.email,
+          credentialsPassword: "DemoPass123!",
         },
       },
     });
-
-    console.log("Prisma demo seed completed.");
   } finally {
     await prisma.$disconnect();
   }
 }
 
 main().catch((error) => {
-  console.error(error);
-  process.exit(1);
+  throw error;
 });

@@ -4,10 +4,11 @@
 This project started as a private investment terminal for tracking CS2 items, Telegram Gifts and crypto positions from Google Sheets or a Drive-hosted workbook. It now also has a defined migration path toward a multi-tenant SaaS platform while preserving the existing private production flow.
 
 ## Current Runtime Architecture
-- `src/app`: App Router pages and private API routes.
+- `src/app`: App Router pages, SaaS auth routes, protected `/app` pages and private API routes.
 - `src/components/dashboard`: UI blocks for cards, charts, tables, admin drawers and health views.
 - `src/lib/sheets`: Google Sheets / Drive workbook access, schema validation, normalization and write-back.
-- `src/lib/db`: typed database configuration helpers for the future SaaS runtime.
+- `src/lib/db`: typed database configuration helpers and Prisma 7 lazy client for the SaaS runtime.
+- `src/lib/auth`: Auth.js credentials config, password helpers, registration bootstrap and workspace context access.
 - `src/lib/portfolio`: portfolio assembly, transaction accounting, metrics and risk analytics.
 - `src/lib/providers`: external price providers for crypto, CS2 and Telegram gifts.
 - `src/lib/cache`: in-memory cache with optional Redis REST shared cache.
@@ -25,24 +26,26 @@ This project started as a private investment terminal for tracking CS2 items, Te
 6. The frontend renders summary cards, tables, charts, risk panels and admin drawers from the snapshot.
 
 ## Current Security Flow
-1. The dashboard lives behind a secret route defined by `PRIVATE_DASHBOARD_SLUG`.
+1. The legacy dashboard lives behind a secret route defined by `PRIVATE_DASHBOARD_SLUG`.
 2. Page access requires `DASHBOARD_SECRET_TOKEN` through the lock screen or query token.
 3. Private API routes validate the same token and apply rate limiting.
 4. Responses are returned with `no-store`, `X-Robots-Tag`, CSP and related hardening headers.
-5. Secrets stay server-side in env variables and are never returned to the client bundle.
+5. SaaS routes `/app` are protected by Auth.js JWT sessions and middleware redirects to `/login` when the session is missing.
+6. Secrets stay server-side in env variables and are never returned to the client bundle.
 
 ## Current Persistence Model
 - Read path: Google Sheets API or Google Drive API + workbook parsing.
 - Write path: admin actions write back to the source sheet/workbook and append `Audit_Log` rows.
 - Historical snapshots are stored in `Portfolio_History`.
 - Transaction-based accounting is stored in `Transactions`.
-- Prisma/PostgreSQL foundation is present in the repository, but it is not the active runtime source of truth yet.
+- Prisma/PostgreSQL now powers SaaS auth, users and workspaces, while the private investment dashboard still reads portfolio data from Google Sheets / Drive workbook.
 
 ## SaaS Direction
 The next architecture phase treats the current private dashboard as a legacy-compatible runtime inside a broader SaaS product.
 - Database-backed SaaS entities will become the long-term source of truth.
 - Google Sheets will remain supported as an integration adapter.
 - The hidden-route private dashboard will stay alive during the migration.
+- New SaaS auth routes `/login`, `/register`, `/app` coexist with the legacy token-gated mode instead of replacing it.
 - The Prisma schema already models users, workspaces, portfolios, assets, positions, transactions, integrations, subscriptions and audit logs for upcoming stages.
 
 ## Operational Notes

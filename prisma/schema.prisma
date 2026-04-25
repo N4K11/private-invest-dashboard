@@ -1,9 +1,18 @@
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
+  engineType = "binary"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+enum AuthProvider {
+  CREDENTIALS
+  GOOGLE
+  DISCORD
+  TELEGRAM
+  EMAIL_MAGIC_LINK
 }
 
 enum WorkspaceRole {
@@ -106,17 +115,37 @@ enum AuditSeverity {
 model User {
   id              String            @id @default(cuid())
   email           String            @unique
+  passwordHash    String?
   displayName     String?
   timezone        String            @default("UTC")
   locale          String?
+  emailVerifiedAt DateTime?
+  lastLoginAt     DateTime?
   isActive        Boolean           @default(true)
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
+  accounts        Account[]
   ownedWorkspaces Workspace[]       @relation("WorkspaceOwner")
   memberships     WorkspaceMember[] @relation("WorkspaceMemberships")
   auditLogs       AuditLog[]        @relation("AuditLogActor")
 
   @@map("users")
+}
+
+model Account {
+  id                String       @id @default(cuid())
+  userId            String
+  provider          AuthProvider
+  providerAccountId String
+  email             String?
+  metadata          Json?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId, provider])
+  @@map("accounts")
 }
 
 model Workspace {
