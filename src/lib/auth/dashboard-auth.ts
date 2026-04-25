@@ -39,6 +39,10 @@ export function getDashboardRoutePath(slug = getEnv().PRIVATE_DASHBOARD_SLUG) {
   return `/${DASHBOARD_BASE_PATH}/${slug}`;
 }
 
+export function getDashboardSettingsPath(slug = getEnv().PRIVATE_DASHBOARD_SLUG) {
+  return `${getDashboardRoutePath(slug)}/settings`;
+}
+
 export function isValidDashboardToken(token?: string | null) {
   const env = getEnv();
   if (!isDashboardConfigured() || !token) {

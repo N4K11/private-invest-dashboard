@@ -6,7 +6,7 @@ Private Next.js dashboard for tracking CS2 / Steam items, Telegram Gifts and cry
 Implemented right now:
 - hidden dashboard route: `/invest-dashboard/[PRIVATE_DASHBOARD_SLUG]`
 - token gate via `DASHBOARD_SECRET_TOKEN`
-- protected private API routes for auth, portfolio data and admin write-back
+- protected private API routes for auth, portfolio data, health diagnostics and admin write-back
 - Google Sheets read layer with canonical schema support and legacy workbook compatibility
 - automatic Drive-hosted Excel workbook fallback via `Google Drive API + xlsx`
 - canonical Google Sheets validator for tabs and required columns
@@ -24,6 +24,8 @@ Implemented right now:
 - transaction form for `buy` / `sell` / `transfer` / `price_update` / `fee`
 - write-back to native Google Sheets and Drive-hosted Excel workbooks
 - Audit_Log append on every admin create/update action, including transactions and portfolio snapshots
+- private Settings / Health page at `/invest-dashboard/[slug]/settings`
+- protected health actions for cache refresh, Google Sheet validation, snapshot creation and provider diagnostics
 - simple in-memory cache and rate limiting
 - `robots.txt` and `noindex/nofollow` protection for the private surface
 
@@ -49,14 +51,20 @@ src/
   app/
     api/private/auth
     api/private/portfolio
+    api/private/health
+    api/private/health/actions
     api/private/admin/meta
     api/private/admin/positions
     api/private/admin/transactions
     api/private/admin/snapshots
     invest-dashboard/[dashboardSlug]
+    invest-dashboard/[dashboardSlug]/settings
   components/dashboard/
+    dashboard-locked-state.tsx
+    private-dashboard-nav.tsx
     portfolio-risk-panel.tsx
     recommendation-badge.tsx
+    settings-health-shell.tsx
     position-editor-drawer.tsx
     transaction-editor-drawer.tsx
     transaction-history-table.tsx
@@ -68,6 +76,7 @@ src/
     auth/
     cache/
     data/
+    health/
     portfolio/
     providers/
       cs2/
@@ -81,8 +90,10 @@ src/
       client.ts
       schema.json
       schema.ts
+      validation.ts
       writeback.ts
   types/
+    health.ts
 docs/
   google-sheets-template.md
 scripts/
@@ -185,6 +196,20 @@ Current outputs:
 - CS2 high-risk filter directly in the table
 
 The risk layer is intentionally analytical. It highlights where data quality, liquidity or concentration may require attention. It is not investment advice.
+
+## Settings / Health page
+The private route `/invest-dashboard/[slug]/settings` is an operator-facing diagnostic surface.
+
+Current capabilities:
+- token-gate status
+- Google Sheets read status
+- Google Sheets write status
+- provider summaries for crypto / CS2 / Telegram
+- cache status and warning feed
+- runtime/canonical Google Sheet validation
+- protected actions for cache refresh, validation, snapshot creation and provider diagnostics
+
+The page never shows env secrets; it only shows operational health and user-facing error messages.
 
 ## Local development
 ```bash

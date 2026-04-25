@@ -11,6 +11,7 @@ import { Cs2TypeChart } from "@/components/dashboard/cs2-type-chart";
 import { PortfolioPnlHistoryChart } from "@/components/dashboard/portfolio-pnl-history-chart";
 import { PortfolioValueHistoryChart } from "@/components/dashboard/portfolio-value-history-chart";
 import { PortfolioRiskPanel } from "@/components/dashboard/portfolio-risk-panel";
+import { PrivateDashboardNav } from "@/components/dashboard/private-dashboard-nav";
 import {
   PositionEditorDrawer,
   type AdminEditorState,
@@ -41,6 +42,7 @@ import type {
 
 type DashboardShellProps = {
   snapshot: PortfolioSnapshot;
+  dashboardSlug: string;
 };
 
 type AdminMeta = {
@@ -223,7 +225,7 @@ function buildTelegramPriceUpdatePrefill(
   };
 }
 
-export function DashboardShell({ snapshot }: DashboardShellProps) {
+export function DashboardShell({ snapshot, dashboardSlug }: DashboardShellProps) {
   const [currentSnapshot, setCurrentSnapshot] = useState(snapshot);
   const [isAdminMode, setIsAdminMode] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -540,6 +542,8 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
     <>
       <main className="relative overflow-hidden pb-16">
         <div className="mx-auto flex w-full max-w-[1680px] flex-col gap-6 px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
+          <PrivateDashboardNav dashboardSlug={dashboardSlug} />
+
           <section className="panel relative overflow-hidden rounded-[34px] border border-white/10 px-5 py-6 shadow-[0_30px_100px_rgba(2,8,23,0.72)] sm:px-7 sm:py-7 lg:px-8">
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(0,209,160,0.14),transparent_34%),radial-gradient(circle_at_top_right,rgba(61,139,255,0.16),transparent_38%),linear-gradient(120deg,rgba(255,255,255,0.02),transparent_45%)]" />
             <div className="relative grid gap-8 xl:grid-cols-[1.2fr_0.8fr] xl:items-end">
@@ -926,6 +930,10 @@ export function DashboardShell({ snapshot }: DashboardShellProps) {
     </>
   );
 }
+
+
+
+
 
 
 

@@ -67,3 +67,20 @@ export function forgetRememberedByPrefix(prefix: string) {
     }
   }
 }
+
+export function getRememberedStats() {
+  const now = Date.now();
+  const cacheKeys = [...cacheStore.entries()]
+    .filter(([, entry]) => entry.expiresAt > now)
+    .map(([key]) => key)
+    .sort();
+  const inFlightKeys = [...inFlightStore.keys()].sort();
+
+  return {
+    totalEntries: cacheKeys.length,
+    inFlightEntries: inFlightKeys.length,
+    cacheKeys,
+    inFlightKeys,
+    portfolioSourceCached: cacheKeys.includes("portfolio-source"),
+  };
+}
