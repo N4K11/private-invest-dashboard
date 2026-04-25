@@ -8,6 +8,7 @@ Additional docs:
 - `docs/SAAS_ARCHITECTURE.md` for the target SaaS domain model
 - `docs/MIGRATION_PRIVATE_TO_SAAS.md` for the staged migration plan
 - `docs/DATABASE.md` for the Prisma/PostgreSQL foundation
+- `docs/IMPORTS.md` for the SaaS Import Center workflow
 
 ## Current status
 Implemented right now:
@@ -36,7 +37,7 @@ Implemented right now:
 - protected health actions for cache refresh, Google Sheet validation, snapshot creation and provider diagnostics
 - memory cache with optional Redis REST shared cache fallback plus rate limiting
 - Prisma/PostgreSQL SaaS database foundation with schema, seed script, auth bootstrap and migration docs
-- Auth.js credentials login/registration for `/login`, `/register` and protected SaaS routes `/app`, `/app/portfolios`, `/app/portfolios/[portfolioId]`, `/app/settings`
+- Auth.js credentials login/registration for `/login`, `/register` and protected SaaS routes `/app`, `/app/portfolios`, `/app/portfolios/[portfolioId]`, `/app/import`, `/app/settings`
 - `robots.txt` and `noindex/nofollow` protection for the private surface
 
 ## Stack
@@ -48,6 +49,7 @@ Implemented right now:
 - Google Sheets API (`googleapis`)
 - Google Drive API fallback for uploaded Excel workbooks
 - PostgreSQL + Prisma 7 + `@prisma/adapter-pg` for SaaS auth/workspace mode
+- xlsx-based CSV/Drive workbook parsing for the SaaS Import Center
 - `xlsx` for workbook parsing and write-back
 - `zod` for env and admin payload validation
 
@@ -284,10 +286,13 @@ Protected SaaS routes:
 - `/app`
 - `/app/portfolios`
 - `/app/portfolios/[portfolioId]`
+- `/app/import`
 - `/app/settings`
 
 SaaS management API routes:
 - `POST /api/app/workspaces`
+- `POST /api/app/import/preview`
+- `POST /api/app/import/commit`
 - `POST /api/app/workspaces/active`
 - `POST /api/app/portfolios`
 - `PATCH /api/app/portfolios/[portfolioId]`
@@ -306,7 +311,8 @@ Manual flow:
 6. Login redirects to `/app`.
 7. Use the workspace switcher in the SaaS header to change active workspace.
 8. Create/edit/archive portfolios from `/app` or `/app/portfolios`.
-9. Open `/app/portfolios/[portfolioId]` to inspect DB-backed summary cards, charts, positions and recent transactions.
+9. Open `/app/import` and run preview + import for CSV/JSON/Steam/Google Sheets.
+10. Open `/app/portfolios/[portfolioId]` to inspect imported DB-backed positions and recent activity state.
 
 ## Local development
 ```bash
@@ -466,6 +472,8 @@ npm run typecheck
 npm run lint
 npm run build
 ```
+
+
 
 
 

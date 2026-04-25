@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 const NAV_ITEMS = [
   { href: "/app", label: "Обзор", match: "exact" },
   { href: "/app/portfolios", label: "Портфели", match: "prefix" },
+  { href: "/app/import", label: "Импорт", match: "exact" },
   { href: "/app/settings", label: "Настройки", match: "exact" },
 ] as const;
 

@@ -178,14 +178,10 @@ async function fetchDriveSpreadsheetDocument(
   };
 }
 
-export async function fetchSpreadsheetDocument(options?: { writeAccess?: boolean }) {
-  const env = getEnv();
-  const spreadsheetId = env.GOOGLE_SHEETS_SPREADSHEET_ID;
-
-  if (!spreadsheetId) {
-    throw new Error("Missing GOOGLE_SHEETS_SPREADSHEET_ID");
-  }
-
+export async function fetchSpreadsheetDocumentById(
+  spreadsheetId: string,
+  options?: { writeAccess?: boolean },
+) {
   const auth = createGoogleAuth({ writeAccess: options?.writeAccess });
 
   try {
@@ -203,6 +199,17 @@ export async function fetchSpreadsheetDocument(options?: { writeAccess?: boolean
       );
     }
   }
+}
+
+export async function fetchSpreadsheetDocument(options?: { writeAccess?: boolean }) {
+  const env = getEnv();
+  const spreadsheetId = env.GOOGLE_SHEETS_SPREADSHEET_ID;
+
+  if (!spreadsheetId) {
+    throw new Error("Missing GOOGLE_SHEETS_SPREADSHEET_ID");
+  }
+
+  return fetchSpreadsheetDocumentById(spreadsheetId, options);
 }
 
 export async function fetchSpreadsheetWorkbook(): Promise<RawSpreadsheetWorkbook> {

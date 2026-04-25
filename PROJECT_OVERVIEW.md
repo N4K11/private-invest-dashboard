@@ -4,10 +4,11 @@
 This project started as a private investment terminal for tracking CS2 items, Telegram Gifts and crypto positions from Google Sheets or a Drive-hosted workbook. It now also has a defined migration path toward a multi-tenant SaaS platform while preserving the existing private production flow.
 
 ## Current Runtime Architecture
-- `src/app`: App Router pages, SaaS auth routes, protected `/app` pages and private API routes.
+- `src/app`: App Router pages, SaaS auth routes, protected `/app` pages, Import Center routes and private API routes.
 - `src/components/dashboard`: UI blocks for cards, charts, tables, admin drawers and health views.
 - `src/lib/sheets`: Google Sheets / Drive workbook access, schema validation, normalization and write-back.
 - `src/lib/db`: typed database configuration helpers and Prisma 7 lazy client for the SaaS runtime.
+- `src/lib/imports`: import preview, deduplication, parsing and commit services for the SaaS Import Center.
 - `src/lib/auth`: Auth.js credentials config, password helpers, registration bootstrap and workspace context access.
 - `src/lib/portfolio`: portfolio assembly, transaction accounting, metrics and risk analytics.
 - `src/lib/providers`: external price providers for crypto, CS2 and Telegram gifts.
@@ -49,6 +50,7 @@ The next architecture phase treats the current private dashboard as a legacy-com
 - The hidden-route private dashboard will stay alive during the migration.
 - New SaaS auth routes `/login`, `/register`, `/app` coexist with the legacy token-gated mode instead of replacing it.
 - Stage 16 adds workspace switching, portfolio management UI and DB-backed detail pages at `/app/portfolios/[portfolioId]`.
+- Stage 17 adds `/app/import` with preview, mapping, deduplication and snapshot imports into PostgreSQL portfolios.
 - The Prisma schema already models users, workspaces, portfolios, assets, positions, transactions, integrations, subscriptions and audit logs for upcoming stages.
 
 ## Operational Notes
@@ -65,4 +67,7 @@ The next architecture phase treats the current private dashboard as a legacy-com
 - `docs/SAAS_ARCHITECTURE.md`: target SaaS domain model and architectural boundaries.
 - `docs/MIGRATION_PRIVATE_TO_SAAS.md`: staged migration path from legacy private mode to SaaS.
 - `docs/DATABASE.md`: Prisma/PostgreSQL models, commands and migration notes.
+- `docs/IMPORTS.md`: supported import sources, deduplication and manual test flow.
+
+
 
