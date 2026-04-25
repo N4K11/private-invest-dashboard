@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 
@@ -26,6 +26,11 @@ import type {
   AdminTransactionMutationInput,
 } from "@/lib/admin/schema";
 import { CATEGORY_META } from "@/lib/constants";
+import {
+  getDashboardTokenFromUrl,
+  getLocalDateKey,
+  getLocalDateTimeInputValue,
+} from "@/lib/client/dashboard-client";
 import { formatCs2TypeLabel, formatLiquidityLabel } from "@/lib/presentation";
 import {
   formatCompactNumber,
@@ -159,14 +164,6 @@ function Cs2MiniList({
   );
 }
 
-function getDashboardTokenFromUrl() {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  return new URLSearchParams(window.location.search).get("token");
-}
-
 function getAdminModeLabel(mode: AdminMeta["mode"]) {
   if (mode === "native_sheet") {
     return "Нативная Google Sheet";
@@ -177,18 +174,6 @@ function getAdminModeLabel(mode: AdminMeta["mode"]) {
   }
 
   return "Недоступно";
-}
-
-function buildDefaultDateValue() {
-  const now = new Date();
-  const timezoneOffsetMs = now.getTimezoneOffset() * 60_000;
-  return new Date(now.getTime() - timezoneOffsetMs).toISOString().slice(0, 16);
-}
-
-function getLocalDateKey() {
-  const now = new Date();
-  const timezoneOffsetMs = now.getTimezoneOffset() * 60_000;
-  return new Date(now.getTime() - timezoneOffsetMs).toISOString().slice(0, 10);
 }
 
 function formatSnapshotDate(value: string | null) {
@@ -213,7 +198,7 @@ function buildTelegramPriceUpdatePrefill(
   currency: string,
 ): TransactionDrawerPrefill {
   return {
-    date: buildDefaultDateValue(),
+    date: getLocalDateTimeInputValue(),
     assetType: "telegram",
     assetName: position.name,
     action: "price_update",
@@ -930,10 +915,3 @@ export function DashboardShell({ snapshot, dashboardSlug }: DashboardShellProps)
     </>
   );
 }
-
-
-
-
-
-
-

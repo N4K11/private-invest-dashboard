@@ -1,6 +1,10 @@
-﻿# Private Invest Dashboard
+# Private Invest Dashboard
 
 Private Next.js dashboard for tracking CS2 / Steam items, Telegram Gifts and crypto positions from Google Sheets.
+
+Additional docs:
+- `PROJECT_OVERVIEW.md` for a short architecture overview
+- `DEPLOYMENT.md` for deployment notes
 
 ## Current status
 Implemented right now:

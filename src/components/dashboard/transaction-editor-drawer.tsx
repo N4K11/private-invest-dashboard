@@ -1,8 +1,9 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 
 import { TRANSACTION_ACTION_OPTIONS } from "@/lib/constants";
+import { getLocalDateTimeInputValue } from "@/lib/client/dashboard-client";
 import type { AdminTransactionMutationInput } from "@/lib/admin/schema";
 
 type FieldError = {
@@ -33,15 +34,9 @@ type FormState = {
   notes: string;
 };
 
-function buildDefaultDateValue() {
-  const now = new Date();
-  const timezoneOffsetMs = now.getTimezoneOffset() * 60_000;
-  return new Date(now.getTime() - timezoneOffsetMs).toISOString().slice(0, 16);
-}
-
 function buildInitialForm(initialData?: Partial<FormState> | null): FormState {
   return {
-    date: initialData?.date ?? buildDefaultDateValue(),
+    date: initialData?.date ?? getLocalDateTimeInputValue(),
     assetType: initialData?.assetType ?? "cs2",
     assetName: initialData?.assetName ?? "",
     action: initialData?.action ?? "buy",
@@ -301,4 +296,3 @@ export function TransactionEditorDrawer({
     </div>
   );
 }
-

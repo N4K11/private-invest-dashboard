@@ -1,9 +1,10 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 
 import { PrivateDashboardNav } from "@/components/dashboard/private-dashboard-nav";
 import { SectionCard } from "@/components/dashboard/section-card";
+import { getDashboardTokenFromUrl, getLocalDateKey } from "@/lib/client/dashboard-client";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import type {
   DashboardHealthActionResponse,
@@ -12,20 +13,6 @@ import type {
   HealthIndicator,
   SheetValidationIssue,
 } from "@/types/health";
-
-function getDashboardTokenFromUrl() {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  return new URLSearchParams(window.location.search).get("token");
-}
-
-function getLocalDateKey() {
-  const now = new Date();
-  const timezoneOffsetMs = now.getTimezoneOffset() * 60_000;
-  return new Date(now.getTime() - timezoneOffsetMs).toISOString().slice(0, 10);
-}
 
 function toneClass(tone: HealthIndicator["tone"]) {
   if (tone === "ok") {

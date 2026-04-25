@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, type ReactNode } from "react";
 
@@ -7,6 +7,7 @@ import {
   CS2_TYPE_OPTIONS,
   TELEGRAM_PRICE_CONFIDENCE_OPTIONS,
 } from "@/lib/constants";
+import { getLocalDateTimeInputValue, toLocalDateTimeInput } from "@/lib/client/dashboard-client";
 import type { AdminMutationInput } from "@/lib/admin/schema";
 import type {
   CryptoPosition,
@@ -68,26 +69,6 @@ function parseQuantity(value: string) {
   return Number.isFinite(parsed) ? parsed : Number.NaN;
 }
 
-function buildDefaultDateValue() {
-  const now = new Date();
-  const timezoneOffsetMs = now.getTimezoneOffset() * 60_000;
-  return new Date(now.getTime() - timezoneOffsetMs).toISOString().slice(0, 16);
-}
-
-function toDateTimeInput(value: string | null | undefined) {
-  if (!value) {
-    return buildDefaultDateValue();
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return buildDefaultDateValue();
-  }
-
-  const timezoneOffsetMs = parsed.getTimezoneOffset() * 60_000;
-  return new Date(parsed.getTime() - timezoneOffsetMs).toISOString().slice(0, 16);
-}
-
 function buildInitialForm(state: AdminEditorState | null): FormState {
   if (!state) {
     return {};
@@ -120,7 +101,7 @@ function buildInitialForm(state: AdminEditorState | null): FormState {
       priceConfidence: position?.priceConfidence ?? "medium",
       sourceNote: position?.priceSourceNote ?? "",
       liquidityNote: position?.liquidityNote ?? "",
-      lastCheckedAt: toDateTimeInput(position?.priceLastCheckedAt),
+      lastCheckedAt: toLocalDateTimeInput(position?.priceLastCheckedAt),
       status: position?.status ?? "hold",
       notes: position?.notes ?? "",
     };
@@ -485,7 +466,7 @@ export function PositionEditorDrawer({
                   </select>
                 </Field>
                 <Field label="Дата price check">
-                  <input type="datetime-local" value={form.lastCheckedAt ?? buildDefaultDateValue()} onChange={(event) => updateField("lastCheckedAt", event.target.value)} className="w-full rounded-2xl border border-white/12 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/50" />
+                  <input type="datetime-local" value={form.lastCheckedAt ?? getLocalDateTimeInputValue()} onChange={(event) => updateField("lastCheckedAt", event.target.value)} className="w-full rounded-2xl border border-white/12 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/50" />
                 </Field>
                 <Field label="Ликвидность / note">
                   <input value={form.liquidityNote ?? ""} onChange={(event) => updateField("liquidityNote", event.target.value)} className="w-full rounded-2xl border border-white/12 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/50" />
