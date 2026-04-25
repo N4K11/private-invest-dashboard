@@ -17,6 +17,7 @@ import type {
   PortfolioCreateInput,
   PortfolioUpdateInput,
 } from "@/lib/saas/schema";
+import { extractManualAssetProfile } from "@/lib/saas/manual-assets";
 import {
   decimalToNumber,
   mapVisibilityToPrisma,
@@ -64,6 +65,7 @@ function computePositionMetrics(position: {
   priceSource: string | null;
   status: string;
   notes: string | null;
+  metadata: Prisma.JsonValue | null;
   updatedAt: Date;
   integration: { name: string } | null;
   asset: {
@@ -76,6 +78,7 @@ function computePositionMetrics(position: {
   const averageEntryPrice = decimalToNumber(position.averageEntryPrice);
   const manualCurrentPrice = decimalToNumber(position.manualCurrentPrice);
   const currentPrice = decimalToNumber(position.currentPrice);
+  const manualProfile = extractManualAssetProfile(position.metadata);
   const effectiveCurrentPrice = manualCurrentPrice ?? currentPrice ?? averageEntryPrice ?? 0;
   const totalValue = quantity * effectiveCurrentPrice;
   const totalCost = quantity * (averageEntryPrice ?? 0);
@@ -90,6 +93,10 @@ function computePositionMetrics(position: {
     averageEntryPrice,
     currentPrice,
     manualCurrentPrice,
+    currency: manualProfile.currency,
+    tags: manualProfile.tags,
+    liquidity: manualProfile.liquidity,
+    confidence: manualProfile.confidence,
     totalValue,
     totalCost,
     pnl: totalValue - totalCost,
@@ -393,6 +400,7 @@ export async function getPortfolioDetailForUser(
   }
 
   const role = normalizeWorkspaceRole(membership.role);
+  const canManage = canManagePortfolio(role);
   const positions = portfolio.positions.map(computePositionMetrics).sort((left, right) => {
     return right.totalValue - left.totalValue;
   });
@@ -536,6 +544,7 @@ export async function getPortfolioDetailForUser(
     baseCurrency: portfolio.baseCurrency,
     riskProfile: portfolio.riskProfile,
     role,
+    canManage,
     isArchived: portfolio.isArchived,
     updatedAt: portfolio.updatedAt.toISOString(),
     createdAt: portfolio.createdAt.toISOString(),

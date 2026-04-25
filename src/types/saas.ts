@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   AllocationDatum,
   CategoryPerformanceDatum,
   SummaryCardDatum,
@@ -7,6 +7,10 @@
 export type SaasWorkspaceRole = "owner" | "admin" | "member" | "viewer";
 export type SaasPortfolioVisibility = "private" | "shared_link" | "workspace";
 export type SaasAssetCategory = "cs2" | "telegram" | "crypto" | "custom" | "nft";
+export type SaasManualAssetCategory = "cs2" | "telegram" | "crypto" | "custom";
+export type SaasManualAssetLiquidity = "high" | "medium" | "low" | "unknown";
+export type SaasManualAssetConfidence = "high" | "medium" | "low";
+export type SaasManualTransactionMode = "buy" | "sell" | "adjustment";
 
 export type SaasWorkspaceMembership = {
   workspaceId: string;
@@ -69,6 +73,10 @@ export type SaasPortfolioPositionRow = {
   averageEntryPrice: number | null;
   currentPrice: number | null;
   manualCurrentPrice: number | null;
+  currency: string | null;
+  tags: string[];
+  liquidity: SaasManualAssetLiquidity | null;
+  confidence: SaasManualAssetConfidence | null;
   totalValue: number;
   totalCost: number;
   pnl: number;
@@ -103,6 +111,7 @@ export type SaasPortfolioDetail = {
   baseCurrency: string;
   riskProfile: string | null;
   role: SaasWorkspaceRole;
+  canManage: boolean;
   isArchived: boolean;
   updatedAt: string;
   createdAt: string;

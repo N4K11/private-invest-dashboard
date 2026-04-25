@@ -9,6 +9,7 @@ Additional docs:
 - `docs/MIGRATION_PRIVATE_TO_SAAS.md` for the staged migration plan
 - `docs/DATABASE.md` for the Prisma/PostgreSQL foundation
 - `docs/IMPORTS.md` for the SaaS Import Center workflow
+- `docs/MANUAL_ASSETS.md` for the SaaS Manual Asset Manager workflow
 
 ## Current status
 Implemented right now:
@@ -38,6 +39,7 @@ Implemented right now:
 - memory cache with optional Redis REST shared cache fallback plus rate limiting
 - Prisma/PostgreSQL SaaS database foundation with schema, seed script, auth bootstrap and migration docs
 - Auth.js credentials login/registration for `/login`, `/register` and protected SaaS routes `/app`, `/app/portfolios`, `/app/portfolios/[portfolioId]`, `/app/import`, `/app/settings`
+- Manual Asset Manager on `/app/portfolios/[portfolioId]` with add/edit/delete, tags, liquidity, confidence and auto-generated buy/sell transactions
 - `robots.txt` and `noindex/nofollow` protection for the private surface
 
 ## Stack
@@ -82,6 +84,7 @@ src/
     login
     register
   components/app/
+    manual-asset-manager.tsx
     saas-app-shell.tsx
   components/auth/
     auth-shell.tsx
@@ -102,6 +105,7 @@ src/
     portfolio-pnl-history-chart.tsx
   lib/
     admin/
+    saas/
     auth/
     cache/
     client/
@@ -313,6 +317,10 @@ Manual flow:
 8. Create/edit/archive portfolios from `/app` or `/app/portfolios`.
 9. Open `/app/import` and run preview + import for CSV/JSON/Steam/Google Sheets.
 10. Open `/app/portfolios/[portfolioId]` to inspect imported DB-backed positions and recent activity state.
+11. Use the Manual Asset Manager on the same page to add, edit or delete manual holdings and verify auto-generated buy/sell transactions.
+
+## Manual Asset Manager
+Current SaaS portfolio detail pages now support direct database-backed position CRUD without Google Sheets. The manager is designed for owner/admin roles and writes through protected `/api/app` routes with rate limiting, audit log entries and automatic buy/sell transaction generation. See [docs/MANUAL_ASSETS.md](docs/MANUAL_ASSETS.md) for the exact flow and test cases.
 
 ## Local development
 ```bash
@@ -460,7 +468,7 @@ curl -X POST https://your-domain.com/api/private/admin/snapshots \
 
 ## What still needs to be done for full portfolio operations
 - scheduled cron trigger or automation for daily snapshot creation
-- explicit delete flow with hard confirmation if physical row removal is ever needed
+- dedicated transaction editor for manually generated SaaS trades if you want to edit generated buy/sell rows after creation
 - external Telegram Gifts market/OTC provider if you decide to automate more than manual + TON-based pricing
 - direct CSFloat / PriceEmpire adapters if you decide to operate through official paid APIs
 - durable cache/rate limit storage via Redis or similar for multi-instance production

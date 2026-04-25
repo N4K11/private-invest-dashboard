@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { ManualAssetManager } from "@/components/app/manual-asset-manager";
 import { AllocationChart } from "@/components/dashboard/allocation-chart";
 import { CategoryPerformanceChart } from "@/components/dashboard/category-performance-chart";
 import { DashboardStatePanel } from "@/components/dashboard/dashboard-state-panel";
@@ -11,9 +12,9 @@ import { SummaryCard } from "@/components/dashboard/summary-card";
 import { getActiveWorkspaceSlug } from "@/lib/auth/active-workspace";
 import { requireAppSession } from "@/lib/auth/session";
 import { getCurrentUserWorkspaceContext } from "@/lib/auth/workspace";
-import { formatPriceSourceLabel, formatTransactionActionLabel } from "@/lib/presentation";
+import { formatTransactionActionLabel } from "@/lib/presentation";
 import { getPortfolioDetailForUser } from "@/lib/saas/portfolios";
-import { formatCurrency, formatNumber, formatPercent, formatRelativeTime } from "@/lib/utils";
+import { formatCurrency, formatNumber, formatRelativeTime } from "@/lib/utils";
 import type { SaasAssetCategory, SaasPortfolioVisibility } from "@/types/saas";
 
 const CATEGORY_LABELS: Record<SaasAssetCategory, string> = {
@@ -167,93 +168,12 @@ export default async function PortfolioDetailPage({
           title="Позиции портфеля"
           description="Текущий срез holdings по базе PostgreSQL."
         >
-          {portfolio.positions.length === 0 ? (
-            <DashboardStatePanel
-              eyebrow="Позиции пусты"
-              title="В этом портфеле еще нет активов"
-              description="Следующие этапы добавят import center и database-backed write flow, после чего этот экран станет основным рабочим терминалом."
-              className="min-h-[280px]"
-            />
-          ) : (
-            <div className="space-y-3">
-              {portfolio.positions.map((position) => (
-                <article
-                  key={position.id}
-                  className="rounded-[24px] border border-white/10 bg-white/[0.03] px-4 py-4"
-                >
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-lg font-semibold text-white">{position.assetName}</h3>
-                        <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[0.7rem] uppercase tracking-[0.18em] text-slate-300/80">
-                          {formatCategoryLabel(position.category)}
-                        </span>
-                        {position.symbol ? (
-                          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[0.7rem] uppercase tracking-[0.18em] text-slate-300/80">
-                            {position.symbol}
-                          </span>
-                        ) : null}
-                      </div>
-                      <p className="mt-2 text-sm text-slate-400">
-                        qty: {formatNumber(position.quantity, 6)} · status: {position.status}
-                        {position.integrationName ? ` · integration: ${position.integrationName}` : ""}
-                      </p>
-                    </div>
-                    <div className="text-sm text-slate-300/80 lg:text-right">
-                      <p>
-                        Value: {formatCurrency(position.totalValue, portfolio.baseCurrency)}
-                      </p>
-                      <p>
-                        PnL: {formatCurrency(position.pnl, portfolio.baseCurrency)}
-                      </p>
-                      <p>Обновлено {formatRelativeTime(position.updatedAt)}</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                      <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Entry</p>
-                      <p className="mt-2 text-sm text-white">
-                        {position.averageEntryPrice !== null
-                          ? formatCurrency(position.averageEntryPrice, portfolio.baseCurrency, 2)
-                          : "—"}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                      <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Current</p>
-                      <p className="mt-2 text-sm text-white">
-                        {position.manualCurrentPrice !== null || position.currentPrice !== null
-                          ? formatCurrency(
-                              position.manualCurrentPrice ?? position.currentPrice ?? 0,
-                              portfolio.baseCurrency,
-                              2,
-                            )
-                          : "—"}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                      <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Source</p>
-                      <p className="mt-2 text-sm text-white">
-                        {position.priceSource ? formatPriceSourceLabel(position.priceSource) : "Не задан"}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                      <p className="text-xs uppercase tracking-[0.2em] text-slate-400">ROI</p>
-                      <p className="mt-2 text-sm text-white">
-                        {position.totalCost > 0
-                          ? formatPercent((position.pnl / position.totalCost) * 100, 1)
-                          : "—"}
-                      </p>
-                    </div>
-                  </div>
-
-                  {position.notes ? (
-                    <p className="mt-4 text-sm leading-7 text-slate-300/75">{position.notes}</p>
-                  ) : null}
-                </article>
-              ))}
-            </div>
-          )}
+          <ManualAssetManager
+            portfolioId={portfolio.id}
+            baseCurrency={portfolio.baseCurrency}
+            canManage={portfolio.canManage}
+            positions={portfolio.positions}
+          />
         </SectionCard>
 
         <div className="space-y-6">

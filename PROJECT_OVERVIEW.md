@@ -10,6 +10,7 @@ This project started as a private investment terminal for tracking CS2 items, Te
 - `src/lib/db`: typed database configuration helpers and Prisma 7 lazy client for the SaaS runtime.
 - `src/lib/imports`: import preview, deduplication, parsing and commit services for the SaaS Import Center.
 - `src/lib/auth`: Auth.js credentials config, password helpers, registration bootstrap and workspace context access.
+- `src/lib/saas`: DB-backed workspace, portfolio and manual asset services for the SaaS runtime.
 - `src/lib/portfolio`: portfolio assembly, transaction accounting, metrics and risk analytics.
 - `src/lib/providers`: external price providers for crypto, CS2 and Telegram gifts.
 - `src/lib/cache`: in-memory cache with optional Redis REST shared cache.
@@ -51,6 +52,7 @@ The next architecture phase treats the current private dashboard as a legacy-com
 - New SaaS auth routes `/login`, `/register`, `/app` coexist with the legacy token-gated mode instead of replacing it.
 - Stage 16 adds workspace switching, portfolio management UI and DB-backed detail pages at `/app/portfolios/[portfolioId]`.
 - Stage 17 adds `/app/import` with preview, mapping, deduplication and snapshot imports into PostgreSQL portfolios.
+- Stage 18 adds a Manual Asset Manager on `/app/portfolios/[portfolioId]` with CRUD, audit logging and auto-generated buy/sell transactions.
 - The Prisma schema already models users, workspaces, portfolios, assets, positions, transactions, integrations, subscriptions and audit logs for upcoming stages.
 
 ## Operational Notes
